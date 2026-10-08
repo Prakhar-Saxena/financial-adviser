@@ -1,0 +1,39 @@
+# --- Real data and secrets (SPEC §7). Never commit these. ---
+config/cards.json
+.env
+.env.*
+*.sqlite
+*.sqlite-*
+*.db
+**/browser-profiles/
+browser-profiles
+
+# Real exports anywhere outside tests/fixtures/
+*.pdf
+*.csv
+*.qfx
+*.ofx
+*.html
+*.htm
+*.zip
+!tests/fixtures/**/*.pdf
+!tests/fixtures/**/*.csv
+!tests/fixtures/**/*.qfx
+!tests/fixtures/**/*.ofx
+!tests/fixtures/**/*.html
+!tests/fixtures/**/*.htm
+!web/index.html
+
+# --- Tooling ---
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+dist/
+build/
+*.egg-info/
+node_modules/
+web/dist/
+.DS_Store

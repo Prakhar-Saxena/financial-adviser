@@ -1,0 +1,156 @@
+{
+  "issuer": "amex",
+  "period_start": "2026-08-17",
+  "period_end": "2026-09-15",
+  "due_date": "2026-10-10",
+  "minimum_due": 4000,
+  "previous_balance": 138652,
+  "payments": 139352,
+  "credits": 0,
+  "purchases": 43817,
+  "cash_advances": 0,
+  "balance_transfers": 0,
+  "fees": 0,
+  "interest": 0,
+  "new_balance": 43117,
+  "lines": [
+    {
+      "line_no": 1,
+      "section": "PAYMENTS AND OTHER CREDITS",
+      "txn_date": "2026-09-03",
+      "description": "ALEX EXAMPLE MOBILE PAYMENT - THANK YOU",
+      "amount_cents": -138652,
+      "order_ref": null,
+      "cardholder_name": null
+    },
+    {
+      "line_no": 2,
+      "section": "CREDITS",
+      "txn_date": "2026-08-28",
+      "description": "ALEX EXAMPLE AMEX DUNKIN' CREDIT",
+      "amount_cents": -700,
+      "order_ref": null,
+      "cardholder_name": null
+    },
+    {
+      "line_no": 3,
+      "section": "PURCHASE",
+      "txn_date": "2026-08-16",
+      "description": "AplPay CORNER MARKET #101 100000001 SPRINGFIELD IL",
+      "amount_cents": 849,
+      "order_ref": null,
+      "cardholder_name": "ALEX EXAMPLE"
+    },
+    {
+      "line_no": 4,
+      "section": "PURCHASE",
+      "txn_date": "2026-08-19",
+      "description": "AplPay CHICKEN SHACK #00000 100000000000002 SPRINGFIELD IL",
+      "amount_cents": 2786,
+      "order_ref": null,
+      "cardholder_name": "ALEX EXAMPLE"
+    },
+    {
+      "line_no": 5,
+      "section": "PURCHASE",
+      "txn_date": "2026-08-20",
+      "description": "TST* MAPLE CRUMB BAKERY 10000003 BROCKWAY  IL",
+      "amount_cents": 1342,
+      "order_ref": null,
+      "cardholder_name": "ALEX EXAMPLE"
+    },
+    {
+      "line_no": 6,
+      "section": "PURCHASE",
+      "txn_date": "2026-08-21",
+      "description": "TST* MAPLE CRUMB BAKERY 10000003 BROCKWAY  IL",
+      "amount_cents": 5217,
+      "order_ref": null,
+      "cardholder_name": "ALEX EXAMPLE"
+    },
+    {
+      "line_no": 7,
+      "section": "PURCHASE",
+      "txn_date": "2026-08-23",
+      "description": "AplPay BLUE KETTLE CAFE HAVERBROOK IL",
+      "amount_cents": 3108,
+      "order_ref": null,
+      "cardholder_name": "ALEX EXAMPLE"
+    },
+    {
+      "line_no": 8,
+      "section": "PURCHASE",
+      "txn_date": "2026-08-28",
+      "description": "AplPay DUNKIN #300000 300000 OGDENVILLE IL",
+      "amount_cents": 1624,
+      "order_ref": null,
+      "cardholder_name": "ALEX EXAMPLE"
+    },
+    {
+      "line_no": 9,
+      "section": "PURCHASE",
+      "txn_date": "2026-08-29",
+      "description": "AplPay FRESH MART STORE #100 100000004 SPRINGFIELD IL",
+      "amount_cents": 7355,
+      "order_ref": null,
+      "cardholder_name": "ALEX EXAMPLE"
+    },
+    {
+      "line_no": 10,
+      "section": "PURCHASE",
+      "txn_date": "2026-09-12",
+      "description": "LUCKY PIN LANES 100000000000005 877-5550100 IL",
+      "amount_cents": 867,
+      "order_ref": null,
+      "cardholder_name": "ALEX EXAMPLE"
+    },
+    {
+      "line_no": 11,
+      "section": "PURCHASE",
+      "txn_date": "2026-09-04",
+      "description": "SAFFRON TABLE CAPITAL IL",
+      "amount_cents": 8873,
+      "order_ref": null,
+      "cardholder_name": "ALEX EXAMPLE"
+    },
+    {
+      "line_no": 12,
+      "section": "PURCHASE",
+      "txn_date": "2026-09-05",
+      "description": "FROSTY CONE CREAMERY Brockway IL",
+      "amount_cents": 1437,
+      "order_ref": null,
+      "cardholder_name": "ALEX EXAMPLE"
+    },
+    {
+      "line_no": 13,
+      "section": "PURCHASE",
+      "txn_date": "2026-09-12",
+      "description": "LUCKY PIN LANES 100000000000005 877-5550100 IL",
+      "amount_cents": 1207,
+      "order_ref": null,
+      "cardholder_name": "ALEX EXAMPLE"
+    },
+    {
+      "line_no": 14,
+      "section": "PURCHASE",
+      "txn_date": "2026-09-12",
+      "description": "LUCKY PIN LANES 100000000000005 877-5550100 IL",
+      "amount_cents": 5406,
+      "order_ref": null,
+      "cardholder_name": "ALEX EXAMPLE"
+    },
+    {
+      "line_no": 15,
+      "section": "PURCHASE",
+      "txn_date": "2026-09-12",
+      "description": "LUCKY PIN LANES 100000000000005 877-5550100 IL",
+      "amount_cents": 3746,
+      "order_ref": null,
+      "cardholder_name": "ALEX EXAMPLE"
+    }
+  ],
+  "product_markers": [
+    "GOLD CARD"
+  ]
+}

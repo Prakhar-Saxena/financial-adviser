@@ -1,0 +1,363 @@
+{
+  "version": 1,
+  "_notes": [
+    "Category taxonomy (SPEC \u00a713). Edit freely; ids are stable keys. The classifier must pick one of these ids."
+  ],
+  "categories": [
+    {
+      "id": "groceries",
+      "parent_id": null,
+      "name": "Groceries"
+    },
+    {
+      "id": "groceries.fresh",
+      "parent_id": "groceries",
+      "name": "Fresh"
+    },
+    {
+      "id": "groceries.pantry",
+      "parent_id": "groceries",
+      "name": "Pantry"
+    },
+    {
+      "id": "groceries.beverages",
+      "parent_id": "groceries",
+      "name": "Beverages"
+    },
+    {
+      "id": "groceries.snacks",
+      "parent_id": "groceries",
+      "name": "Snacks"
+    },
+    {
+      "id": "groceries.frozen",
+      "parent_id": "groceries",
+      "name": "Frozen"
+    },
+    {
+      "id": "dining",
+      "parent_id": null,
+      "name": "Dining"
+    },
+    {
+      "id": "dining.restaurants",
+      "parent_id": "dining",
+      "name": "Restaurants"
+    },
+    {
+      "id": "dining.coffee",
+      "parent_id": "dining",
+      "name": "Coffee"
+    },
+    {
+      "id": "dining.delivery",
+      "parent_id": "dining",
+      "name": "Delivery"
+    },
+    {
+      "id": "household",
+      "parent_id": null,
+      "name": "Household"
+    },
+    {
+      "id": "household.cleaning_and_paper",
+      "parent_id": "household",
+      "name": "Cleaning & paper"
+    },
+    {
+      "id": "household.kitchen",
+      "parent_id": "household",
+      "name": "Kitchen"
+    },
+    {
+      "id": "household.storage",
+      "parent_id": "household",
+      "name": "Storage"
+    },
+    {
+      "id": "home",
+      "parent_id": null,
+      "name": "Home"
+    },
+    {
+      "id": "home.furniture_and_decor",
+      "parent_id": "home",
+      "name": "Furniture & decor"
+    },
+    {
+      "id": "home.improvement_and_tools",
+      "parent_id": "home",
+      "name": "Improvement & tools"
+    },
+    {
+      "id": "home.garden",
+      "parent_id": "home",
+      "name": "Garden"
+    },
+    {
+      "id": "personal_care",
+      "parent_id": null,
+      "name": "Personal care"
+    },
+    {
+      "id": "personal_care.toiletries",
+      "parent_id": "personal_care",
+      "name": "Toiletries"
+    },
+    {
+      "id": "personal_care.beauty",
+      "parent_id": "personal_care",
+      "name": "Beauty"
+    },
+    {
+      "id": "personal_care.hair",
+      "parent_id": "personal_care",
+      "name": "Hair"
+    },
+    {
+      "id": "health",
+      "parent_id": null,
+      "name": "Health"
+    },
+    {
+      "id": "health.pharmacy_and_otc",
+      "parent_id": "health",
+      "name": "Pharmacy & OTC"
+    },
+    {
+      "id": "health.vitamins_and_supplements",
+      "parent_id": "health",
+      "name": "Vitamins & supplements"
+    },
+    {
+      "id": "health.medical_and_dental",
+      "parent_id": "health",
+      "name": "Medical & dental"
+    },
+    {
+      "id": "health.vision",
+      "parent_id": "health",
+      "name": "Vision"
+    },
+    {
+      "id": "clothing",
+      "parent_id": null,
+      "name": "Clothing"
+    },
+    {
+      "id": "clothing.clothing",
+      "parent_id": "clothing",
+      "name": "Clothing"
+    },
+    {
+      "id": "clothing.shoes",
+      "parent_id": "clothing",
+      "name": "Shoes"
+    },
+    {
+      "id": "clothing.accessories",
+      "parent_id": "clothing",
+      "name": "Accessories"
+    },
+    {
+      "id": "electronics",
+      "parent_id": null,
+      "name": "Electronics"
+    },
+    {
+      "id": "electronics.devices",
+      "parent_id": "electronics",
+      "name": "Devices"
+    },
+    {
+      "id": "electronics.accessories",
+      "parent_id": "electronics",
+      "name": "Accessories"
+    },
+    {
+      "id": "digital",
+      "parent_id": null,
+      "name": "Digital"
+    },
+    {
+      "id": "digital.software_and_apps",
+      "parent_id": "digital",
+      "name": "Software & apps"
+    },
+    {
+      "id": "digital.books_and_media",
+      "parent_id": "digital",
+      "name": "Books & media"
+    },
+    {
+      "id": "entertainment",
+      "parent_id": null,
+      "name": "Entertainment"
+    },
+    {
+      "id": "entertainment.streaming",
+      "parent_id": "entertainment",
+      "name": "Streaming"
+    },
+    {
+      "id": "entertainment.events",
+      "parent_id": "entertainment",
+      "name": "Events"
+    },
+    {
+      "id": "entertainment.games_and_hobbies",
+      "parent_id": "entertainment",
+      "name": "Games & hobbies"
+    },
+    {
+      "id": "travel",
+      "parent_id": null,
+      "name": "Travel"
+    },
+    {
+      "id": "travel.air",
+      "parent_id": "travel",
+      "name": "Air"
+    },
+    {
+      "id": "travel.lodging",
+      "parent_id": "travel",
+      "name": "Lodging"
+    },
+    {
+      "id": "travel.rideshare_and_taxi",
+      "parent_id": "travel",
+      "name": "Rideshare & taxi"
+    },
+    {
+      "id": "travel.car_rental",
+      "parent_id": "travel",
+      "name": "Car rental"
+    },
+    {
+      "id": "travel.other",
+      "parent_id": "travel",
+      "name": "Other"
+    },
+    {
+      "id": "transportation",
+      "parent_id": null,
+      "name": "Transportation"
+    },
+    {
+      "id": "transportation.fuel",
+      "parent_id": "transportation",
+      "name": "Fuel"
+    },
+    {
+      "id": "transportation.parking_and_tolls",
+      "parent_id": "transportation",
+      "name": "Parking & tolls"
+    },
+    {
+      "id": "transportation.auto_service",
+      "parent_id": "transportation",
+      "name": "Auto service"
+    },
+    {
+      "id": "transportation.transit",
+      "parent_id": "transportation",
+      "name": "Transit"
+    },
+    {
+      "id": "bills",
+      "parent_id": null,
+      "name": "Bills"
+    },
+    {
+      "id": "bills.phone",
+      "parent_id": "bills",
+      "name": "Phone"
+    },
+    {
+      "id": "bills.internet",
+      "parent_id": "bills",
+      "name": "Internet"
+    },
+    {
+      "id": "bills.utilities",
+      "parent_id": "bills",
+      "name": "Utilities"
+    },
+    {
+      "id": "bills.insurance",
+      "parent_id": "bills",
+      "name": "Insurance"
+    },
+    {
+      "id": "memberships",
+      "parent_id": null,
+      "name": "Memberships"
+    },
+    {
+      "id": "memberships.amazon_prime",
+      "parent_id": "memberships",
+      "name": "Amazon Prime"
+    },
+    {
+      "id": "memberships.costco_membership",
+      "parent_id": "memberships",
+      "name": "Costco membership"
+    },
+    {
+      "id": "memberships.other_subscriptions",
+      "parent_id": "memberships",
+      "name": "Other subscriptions"
+    },
+    {
+      "id": "gifts_donations",
+      "parent_id": null,
+      "name": "Gifts & donations"
+    },
+    {
+      "id": "pets",
+      "parent_id": null,
+      "name": "Pets"
+    },
+    {
+      "id": "office_school",
+      "parent_id": null,
+      "name": "Office & school"
+    },
+    {
+      "id": "shopping_other",
+      "parent_id": null,
+      "name": "Shopping (other)"
+    },
+    {
+      "id": "fees_interest",
+      "parent_id": null,
+      "name": "Fees & interest"
+    },
+    {
+      "id": "fees_interest.annual_fee",
+      "parent_id": "fees_interest",
+      "name": "Annual fee"
+    },
+    {
+      "id": "fees_interest.foreign_transaction_fee",
+      "parent_id": "fees_interest",
+      "name": "Foreign transaction fee"
+    },
+    {
+      "id": "fees_interest.late_fee",
+      "parent_id": "fees_interest",
+      "name": "Late fee"
+    },
+    {
+      "id": "fees_interest.interest",
+      "parent_id": "fees_interest",
+      "name": "Interest"
+    },
+    {
+      "id": "uncategorized",
+      "parent_id": null,
+      "name": "Uncategorized"
+    }
+  ]
+}

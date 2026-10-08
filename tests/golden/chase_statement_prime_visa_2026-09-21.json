@@ -1,0 +1,129 @@
+{
+  "issuer": "chase",
+  "period_start": "2026-08-22",
+  "period_end": "2026-09-21",
+  "due_date": "2026-10-18",
+  "minimum_due": 3500,
+  "previous_balance": 48215,
+  "payments": 48215,
+  "credits": 0,
+  "purchases": 111441,
+  "cash_advances": 0,
+  "balance_transfers": 0,
+  "fees": 0,
+  "interest": 0,
+  "new_balance": 111441,
+  "lines": [
+    {
+      "line_no": 1,
+      "section": "PAYMENTS AND OTHER CREDITS",
+      "txn_date": "2026-09-18",
+      "description": "Payment Thank You-Mobile",
+      "amount_cents": -48215,
+      "order_ref": null,
+      "cardholder_name": null
+    },
+    {
+      "line_no": 2,
+      "section": "PURCHASE",
+      "txn_date": "2026-08-24",
+      "description": "AMAZON MKTPL*5M13P4QWD Amzn.com/bill WA",
+      "amount_cents": 3784,
+      "order_ref": "114-8069546-8656939",
+      "cardholder_name": null
+    },
+    {
+      "line_no": 3,
+      "section": "PURCHASE",
+      "txn_date": "2026-08-29",
+      "description": "Amazon.com*4C4DJNZ3G Amzn.com/bill WA",
+      "amount_cents": 1162,
+      "order_ref": "114-9627319-8432035",
+      "cardholder_name": null
+    },
+    {
+      "line_no": 4,
+      "section": "PURCHASE",
+      "txn_date": "2026-08-30",
+      "description": "AMAZON MKTPL*8UQB1CFZ5 Amzn.com/bill WA",
+      "amount_cents": 14207,
+      "order_ref": "114-0090123-1301524",
+      "cardholder_name": null
+    },
+    {
+      "line_no": 5,
+      "section": "PURCHASE",
+      "txn_date": "2026-08-30",
+      "description": "AMAZON MKTPL*1PE6PVA68 Amzn.com/bill WA",
+      "amount_cents": 26843,
+      "order_ref": "114-4063196-8492282",
+      "cardholder_name": null
+    },
+    {
+      "line_no": 6,
+      "section": "PURCHASE",
+      "txn_date": "2026-09-01",
+      "description": "MICROSOFT*MICROSOFT 36 MICROSOFT.COM WA",
+      "amount_cents": 10753,
+      "order_ref": null,
+      "cardholder_name": null
+    },
+    {
+      "line_no": 7,
+      "section": "PURCHASE",
+      "txn_date": "2026-09-09",
+      "description": "AMAZON MKTPL*5YYYUB14N Amzn.com/bill WA",
+      "amount_cents": 31126,
+      "order_ref": "114-5687067-0042702",
+      "cardholder_name": null
+    },
+    {
+      "line_no": 8,
+      "section": "PURCHASE",
+      "txn_date": "2026-09-09",
+      "description": "AMAZON MKTPL*28SU6Y6ZB Amzn.com/bill WA",
+      "amount_cents": 4618,
+      "order_ref": "114-9707433-2237702",
+      "cardholder_name": null
+    },
+    {
+      "line_no": 9,
+      "section": "PURCHASE",
+      "txn_date": "2026-09-09",
+      "description": "Amazon.com*876851535 Amzn.com/bill WA",
+      "amount_cents": 947,
+      "order_ref": "114-2873522-5187042",
+      "cardholder_name": null
+    },
+    {
+      "line_no": 10,
+      "section": "PURCHASE",
+      "txn_date": "2026-09-18",
+      "description": "AMAZON MKTPL*2CZU51564 Amzn.com/bill WA",
+      "amount_cents": 3384,
+      "order_ref": "114-4574095-2303285",
+      "cardholder_name": null
+    },
+    {
+      "line_no": 11,
+      "section": "PURCHASE",
+      "txn_date": "2026-09-18",
+      "description": "Amazon.com*72KRP3W2L Amzn.com/bill WA",
+      "amount_cents": 2781,
+      "order_ref": "114-1898847-3608287",
+      "cardholder_name": null
+    },
+    {
+      "line_no": 12,
+      "section": "PURCHASE",
+      "txn_date": "2026-09-18",
+      "description": "AMAZON MKTPL*69KZFSQQA Amzn.com/bill WA",
+      "amount_cents": 11836,
+      "order_ref": "114-0194697-0417916",
+      "cardholder_name": null
+    }
+  ],
+  "product_markers": [
+    "PRIME VISA"
+  ]
+}

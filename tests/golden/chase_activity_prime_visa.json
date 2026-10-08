@@ -1,0 +1,41 @@
+{
+  "pending_dropped": 0,
+  "rows": [
+    {
+      "txn_date": "2026-10-05",
+      "post_date": "2026-10-05",
+      "amount_cents": 5211,
+      "description_raw": "AMAZON MKTPL*98WLHDBFZ",
+      "description_clean": "AMAZON MKTPL",
+      "type": "purchase",
+      "needs_review": false,
+      "issuer_category": "Shopping",
+      "memo": null,
+      "member_name": null
+    },
+    {
+      "txn_date": "2026-10-03",
+      "post_date": "2026-10-04",
+      "amount_cents": 2964,
+      "description_raw": "AMAZON MKTPL*65VUJY466",
+      "description_clean": "AMAZON MKTPL",
+      "type": "purchase",
+      "needs_review": false,
+      "issuer_category": "Shopping",
+      "memo": null,
+      "member_name": null
+    },
+    {
+      "txn_date": "2026-09-27",
+      "post_date": "2026-09-27",
+      "amount_cents": 5812,
+      "description_raw": "AMAZON MKTPL*5D26J7T2W",
+      "description_clean": "AMAZON MKTPL",
+      "type": "purchase",
+      "needs_review": false,
+      "issuer_category": "Shopping",
+      "memo": null,
+      "member_name": null
+    }
+  ]
+}

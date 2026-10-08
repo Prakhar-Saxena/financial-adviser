@@ -1,0 +1,24 @@
+{
+  "order_id": "114-0810853-1482121",
+  "order_date": "2026-10-04",
+  "payment_method": "Prime Visa",
+  "payment_card_ending": "0000",
+  "subtotal": 2249,
+  "shipping": 0,
+  "tax": 135,
+  "promotions": 0,
+  "gift_card": 0,
+  "rewards": 0,
+  "grand_total": 2384,
+  "items": [
+    {
+      "line_no": 1,
+      "title": "Desk Phone Stand, Foldable, Fits Most Phones",
+      "seller": "Acme Goods",
+      "quantity": 1,
+      "line_total_cents": 2249,
+      "unit_price_cents": 2249,
+      "asin": "B0FAKE0001"
+    }
+  ]
+}

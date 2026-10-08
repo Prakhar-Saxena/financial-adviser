@@ -1,0 +1,21 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["results"],
+  "properties": {
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["key", "merchant_name", "category_id", "confidence"],
+        "properties": {
+          "key": {"type": "string"},
+          "merchant_name": {"type": "string", "maxLength": 80},
+          "category_id": {"type": "string", "enum": ["__CATEGORY_IDS__"]},
+          "confidence": {"type": "number", "minimum": 0, "maximum": 1}
+        }
+      }
+    }
+  }
+}

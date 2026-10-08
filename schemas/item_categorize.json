@@ -1,0 +1,21 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["results"],
+  "properties": {
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["key", "clean_title", "category_id", "confidence"],
+        "properties": {
+          "key": {"type": "string"},
+          "clean_title": {"type": "string", "maxLength": 60},
+          "category_id": {"type": "string", "enum": ["__CATEGORY_IDS__"]},
+          "confidence": {"type": "number", "minimum": 0, "maximum": 1}
+        }
+      }
+    }
+  }
+}
