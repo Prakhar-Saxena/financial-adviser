@@ -1,0 +1,24 @@
+{
+  "order_id": "114-2220803-9680543",
+  "order_date": "2026-10-04",
+  "payment_method": "Prime Visa",
+  "payment_card_ending": "0000",
+  "subtotal": 1999,
+  "shipping": 0,
+  "tax": 120,
+  "promotions": 0,
+  "gift_card": 0,
+  "rewards": 0,
+  "grand_total": 2119,
+  "items": [
+    {
+      "line_no": 1,
+      "title": "Phone Car Mount, Adjustable, Fits Most Vents",
+      "seller": "Acme Goods",
+      "quantity": 1,
+      "line_total_cents": 1999,
+      "unit_price_cents": 1999,
+      "asin": "B0FAKE0001"
+    }
+  ]
+}

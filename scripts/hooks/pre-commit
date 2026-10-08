@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# Blocks commits of real data, secrets and large files (SPEC §7).
+# Installed by `fin init` via: git config core.hooksPath scripts/hooks
+set -euo pipefail
+
+max_bytes=$((1024 * 1024))
+fail=0
+
+while IFS= read -r -d '' path; do
+  base="$(basename "$path")"
+  lower="$(printf '%s' "$path" | tr '[:upper:]' '[:lower:]')"
+  reason=""
+
+  case "$path" in
+    config/cards.json) reason="real cards config" ;;
+  esac
+  case "$base" in
+    .env|.env.*) reason="env file" ;;
+    *.sqlite|*.sqlite-*|*.db) reason="database file" ;;
+  esac
+  case "$lower" in
+    *browser-profiles*) reason="browser profile" ;;
+    *financialadviserdata*) reason="data directory content" ;;
+  esac
+  case "$lower" in
+    tests/fixtures/*) ;;
+    *.pdf|*.csv|*.qfx|*.ofx|*.html|*.htm|*.zip)
+      [ "$path" = "web/index.html" ] || reason="real export outside tests/fixtures/" ;;
+  esac
+
+  if [ -z "$reason" ]; then
+    size="$(git cat-file -s ":$path" 2>/dev/null || echo 0)"
+    if [ "$size" -gt "$max_bytes" ]; then
+      reason="larger than 1 MB ($size bytes)"
+    fi
+  fi
+
+  if [ -n "$reason" ]; then
+    echo "pre-commit: blocked $path: $reason" >&2
+    fail=1
+  fi
+done < <(git diff --cached --name-only --diff-filter=ACMR -z)
+
+if [ "$fail" -ne 0 ]; then
+  echo "pre-commit: commit refused. Unstage the files above (git restore --staged <file>)." >&2
+  exit 1
+fi

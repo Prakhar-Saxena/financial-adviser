@@ -1,0 +1,29 @@
+{
+  "pending_dropped": 0,
+  "rows": [
+    {
+      "txn_date": "2026-09-28",
+      "post_date": "2026-09-28",
+      "amount_cents": 3966,
+      "description_raw": "COSTCO GAS #0000 SPRINGFIELD  IL",
+      "description_clean": "COSTCO GAS SPRINGFIELD",
+      "type": "purchase",
+      "needs_review": false,
+      "issuer_category": null,
+      "memo": null,
+      "member_name": "ALEX EXAMPLE"
+    },
+    {
+      "txn_date": "2026-09-27",
+      "post_date": "2026-09-27",
+      "amount_cents": 25827,
+      "description_raw": "COSTCO WHSE #0000 SPRINGFIELD  IL",
+      "description_clean": "COSTCO WHSE SPRINGFIELD",
+      "type": "purchase",
+      "needs_review": false,
+      "issuer_category": null,
+      "memo": null,
+      "member_name": "ALEX EXAMPLE"
+    }
+  ]
+}

@@ -1,0 +1,142 @@
+[
+  {
+    "charge_date": "2026-10-05",
+    "card_name": "Prime Visa",
+    "card_ending": "0000",
+    "amount_cents": 2119,
+    "order_ref": "114-2220803-9680543"
+  },
+  {
+    "charge_date": "2026-10-04",
+    "card_name": "Prime Visa",
+    "card_ending": "0000",
+    "amount_cents": 5349,
+    "order_ref": "114-0684546-9060253"
+  },
+  {
+    "charge_date": "2026-10-03",
+    "card_name": "Prime Visa",
+    "card_ending": "0000",
+    "amount_cents": 3282,
+    "order_ref": "114-8324585-9439534"
+  },
+  {
+    "charge_date": "2026-09-26",
+    "card_name": "Prime Visa",
+    "card_ending": "0000",
+    "amount_cents": 5050,
+    "order_ref": "114-5393239-5426405"
+  },
+  {
+    "charge_date": "2026-09-18",
+    "card_name": "Prime Visa",
+    "card_ending": "0000",
+    "amount_cents": 13000,
+    "order_ref": "114-2002640-4622391"
+  },
+  {
+    "charge_date": "2026-09-17",
+    "card_name": "Prime Visa",
+    "card_ending": "0000",
+    "amount_cents": 2437,
+    "order_ref": "114-0781709-3162360"
+  },
+  {
+    "charge_date": "2026-09-17",
+    "card_name": "Prime Visa",
+    "card_ending": "0000",
+    "amount_cents": 3910,
+    "order_ref": "114-2235561-1001418"
+  },
+  {
+    "charge_date": "2026-09-09",
+    "card_name": "Prime Visa",
+    "card_ending": "0000",
+    "amount_cents": 825,
+    "order_ref": "114-6394063-8419118"
+  },
+  {
+    "charge_date": "2026-09-09",
+    "card_name": "Prime Visa",
+    "card_ending": "0000",
+    "amount_cents": 4190,
+    "order_ref": "114-2126398-9506202"
+  },
+  {
+    "charge_date": "2026-09-08",
+    "card_name": "Prime Visa",
+    "card_ending": "0000",
+    "amount_cents": 36830,
+    "order_ref": "114-1471190-1517245"
+  },
+  {
+    "charge_date": "2026-08-30",
+    "card_name": "Prime Visa",
+    "card_ending": "0000",
+    "amount_cents": 29996,
+    "order_ref": "114-5185821-2072362"
+  },
+  {
+    "charge_date": "2026-08-29",
+    "card_name": "Prime Visa",
+    "card_ending": "0000",
+    "amount_cents": 15899,
+    "order_ref": "114-9090055-1035020"
+  },
+  {
+    "charge_date": "2026-08-29",
+    "card_name": "Prime Visa",
+    "card_ending": "0000",
+    "amount_cents": 819,
+    "order_ref": "114-4124428-0073333"
+  },
+  {
+    "charge_date": "2026-08-24",
+    "card_name": "Prime Visa",
+    "card_ending": "0000",
+    "amount_cents": 4239,
+    "order_ref": "114-5755432-3017479"
+  },
+  {
+    "charge_date": "2026-08-16",
+    "card_name": "Prime Visa",
+    "card_ending": "0000",
+    "amount_cents": 1769,
+    "order_ref": "114-2041750-1331658"
+  },
+  {
+    "charge_date": "2026-08-14",
+    "card_name": "Prime Visa",
+    "card_ending": "0000",
+    "amount_cents": 16854,
+    "order_ref": "114-3534709-9335096"
+  },
+  {
+    "charge_date": "2026-08-06",
+    "card_name": "Prime Visa",
+    "card_ending": "0000",
+    "amount_cents": 3935,
+    "order_ref": "114-9402335-9319421"
+  },
+  {
+    "charge_date": "2026-08-06",
+    "card_name": "Prime Visa",
+    "card_ending": "0000",
+    "amount_cents": 9009,
+    "order_ref": "114-5522271-1553172"
+  },
+  {
+    "charge_date": "2026-08-04",
+    "card_name": "Prime Visa",
+    "card_ending": "0000",
+    "amount_cents": 1059,
+    "order_ref": "114-3545221-8176694"
+  },
+  {
+    "charge_date": "2026-08-03",
+    "card_name": "Prime Visa",
+    "card_ending": "0000",
+    "amount_cents": 9328,
+    "order_ref": "114-3947490-7033861"
+  }
+]

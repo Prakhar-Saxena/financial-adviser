@@ -1,0 +1,23 @@
+{
+  "session_id": "00000000-0000-0000-0000-000000000000",
+  "transcript_path": "{TRANSCRIPT}",
+  "cwd": "{SESSION_CWD}",
+  "prompt_id": "00000000-0000-0000-0000-000000000001",
+  "permission_mode": "default",
+  "hook_event_name": "PostToolUse",
+  "tool_name": "Write",
+  "tool_input": {
+    "file_path": "{RUN_DIR}/manifest.json",
+    "content": "{\"a\":1}"
+  },
+  "tool_response": {
+    "type": "create",
+    "filePath": "{RUN_DIR}/manifest.json",
+    "content": "{\"a\":1}",
+    "structuredPatch": [],
+    "originalFile": null,
+    "userModified": false
+  },
+  "tool_use_id": "toolu_recorded",
+  "duration_ms": 3
+}

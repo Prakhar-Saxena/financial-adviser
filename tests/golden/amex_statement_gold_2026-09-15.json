@@ -1,0 +1,156 @@
+{
+  "issuer": "amex",
+  "period_start": "2026-08-17",
+  "period_end": "2026-09-15",
+  "due_date": "2026-10-10",
+  "minimum_due": 4000,
+  "previous_balance": 154747,
+  "payments": 155447,
+  "credits": 0,
+  "purchases": 40639,
+  "cash_advances": 0,
+  "balance_transfers": 0,
+  "fees": 0,
+  "interest": 0,
+  "new_balance": 39939,
+  "lines": [
+    {
+      "line_no": 1,
+      "section": "PAYMENTS AND OTHER CREDITS",
+      "txn_date": "2026-09-03",
+      "description": "ALEX EXAMPLE MOBILE PAYMENT - THANK YOU",
+      "amount_cents": -154747,
+      "order_ref": null,
+      "cardholder_name": null
+    },
+    {
+      "line_no": 2,
+      "section": "CREDITS",
+      "txn_date": "2026-08-28",
+      "description": "ALEX EXAMPLE AMEX DUNKIN' CREDIT",
+      "amount_cents": -700,
+      "order_ref": null,
+      "cardholder_name": null
+    },
+    {
+      "line_no": 3,
+      "section": "PURCHASE",
+      "txn_date": "2026-08-16",
+      "description": "AplPay TRADER JOE S #674 185621582 SPRINGFIELD IL",
+      "amount_cents": 799,
+      "order_ref": null,
+      "cardholder_name": "ALEX EXAMPLE"
+    },
+    {
+      "line_no": 4,
+      "section": "PURCHASE",
+      "txn_date": "2026-08-19",
+      "description": "AplPay CHICK-FIL-A #00000 522232143138480 SPRINGFIELD IL",
+      "amount_cents": 3342,
+      "order_ref": null,
+      "cardholder_name": "ALEX EXAMPLE"
+    },
+    {
+      "line_no": 5,
+      "section": "PURCHASE",
+      "txn_date": "2026-08-20",
+      "description": "TST* CORNER BAKERY CO 08235297 BROCKWAY  IL",
+      "amount_cents": 1511,
+      "order_ref": null,
+      "cardholder_name": "ALEX EXAMPLE"
+    },
+    {
+      "line_no": 6,
+      "section": "PURCHASE",
+      "txn_date": "2026-08-21",
+      "description": "TST* CORNER BAKERY CO 08235297 BROCKWAY  IL",
+      "amount_cents": 4975,
+      "order_ref": null,
+      "cardholder_name": "ALEX EXAMPLE"
+    },
+    {
+      "line_no": 7,
+      "section": "PURCHASE",
+      "txn_date": "2026-08-23",
+      "description": "AplPay HARBOR CAFE HAVERBROOK IL",
+      "amount_cents": 2926,
+      "order_ref": null,
+      "cardholder_name": "ALEX EXAMPLE"
+    },
+    {
+      "line_no": 8,
+      "section": "PURCHASE",
+      "txn_date": "2026-08-28",
+      "description": "AplPay DUNKIN #364928 364928 OGDENVILLE IL",
+      "amount_cents": 1599,
+      "order_ref": null,
+      "cardholder_name": "ALEX EXAMPLE"
+    },
+    {
+      "line_no": 9,
+      "section": "PURCHASE",
+      "txn_date": "2026-08-29",
+      "description": "AplPay MEIJER STORE #663 561403245 SPRINGFIELD IL",
+      "amount_cents": 5775,
+      "order_ref": null,
+      "cardholder_name": "ALEX EXAMPLE"
+    },
+    {
+      "line_no": 10,
+      "section": "PURCHASE",
+      "txn_date": "2026-09-12",
+      "description": "STRIKE ZONE BOWL BAR 539741411735419 877-4101414 IL",
+      "amount_cents": 736,
+      "order_ref": null,
+      "cardholder_name": "ALEX EXAMPLE"
+    },
+    {
+      "line_no": 11,
+      "section": "PURCHASE",
+      "txn_date": "2026-09-04",
+      "description": "SPICE GARDEN CAPITAL IL",
+      "amount_cents": 9528,
+      "order_ref": null,
+      "cardholder_name": "ALEX EXAMPLE"
+    },
+    {
+      "line_no": 12,
+      "section": "PURCHASE",
+      "txn_date": "2026-09-05",
+      "description": "SCOOPS ICE CREAM Brockway IL",
+      "amount_cents": 1200,
+      "order_ref": null,
+      "cardholder_name": "ALEX EXAMPLE"
+    },
+    {
+      "line_no": 13,
+      "section": "PURCHASE",
+      "txn_date": "2026-09-12",
+      "description": "STRIKE ZONE BOWL BAR 539741411735419 877-4101414 IL",
+      "amount_cents": 1259,
+      "order_ref": null,
+      "cardholder_name": "ALEX EXAMPLE"
+    },
+    {
+      "line_no": 14,
+      "section": "PURCHASE",
+      "txn_date": "2026-09-12",
+      "description": "STRIKE ZONE BOWL BAR 539741411735419 877-4101414 IL",
+      "amount_cents": 4721,
+      "order_ref": null,
+      "cardholder_name": "ALEX EXAMPLE"
+    },
+    {
+      "line_no": 15,
+      "section": "PURCHASE",
+      "txn_date": "2026-09-12",
+      "description": "STRIKE ZONE BOWL BAR 539741411735419 877-4101414 IL",
+      "amount_cents": 2268,
+      "order_ref": null,
+      "cardholder_name": "ALEX EXAMPLE"
+    }
+  ],
+  "product_markers": [
+    "GOLD CARD"
+  ]
+}

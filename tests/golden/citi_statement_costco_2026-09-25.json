@@ -1,0 +1,147 @@
+{
+  "issuer": "citi",
+  "period_start": "2026-08-28",
+  "period_end": "2026-09-25",
+  "due_date": "2026-10-23",
+  "minimum_due": 4100,
+  "previous_balance": 99121,
+  "payments": 99121,
+  "credits": 0,
+  "purchases": 201230,
+  "cash_advances": 0,
+  "balance_transfers": 0,
+  "fees": 0,
+  "interest": 0,
+  "new_balance": 201230,
+  "lines": [
+    {
+      "line_no": 1,
+      "section": "PAYMENTS AND OTHER CREDITS",
+      "txn_date": "2026-09-22",
+      "description": "ONLINE PAYMENT, THANK YOU",
+      "amount_cents": -99121,
+      "order_ref": null,
+      "cardholder_name": null
+    },
+    {
+      "line_no": 2,
+      "section": "PURCHASE",
+      "txn_date": "2026-08-31",
+      "description": "COSTCO GAS #0000 SPRINGFIELD  IL",
+      "amount_cents": 3660,
+      "order_ref": null,
+      "cardholder_name": "ALEX EXAMPLE"
+    },
+    {
+      "line_no": 3,
+      "section": "PURCHASE",
+      "txn_date": "2026-08-31",
+      "description": "COSTCO WHSE #0000 SPRINGFIELD  IL",
+      "amount_cents": 75943,
+      "order_ref": null,
+      "cardholder_name": "ALEX EXAMPLE"
+    },
+    {
+      "line_no": 4,
+      "section": "PURCHASE",
+      "txn_date": "2026-09-03",
+      "description": "COSTCO GAS #0000 SPRINGFIELD  IL",
+      "amount_cents": 4171,
+      "order_ref": null,
+      "cardholder_name": "ALEX EXAMPLE"
+    },
+    {
+      "line_no": 5,
+      "section": "PURCHASE",
+      "txn_date": "2026-09-06",
+      "description": "COSTCO WHSE #0000 SHELBYVILLE  IL",
+      "amount_cents": 1904,
+      "order_ref": null,
+      "cardholder_name": "ALEX EXAMPLE"
+    },
+    {
+      "line_no": 6,
+      "section": "PURCHASE",
+      "txn_date": "2026-09-06",
+      "description": "COSTCO WHSE #0000 SHELBYVILLE  IL",
+      "amount_cents": 28570,
+      "order_ref": null,
+      "cardholder_name": "ALEX EXAMPLE"
+    },
+    {
+      "line_no": 7,
+      "section": "PURCHASE",
+      "txn_date": "2026-09-12",
+      "description": "COSTCO GAS #0000 SPRINGFIELD  IL",
+      "amount_cents": 5253,
+      "order_ref": null,
+      "cardholder_name": "ALEX EXAMPLE"
+    },
+    {
+      "line_no": 8,
+      "section": "PURCHASE",
+      "txn_date": "2026-09-16",
+      "description": "COSTCO WHSE #0000 SPRINGFIELD  IL",
+      "amount_cents": 14439,
+      "order_ref": null,
+      "cardholder_name": "ALEX EXAMPLE"
+    },
+    {
+      "line_no": 9,
+      "section": "PURCHASE",
+      "txn_date": "2026-09-22",
+      "description": "EXXON SOUTH BLVD. & OP OGDENVILLE   IL",
+      "amount_cents": 1028,
+      "order_ref": null,
+      "cardholder_name": "ALEX EXAMPLE"
+    },
+    {
+      "line_no": 10,
+      "section": "PURCHASE",
+      "txn_date": "2026-09-22",
+      "description": "COSTCO GAS #0000 SPRINGFIELD  IL",
+      "amount_cents": 3930,
+      "order_ref": null,
+      "cardholder_name": "ALEX EXAMPLE"
+    },
+    {
+      "line_no": 11,
+      "section": "PURCHASE",
+      "txn_date": "2026-09-22",
+      "description": "COSTCO GAS #0000 SPRINGFIELD  IL",
+      "amount_cents": 5250,
+      "order_ref": null,
+      "cardholder_name": "ALEX EXAMPLE"
+    },
+    {
+      "line_no": 12,
+      "section": "PURCHASE",
+      "txn_date": "2026-08-31",
+      "description": "COSTCO WHSE #0000 SPRINGFIELD  IL",
+      "amount_cents": 683,
+      "order_ref": null,
+      "cardholder_name": "SAM Q EXAMPLE"
+    },
+    {
+      "line_no": 13,
+      "section": "PURCHASE",
+      "txn_date": "2026-09-16",
+      "description": "COSTCO WHSE #0000 SPRINGFIELD  IL",
+      "amount_cents": 54280,
+      "order_ref": null,
+      "cardholder_name": "SAM Q EXAMPLE"
+    },
+    {
+      "line_no": 14,
+      "section": "PURCHASE",
+      "txn_date": "2026-09-22",
+      "description": "COSTCO WHSE #0000 SPRINGFIELD  IL",
+      "amount_cents": 2119,
+      "order_ref": null,
+      "cardholder_name": "SAM Q EXAMPLE"
+    }
+  ],
+  "product_markers": [
+    "COSTCO ANYWHERE"
+  ]
+}

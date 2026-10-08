@@ -1,0 +1,34 @@
+# Financial Adviser settings (SPEC §6). Committed; holds no personal data.
+
+[general]
+# FIN_DATA_DIR overrides this. Must not be under ~/Documents or ~/Desktop (iCloud).
+data_dir = "~/FinancialAdviserData"
+history_months = 3          # first-run backfill
+statements_per_card = 3     # first-run statements per card
+
+[sync]
+sync_model = "sonnet"       # browsing agent model
+site_models = {}            # per-site override, e.g. { citi = "haiku" }
+sync_overlap_days = 14
+trusted_sites = ["chase", "amazon"]   # two clean runs each, 0 guard blocks (2026-10-07)
+# Costco's account pages stay blank in a separate automated profile (2026-10-06), so its
+# sync uses your own Chrome through the Playwright extension (you approve each connection).
+site_browser = { costco = "extension" }
+playwright_mcp_version = "0.0.83"   # exact version; upgrade deliberately (docs/decisions.md)
+
+[ai]
+classify_model = "haiku"    # never another model for classification
+batch_size = 40             # 25-50 records per call
+timeout_seconds = 180
+max_turns = 3
+low_confidence = 0.7
+
+[match]
+amazon_window_days = [-1, 3]            # charge date -> card txn date
+costco_warehouse_window_days = [0, 2]
+unmatched_grace_days = 5
+
+[server]
+host = "127.0.0.1"
+api_port = 8765
+web_dev_port = 5173

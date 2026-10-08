@@ -1,0 +1,42 @@
+{
+  "order_id": "114-0684546-9060253",
+  "order_date": "2026-10-03",
+  "payment_method": "Prime Visa",
+  "payment_card_ending": "0000",
+  "subtotal": 5046,
+  "shipping": 0,
+  "tax": 303,
+  "promotions": 0,
+  "gift_card": 0,
+  "rewards": 0,
+  "grand_total": 5349,
+  "items": [
+    {
+      "line_no": 1,
+      "title": "Typography Wall Art Print - 11x14 Unframed - Minimal Black and White Poster Print for Living Room, Study and Office Walls - Modern Home and Office Decor for Home and Office",
+      "seller": "Print Shop Co",
+      "quantity": 1,
+      "line_total_cents": 1449,
+      "unit_price_cents": 1449,
+      "asin": "B0FAKE0011"
+    },
+    {
+      "line_no": 2,
+      "title": "Organic Cotton Hand Towels, Quick Dry, 24 Count",
+      "seller": "Home Basics",
+      "quantity": 1,
+      "line_total_cents": 2898,
+      "unit_price_cents": 2898,
+      "asin": "B0FAKE0012"
+    },
+    {
+      "line_no": 3,
+      "title": "License Plate Screws, Stainless Steel, Universal Fit",
+      "seller": "Hardware Depot",
+      "quantity": 1,
+      "line_total_cents": 699,
+      "unit_price_cents": 699,
+      "asin": "B0FAKE0013"
+    }
+  ]
+}

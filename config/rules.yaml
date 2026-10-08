@@ -1,0 +1,38 @@
+# Seed merchant rules (SPEC §10, §13). Your own rules (created in the dashboard) win over these.
+# pattern: Python regex, matched case-insensitively against description_clean, from the start.
+# category: an id from config/categories.json. Amazon and Costco purchases get item-level splits,
+# so their category here is only the fallback when no order or receipt matches.
+version: 1
+rules:
+  # --- Amazon group (§10). Verify against real data and extend.
+  - {pattern: 'AMAZON PRIME\b|AMZN PRIME|PRIME MEMBERSHIP', merchant: Amazon Prime, group: amazon, category: memberships.amazon_prime}
+  - {pattern: 'PRIME VIDEO', merchant: Prime Video, group: amazon, category: entertainment.streaming}
+  - {pattern: 'KINDLE', merchant: Kindle, group: amazon, category: digital.books_and_media}
+  - {pattern: 'AUDIBLE', merchant: Audible, group: amazon, category: digital.books_and_media}
+  - {pattern: 'AMAZON|AMZN|AMZ ', merchant: Amazon, group: amazon, category: shopping_other}
+  # --- Whole Foods
+  - {pattern: 'WHOLEFDS|WHOLE FOODS', merchant: Whole Foods Market, group: whole_foods, category: groceries}
+  # --- Costco (Phase 2 cross-checks these)
+  - {pattern: 'COSTCO GAS', merchant: Costco Gas, group: costco_gas, category: transportation.fuel}
+  - {pattern: 'COSTCO WHSE', merchant: Costco, group: costco_warehouse, category: groceries}
+  - {pattern: 'COSTCO\.COM|COSTCO ', merchant: Costco.com, group: costco_online, category: shopping_other}
+  # --- Common merchants (cheap to get right without AI)
+  - {pattern: 'STARBUCKS', merchant: Starbucks, category: dining.coffee}
+  - {pattern: 'DOORDASH|UBER EATS|UBEREATS|GRUBHUB', merchant: Food delivery, category: dining.delivery}
+  - {pattern: 'UBER\b', merchant: Uber, category: travel.rideshare_and_taxi}
+  - {pattern: 'LYFT', merchant: Lyft, category: travel.rideshare_and_taxi}
+  - {pattern: 'NETFLIX', merchant: Netflix, category: entertainment.streaming}
+  - {pattern: 'SPOTIFY', merchant: Spotify, category: entertainment.streaming}
+  - {pattern: 'HULU|DISNEY ?PLUS|MAX\.COM|HBO', merchant: Streaming, category: entertainment.streaming}
+  - {pattern: 'PARKWHIZ|SPOTHERO|PARKMOBILE|PARKING', merchant: Parking, category: transportation.parking_and_tolls}
+  - {pattern: 'SHELL|CHEVRON|EXXON|MOBIL|BP#|BP |SPEEDWAY|MARATHON PETRO|SUNOCO|CITGO|MEIJER EXPRESS|SPEEDY Q', merchant: Gas station, category: transportation.fuel}
+  - {pattern: 'MICROSOFT', merchant: Microsoft, category: digital.software_and_apps}
+  - {pattern: 'APPLE\.COM|APPLE COM BILL', merchant: Apple, category: digital.software_and_apps}
+  - {pattern: 'CVS|WALGREENS|RITE AID', merchant: Pharmacy, category: health.pharmacy_and_otc}
+  - {pattern: 'ETSY', merchant: Etsy, category: shopping_other}
+  - {pattern: 'TARGET', merchant: Target, category: shopping_other}
+  # --- Card fees and interest (type rules set the type; this sets the category)
+  - {pattern: 'ANNUAL MEMBERSHIP FEE|ANNUAL FEE', merchant: Annual fee, category: fees_interest.annual_fee}
+  - {pattern: 'FOREIGN TRANSACTION FEE|FOREIGN TRANS FEE', merchant: Foreign transaction fee, category: fees_interest.foreign_transaction_fee}
+  - {pattern: 'LATE FEE', merchant: Late fee, category: fees_interest.late_fee}
+  - {pattern: 'INTEREST CHARGE', merchant: Interest, category: fees_interest.interest}

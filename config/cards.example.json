@@ -1,0 +1,287 @@
+{
+  "schema_version": 1,
+  "_notes": [
+    "Example with fake values. Copy to config/cards.json (gitignored) and fill in real ones.",
+    "card_ending: optional. Cardholders are identified by the name on each transaction (full_name and name_aliases); a transaction with no name is the primary cardholder (self).",
+    "people.self.full_name: fill in your own name as it appears on statements.",
+    "expected_merchant_groups: merchants a card is reserved for. Charges outside these groups are flagged for review, never rejected. Empty list means a general-purpose card.",
+    "reconcile_with: item-level sources this card is cross-checked against (SPEC.md section 12)."
+  ],
+  "people": [
+    {
+      "id": "self",
+      "display_name": "Me",
+      "full_name": "Alex Example",
+      "relationship": "self",
+      "name_aliases": []
+    },
+    {
+      "id": "spouse",
+      "display_name": "Sam",
+      "full_name": "Sam Q Example",
+      "relationship": "spouse",
+      "name_aliases": [
+        "SAM Q EXAMPLE"
+      ]
+    },
+    {
+      "id": "father",
+      "display_name": "Dad",
+      "full_name": "Pat Example",
+      "relationship": "father",
+      "name_aliases": [
+        "PAT EXAMPLE"
+      ]
+    },
+    {
+      "id": "mother",
+      "display_name": "Mom",
+      "full_name": "Robin Example",
+      "relationship": "mother",
+      "name_aliases": [
+        "ROBIN EXAMPLE"
+      ]
+    }
+  ],
+  "issuers": [
+    {
+      "id": "amex",
+      "name": "American Express",
+      "start_url": "https://www.americanexpress.com/",
+      "allowed_domains": [
+        "americanexpress.com"
+      ]
+    },
+    {
+      "id": "chase",
+      "name": "Chase",
+      "start_url": "https://www.chase.com/",
+      "allowed_domains": [
+        "chase.com"
+      ]
+    },
+    {
+      "id": "citi",
+      "name": "Citi",
+      "start_url": "https://www.citi.com/",
+      "allowed_domains": [
+        "citi.com"
+      ]
+    }
+  ],
+  "item_sources": [
+    {
+      "id": "amazon",
+      "name": "Amazon",
+      "start_url": "https://www.amazon.com/",
+      "allowed_domains": [
+        "amazon.com"
+      ]
+    },
+    {
+      "id": "costco",
+      "name": "Costco",
+      "start_url": "https://www.costco.com/",
+      "allowed_domains": [
+        "costco.com"
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "id": "amex_platinum",
+      "issuer": "amex",
+      "product": "The Platinum Card from American Express",
+      "network": "amex",
+      "card_type": "charge",
+      "cardholders": [
+        {
+          "person": "self",
+          "card_ending": "00001",
+          "role": "primary"
+        },
+        {
+          "person": "spouse",
+          "card_ending": "00002",
+          "role": "authorized_user"
+        },
+        {
+          "person": "father",
+          "card_ending": "00003",
+          "role": "authorized_user"
+        },
+        {
+          "person": "mother",
+          "card_ending": "00004",
+          "role": "authorized_user"
+        }
+      ],
+      "expected_merchant_groups": [],
+      "reconcile_with": []
+    },
+    {
+      "id": "amex_gold",
+      "issuer": "amex",
+      "product": "American Express Gold Card",
+      "network": "amex",
+      "card_type": "charge",
+      "cardholders": [
+        {
+          "person": "self",
+          "card_ending": "00005",
+          "role": "primary"
+        },
+        {
+          "person": "spouse",
+          "card_ending": "00006",
+          "role": "authorized_user"
+        },
+        {
+          "person": "father",
+          "card_ending": "00007",
+          "role": "authorized_user"
+        },
+        {
+          "person": "mother",
+          "card_ending": "00008",
+          "role": "authorized_user"
+        }
+      ],
+      "expected_merchant_groups": [],
+      "reconcile_with": []
+    },
+    {
+      "id": "chase_sapphire_reserve",
+      "issuer": "chase",
+      "product": "Chase Sapphire Reserve",
+      "network": "visa",
+      "card_type": "credit",
+      "cardholders": [
+        {
+          "person": "self",
+          "card_ending": "0009",
+          "role": "primary"
+        },
+        {
+          "person": "spouse",
+          "card_ending": "0010",
+          "role": "authorized_user"
+        },
+        {
+          "person": "father",
+          "card_ending": "0011",
+          "role": "authorized_user"
+        },
+        {
+          "person": "mother",
+          "card_ending": "0012",
+          "role": "authorized_user"
+        }
+      ],
+      "expected_merchant_groups": [],
+      "reconcile_with": []
+    },
+    {
+      "id": "chase_freedom_unlimited",
+      "issuer": "chase",
+      "product": "Chase Freedom Unlimited",
+      "network": "visa",
+      "card_type": "credit",
+      "cardholders": [
+        {
+          "person": "self",
+          "card_ending": "0013",
+          "role": "primary"
+        },
+        {
+          "person": "spouse",
+          "card_ending": "0014",
+          "role": "authorized_user"
+        },
+        {
+          "person": "father",
+          "card_ending": "0015",
+          "role": "authorized_user"
+        },
+        {
+          "person": "mother",
+          "card_ending": "0016",
+          "role": "authorized_user"
+        }
+      ],
+      "expected_merchant_groups": [],
+      "reconcile_with": []
+    },
+    {
+      "id": "chase_prime_visa",
+      "issuer": "chase",
+      "product": "Prime Visa",
+      "network": "visa",
+      "card_type": "credit",
+      "cardholders": [
+        {
+          "person": "self",
+          "card_ending": "0017",
+          "role": "primary"
+        },
+        {
+          "person": "spouse",
+          "card_ending": "0018",
+          "role": "authorized_user"
+        },
+        {
+          "person": "father",
+          "card_ending": "0019",
+          "role": "authorized_user"
+        },
+        {
+          "person": "mother",
+          "card_ending": "0020",
+          "role": "authorized_user"
+        }
+      ],
+      "expected_merchant_groups": [
+        "amazon",
+        "whole_foods"
+      ],
+      "reconcile_with": [
+        "amazon"
+      ]
+    },
+    {
+      "id": "citi_costco",
+      "issuer": "citi",
+      "product": "Costco Anywhere Visa Card by Citi",
+      "network": "visa",
+      "card_type": "credit",
+      "cardholders": [
+        {
+          "person": "self",
+          "card_ending": "0021",
+          "role": "primary"
+        },
+        {
+          "person": "spouse",
+          "card_ending": "0022",
+          "role": "authorized_user"
+        },
+        {
+          "person": "father",
+          "card_ending": "0023",
+          "role": "authorized_user"
+        },
+        {
+          "person": "mother",
+          "card_ending": "0024",
+          "role": "authorized_user"
+        }
+      ],
+      "expected_merchant_groups": [
+        "costco"
+      ],
+      "reconcile_with": [
+        "costco"
+      ]
+    }
+  ]
+}
