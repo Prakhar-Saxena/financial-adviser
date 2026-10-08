@@ -8,7 +8,7 @@ import { useNavigate } from "react-router-dom";
 import { api, type Meta } from "@/api";
 import { ChartCard } from "@/components/ChartCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { categoryColors, listColors } from "@/lib/palette";
+import { categoryColors, listColors, parentOf } from "@/lib/palette";
 import { cn, money, monthLabel } from "@/lib/utils";
 
 function Stat({ label, value, sub, icon: Icon, tint }: {
@@ -43,6 +43,7 @@ export function Overview({ month, meta }: { month: string; meta: Meta }) {
   const share = (c?: number) => (cur && cur.cents ? Math.round(((c ?? 0) / cur.cents) * 100) : 0);
   const goCategory = (key: string) => nav(`/transactions?category=${key}`);
   const cat = categoryColors(meta, data.by_category);
+  const catName = (id: string) => { const p = parentOf(id); return meta.categories.find((c) => c.id === p)?.name ?? p; };
   const cards = listColors(meta.cards.map((c) => c.id), data.by_card);
   const people = listColors(meta.people.map((p) => p.id), data.by_person);
 
@@ -80,11 +81,11 @@ export function Overview({ month, meta }: { month: string; meta: Meta }) {
                    }))} />
         <ChartCard id="overview-merchants" title="Top merchants" views={["bar", "treemap", "table"]}
                    items={data.top_merchants.map((r) => ({ key: r.key, label: r.key, cents: r.cents }))} />
-        <ChartCard id="overview-subcategory" title="Subcategories" subtitle="Bars coloured by parent category"
+        <ChartCard id="overview-subcategory" title="Subcategories" subtitle="Coloured by parent category"
                    views={["bar", "treemap", "table"]}
                    items={data.by_subcategory.slice(0, 14).map((r) => ({
                      key: r.key, label: r.name ?? r.key, cents: r.cents,
-                     color: cat.color(r.key), slot: cat.index(r.key),
+                     color: cat.color(r.key), slot: cat.index(r.key), group: catName(r.key),
                    }))} />
       </div>
     </div>
