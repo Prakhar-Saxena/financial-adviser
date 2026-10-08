@@ -66,8 +66,18 @@ def create_app(db_file: Path | None = None, web_dist: Path | None = WEB_DIST) ->
 
     @app.get("/api/meta")
     def meta(s: Session = Depends(db)):
+        from fin.api.spending import parent, spending_lines
+
+        # Parent categories by all-time spend: the dashboard gives the top ones fixed colours,
+        # so a category keeps its colour across months and chart types.
+        totals: dict[str, int] = {}
+        for line in spending_lines(s):
+            k = parent(line.category_id)
+            totals[k] = totals.get(k, 0) + line.amount_cents
         return {
             "months": months_with_data(s),
+            "category_rank": [k for k, v in sorted(totals.items(), key=lambda kv: -kv[1])
+                              if v > 0 and k != "uncategorized"],
             "people": [{"id": p.id, "name": p.display_name} for p in cards.people],
             "cards": [{"id": c.id, "name": c.product, "issuer": c.issuer} for c in cards.cards],
             "categories": [{"id": c.id, "name": c.name, "parent_id": c.parent_id}

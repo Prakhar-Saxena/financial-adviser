@@ -3,7 +3,8 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api, type Meta } from "@/api";
-import { BarList } from "@/components/BarList";
+import { ChartCard } from "@/components/ChartCard";
+import { categoryColors } from "@/lib/palette";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,6 +31,7 @@ export function Orders({ month, meta }: { month: string; meta: Meta }) {
   const latest = everything.length ? everything[0].order_date.slice(0, 7) : null;
   const noun = merchant === "costco" ? "receipts" : "orders";
   const merchantName = MERCHANTS.find((x) => x.id === merchant)?.name ?? merchant;
+  const cat = categoryColors(meta, summary?.by_category ?? []);
   const catName = Object.fromEntries(meta.categories.map((c) => [c.id, c.name]));
   const [open, setOpen] = useState<number | null>(null);
   const unmatched = orders.filter((o) => !o.matched).length;
@@ -53,11 +55,15 @@ export function Orders({ month, meta }: { month: string; meta: Meta }) {
         )}
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
-        <BarList title="Item spending by category"
-                 items={(summary?.by_category ?? []).map((r) => ({ label: r.name ?? r.key, cents: r.cents }))} />
-        <BarList title="Top items"
-                 items={(summary?.top_items ?? []).map((r) => ({
-                   label: r.count > 1 ? `${r.title} ×${r.count}` : r.title, cents: r.cents }))} />
+        <ChartCard id={`orders-${merchant}-category`} title="Item spending by category"
+                   items={(summary?.by_category ?? []).map((r) => ({
+                     key: r.key, label: r.name ?? r.key, cents: r.cents,
+                     color: cat.color(r.key), slot: cat.index(r.key) }))} />
+        <ChartCard id={`orders-${merchant}-items`} title="Top items" subtitle="Bars coloured by item category"
+                   views={["bar", "treemap", "table"]}
+                   items={(summary?.top_items ?? []).map((r, i) => ({
+                     key: `${i}`, label: r.count > 1 ? `${r.title} ×${r.count}` : r.title, cents: r.cents,
+                     color: cat.color(r.category_id) }))} />
       </div>
       <Card className="mt-4">
         <CardHeader><CardTitle>{merchant === "costco" ? "Receipts" : "Orders"}</CardTitle></CardHeader>

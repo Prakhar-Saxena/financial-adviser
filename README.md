@@ -118,7 +118,8 @@ connects to your own Chrome through the Playwright Extension:
 
 ## Dashboard
 
-- **Overview:** spending by category, person, card and merchant, plus the 3-month trend.
+- **Overview:** spending by category, person, card and merchant, plus the 3-month trend. Each
+  chart switches between bars, donut, treemap and table views (the choice is remembered).
 - **Transactions:** filters, item splits, and category or person corrections.
 - **Amazon & Costco:** orders, receipts, top items.
 - **Review:** low-confidence AI guesses, unmatched charges, statement mismatches.

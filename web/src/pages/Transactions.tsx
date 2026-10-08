@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
+import { categoryColors } from "@/lib/palette";
 import { cn, money } from "@/lib/utils";
 
 const col = createColumnHelper<Txn>();
@@ -39,6 +40,8 @@ export function Transactions({ month, meta }: { month: string; meta: Meta }) {
   });
   const [sorting, setSorting] = useState<SortingState>([]);
   const [open, setOpen] = useState<number | null>(null);
+  const { data: summary } = useQuery({ queryKey: ["summary", month], queryFn: () => api.summary(month) });
+  const cat = useMemo(() => categoryColors(meta, summary?.by_category ?? []), [meta, summary]);
   const catName = useMemo(() => Object.fromEntries(meta.categories.map((c) => [c.id, c.name])), [meta]);
   const cardName = useMemo(() => Object.fromEntries(meta.cards.map((c) => [c.id, c.name])), [meta]);
   const personName = useMemo(() => Object.fromEntries(meta.people.map((p) => [p.id, p.name])), [meta]);
@@ -62,14 +65,15 @@ export function Transactions({ month, meta }: { month: string; meta: Meta }) {
       const t = c.row.original;
       if (["payment", "credit", "reward", "adjustment"].includes(t.type)) return <Badge>{t.type}</Badge>;
       return (
-        <span className="text-ink-2">
+        <span className="inline-flex items-center gap-1.5 text-ink-2">
+          <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: cat.color(c.getValue()) }} />
           {catName[c.getValue() ?? "uncategorized"] ?? c.getValue()}
           {t.category_source === "split" && <Badge className="ml-1.5">split</Badge>}
         </span>);
     } }),
     col.accessor("amount_cents", { header: () => <div className="text-right">Amount</div>,
       cell: (c) => <div className={cn("text-right tabular", c.getValue() < 0 && "text-good")}>{money(c.getValue())}</div> }),
-  ], [open, catName, cardName, personName]);
+  ], [open, catName, cardName, personName, cat]);
 
   const table = useReactTable({
     data, columns, state: { sorting }, onSortingChange: setSorting,
