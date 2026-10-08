@@ -1,23 +1,35 @@
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { api, type Meta } from "@/api";
 import { BarList } from "@/components/BarList";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { cn, money } from "@/lib/utils";
+import { cn, money, monthLabel } from "@/lib/utils";
 
 const MERCHANTS = [{ id: "amazon", name: "Amazon" }, { id: "costco", name: "Costco" }];
 
 export function Orders({ month, meta }: { month: string; meta: Meta }) {
-  const [merchant, setMerchant] = useState("amazon");
+  const [params, setParams] = useSearchParams();
+  const merchant = params.get("merchant") === "costco" ? "costco" : "amazon";
+  const setMerchant = (id: string) => setParams(id === "amazon" ? {} : { merchant: id });
   const [allMonths, setAllMonths] = useState(false);
   const m = allMonths ? undefined : month;
   const { data: summary } = useQuery({ queryKey: ["ordersSummary", merchant, m],
                                        queryFn: () => api.ordersSummary(merchant, m) });
   const { data: orders = [] } = useQuery({ queryKey: ["orders", merchant, m],
                                            queryFn: () => api.orders(merchant, m) });
+  // When the selected month is empty, look at all months to say where the data is.
+  const { data: everything = [] } = useQuery({
+    queryKey: ["orders", merchant, undefined],
+    queryFn: () => api.orders(merchant),
+    enabled: !allMonths && orders.length === 0,
+  });
+  const latest = everything.length ? everything[0].order_date.slice(0, 7) : null;
+  const noun = merchant === "costco" ? "receipts" : "orders";
+  const merchantName = MERCHANTS.find((x) => x.id === merchant)?.name ?? merchant;
   const catName = Object.fromEntries(meta.categories.map((c) => [c.id, c.name]));
   const [open, setOpen] = useState<number | null>(null);
   const unmatched = orders.filter((o) => !o.matched).length;
@@ -50,7 +62,23 @@ export function Orders({ month, meta }: { month: string; meta: Meta }) {
       <Card className="mt-4">
         <CardHeader><CardTitle>{merchant === "costco" ? "Receipts" : "Orders"}</CardTitle></CardHeader>
         <CardContent className="divide-y divide-line">
-          {orders.length === 0 && <p className="py-2 text-sm text-muted">None in this period.</p>}
+          {orders.length === 0 && (
+            <div className="flex flex-wrap items-center gap-3 py-2 text-sm text-ink-2">
+              {allMonths || !latest ? (
+                <span>No {merchantName} {noun} imported yet.</span>
+              ) : (
+                <>
+                  <span>
+                    No {merchantName} {noun} in {monthLabel(month)}. The latest are from{" "}
+                    {monthLabel(latest)} ({everything.length} in total).
+                  </span>
+                  <Button size="sm" variant="outline" onClick={() => setAllMonths(true)}>
+                    Show all months
+                  </Button>
+                </>
+              )}
+            </div>
+          )}
           {orders.map((o) => (
             <div key={o.id} className="py-2">
               <button className="flex w-full items-center gap-3 text-left text-sm"
