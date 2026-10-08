@@ -4,10 +4,11 @@ import {
   Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, Treemap, XAxis, YAxis,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { MAX, OTHER, SINGLE } from "@/lib/palette";
+import { MAX, OTHER, SINGLE, TREEMAP_SAFE } from "@/lib/palette";
 import { cn, money } from "@/lib/utils";
 
-export type Item = { key: string; label: string; cents: number; color?: string; slot?: number };
+// `group` names what the colour stands for when it isn't the item itself (e.g. a parent category).
+export type Item = { key: string; label: string; cents: number; color?: string; slot?: number; group?: string };
 export type View = "bar" | "donut" | "treemap" | "table";
 
 const ICONS: Record<View, typeof BarChart3> = {
@@ -178,10 +179,20 @@ function Donut({ data, total, onSelect }: { data: Item[]; total: number; onSelec
 }
 
 function Tree({ data, total, onSelect }: { data: Item[]; total: number; onSelect?: (k: string) => void }) {
-  // Any two tiles can touch, and no set of more than three palette colours is distinguishable in
-  // every pairing, so tiles share one hue: size carries the value, labels carry identity.
-  const nodes = data.map((d) => ({ ...d, name: d.label, size: d.cents, color: SINGLE }));
+  // Any two tiles can touch, and only the first three palette colours stay distinguishable in
+  // every pairing. Tiles keep those colours (so nothing changes colour between views); the rest
+  // are neutral. Uncoloured data (e.g. merchants) stays one hue.
+  const coloured = data.some((d) => d.color && d.color !== OTHER && d.color !== SINGLE);
+  const tileColor = (c?: string) => (!coloured ? SINGLE : c && TREEMAP_SAFE.includes(c) ? c : OTHER);
+  const nodes = data.map((d) => ({ ...d, name: d.label, size: d.cents, color: tileColor(d.color) }));
+  const legend = new Map<string, string>();
+  for (const c of TREEMAP_SAFE) {
+    const d = data.find((x) => x.color === c);
+    if (d) legend.set(c, d.group ?? d.label);
+  }
+  if (coloured && nodes.some((n) => n.color === OTHER)) legend.set(OTHER, "Other");
   return (
+    <div>
     <div style={{ height: 260 }}>
       <ResponsiveContainer width="100%" height="100%">
         <Treemap data={nodes} dataKey="size" isAnimationActive={false} aspectRatio={4 / 3}
@@ -192,6 +203,16 @@ function Tree({ data, total, onSelect }: { data: Item[]; total: number; onSelect
         </Treemap>
       </ResponsiveContainer>
     </div>
+    {legend.size > 1 && (
+      <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-2">
+        {[...legend].map(([c, name]) => (
+          <li key={c} className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-sm" style={{ background: c }} />{name}
+          </li>
+        ))}
+      </ul>
+    )}
+    </div>
   );
 }
 
@@ -200,7 +221,11 @@ function TreeTile(props: { x?: number; y?: number; width?: number; height?: numb
   const { x = 0, y = 0, width = 0, height = 0, color, label, cents = 0, depth } = props;
   if (depth === 0) return null;
   const fits = width > 84 && height > 40;
-  const text = label ?? "";
+  // Fit the label to the chip (~6.5px per character at 11px); the tooltip has the full name.
+  const chip = Math.min(width - 12, 150);
+  const max = Math.floor((chip - 12) / 6.5);
+  const raw = label ?? "";
+  const text = raw.length > max ? `${raw.slice(0, Math.max(1, max - 1))}…` : raw;
   return (
     <g>
       <rect x={x + 1} y={y + 1} width={Math.max(0, width - 2)} height={Math.max(0, height - 2)} rx={6}
@@ -208,10 +233,10 @@ function TreeTile(props: { x?: number; y?: number; width?: number; height?: numb
       {fits && (
         <g>
           {/* Label on a surface-coloured chip so it stays legible on every tile colour. */}
-          <rect x={x + 6} y={y + 6} rx={4} width={Math.min(width - 12, 150)} height={32}
+          <rect x={x + 6} y={y + 6} rx={4} width={chip} height={32}
                 fill="var(--surface)" fillOpacity={0.9} />
           <text x={x + 12} y={y + 19} fontSize={11} fill="var(--ink)">
-            {text.length > 20 ? `${text.slice(0, 19)}…` : text}
+            {text}
           </text>
           <text x={x + 12} y={y + 32} fontSize={11} fill="var(--ink-2)">{money(cents, { whole: true })}</text>
         </g>

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api, type Meta } from "@/api";
 import { ChartCard } from "@/components/ChartCard";
-import { categoryColors } from "@/lib/palette";
+import { categoryColors, parentOf } from "@/lib/palette";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -59,11 +59,11 @@ export function Orders({ month, meta }: { month: string; meta: Meta }) {
                    items={(summary?.by_category ?? []).map((r) => ({
                      key: r.key, label: r.name ?? r.key, cents: r.cents,
                      color: cat.color(r.key), slot: cat.index(r.key) }))} />
-        <ChartCard id={`orders-${merchant}-items`} title="Top items" subtitle="Bars coloured by item category"
+        <ChartCard id={`orders-${merchant}-items`} title="Top items" subtitle="Coloured by item category"
                    views={["bar", "treemap", "table"]}
                    items={(summary?.top_items ?? []).map((r, i) => ({
                      key: `${i}`, label: r.count > 1 ? `${r.title} ×${r.count}` : r.title, cents: r.cents,
-                     color: cat.color(r.category_id) }))} />
+                     color: cat.color(r.category_id), group: catName[parentOf(r.category_id)] ?? parentOf(r.category_id) }))} />
       </div>
       <Card className="mt-4">
         <CardHeader><CardTitle>{merchant === "costco" ? "Receipts" : "Orders"}</CardTitle></CardHeader>

@@ -7,6 +7,9 @@ import type { Meta } from "@/api";
 export const MAX = 5;
 export const OTHER = "var(--cat-other)";
 export const SINGLE = "var(--series-1)";
+// Slots that pass the all-pairs check (validate_palette.js --pairs all) in light and dark:
+// the only colours a treemap, where any two tiles can touch, may use.
+export const TREEMAP_SAFE = ["var(--cat-1)", "var(--cat-2)", "var(--cat-3)"];
 
 export type Colors = { color: (key: string | null | undefined) => string; index: (key: string) => number };
 
