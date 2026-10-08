@@ -145,3 +145,10 @@ def test_item_correction_survives_rebuild(client):
     with session_factory(db)() as s:
         item = s.scalar(select(m.OrderItem).where(m.OrderItem.line_total_cents == 699))
         assert (item.category_id, item.category_source) == ("transportation.auto_service", "user")
+
+
+
+def test_meta_category_rank(client):
+    c, _ = client
+    rank = c.get("/api/meta").json()["category_rank"]
+    assert rank and "uncategorized" not in rank and len(rank) == len(set(rank))

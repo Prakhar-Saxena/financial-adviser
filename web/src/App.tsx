@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Moon, Sun } from "lucide-react";
+import { ChartPie, Moon, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
 import { NavLink, Route, Routes } from "react-router-dom";
 import { api } from "@/api";
@@ -38,7 +38,13 @@ export function App() {
   return (
     <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6">
       <header className="mb-5 flex flex-wrap items-center gap-3">
-        <h1 className="mr-4 text-base font-semibold">Expenses</h1>
+        <h1 className="mr-4 flex items-center gap-2 text-base font-semibold">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg text-white shadow-sm"
+                style={{ background: "linear-gradient(135deg, var(--cat-1), var(--cat-7))" }}>
+            <ChartPie className="h-4 w-4" />
+          </span>
+          Expenses
+        </h1>
         <nav className="flex gap-1">
           <NavLink to="/" end className={link}>Overview</NavLink>
           <NavLink to="/transactions" className={link}>Transactions</NavLink>

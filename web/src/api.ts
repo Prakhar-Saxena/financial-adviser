@@ -14,6 +14,7 @@ export type Summary = {
 };
 export type Meta = {
   months: string[];
+  category_rank: string[];
   people: { id: string; name: string }[];
   cards: { id: string; name: string; issuer: string }[];
   categories: { id: string; name: string; parent_id: string | null }[];
