@@ -19,6 +19,31 @@ item for Amazon and Costco, and checks every number against your bank statements
 > Status: a personal project, built for one household's cards and stores. It works end to end
 > for the sites below. Expect to adapt it for anything else.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/overview-dark.png">
+  <img alt="Overview: spending by category as a donut, the 3-month trend, and spending by person, card, merchant and subcategory" src="docs/screenshots/overview.png">
+</picture>
+
+<details>
+<summary>More screenshots</summary>
+
+**Transactions**: filters, category dots, item splits
+
+![Transactions page](docs/screenshots/transactions.png)
+
+**Amazon & Costco**: item-level spending from receipts
+
+![Costco receipts page](docs/screenshots/orders.png)
+
+**Reconciliation**: every statement balances and matches the ledger
+
+![Reconciliation page](docs/screenshots/reconciliation.png)
+
+</details>
+
+<sub>Screenshots use mock data: a fictional household, made-up merchants and products
+(`make screenshots` regenerates them).</sub>
+
 ## Supported sources
 
 | Source | What is collected | Notes |
@@ -131,6 +156,7 @@ connects to your own Chrome through the Playwright Extension:
 ```bash
 make check     # ruff, pytest (no network, no AI, no browser), type-checked web build
 make dev       # live-reload frontend on :5173 plus the API
+make screenshots   # README screenshots from a throwaway mock database
 ```
 
 - Test fixtures are redacted and use fictional names, places and products.
