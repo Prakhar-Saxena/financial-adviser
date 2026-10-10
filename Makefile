@@ -6,7 +6,7 @@ FIN := $(UV) fin
 
 .DEFAULT_GOAL := help
 .PHONY: help serve open dev web weekly sync process review import rebuild backup doctor \
-        test lint check stop
+        test lint check stop screenshots
 
 help: ## List the targets
 	@grep -hE '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | \
@@ -73,3 +73,6 @@ lint: ## Ruff
 
 check: lint test ## Lint, tests and a type-checked web build
 	npm --prefix web run build
+
+screenshots: web ## README screenshots from a throwaway mock database (headless Chrome)
+	$(UV) python scripts/make_screenshots.py
