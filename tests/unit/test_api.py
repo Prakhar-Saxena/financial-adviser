@@ -152,3 +152,16 @@ def test_meta_category_rank(client):
     c, _ = client
     rank = c.get("/api/meta").json()["category_rank"]
     assert rank and "uncategorized" not in rank and len(rank) == len(set(rank))
+
+
+def test_transactions_filter_uncategorized(client):
+    """The charts' "Uncategorized" link lists uncategorized spending, not payments."""
+    c, db = client
+    with session_factory(db)() as s:
+        t = s.scalars(select(m.Transaction).where(m.Transaction.type == "purchase")).first()
+        t.category_id, t.category_source = None, None
+        s.commit()
+        target = t.id
+    rows = c.get("/api/transactions", params={"category": "uncategorized"}).json()
+    assert target in {r["id"] for r in rows}
+    assert all(r["category_id"] in (None, "uncategorized") and r["type"] != "payment" for r in rows)

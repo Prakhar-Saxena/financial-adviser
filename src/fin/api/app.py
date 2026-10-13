@@ -126,7 +126,13 @@ def create_app(db_file: Path | None = None, web_dist: Path | None = WEB_DIST) ->
             q = q.where(m.Transaction.card_id == card)
         if person:
             q = q.where(m.Transaction.person_id == person)
-        if category:
+        if category == "uncategorized":  # the spending charts' "Uncategorized": spending only
+            from fin.api.spending import SPENDING_TYPES
+
+            q = q.where(m.Transaction.type.in_(SPENDING_TYPES),
+                        m.Transaction.category_id.is_(None)
+                        | (m.Transaction.category_id == "uncategorized"))
+        elif category:
             q = q.where((m.Transaction.category_id == category)
                         | m.Transaction.category_id.like(f"{category}.%"))
         if group:

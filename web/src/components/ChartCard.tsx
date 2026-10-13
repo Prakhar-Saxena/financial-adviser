@@ -1,5 +1,5 @@
-import { BarChart3, LayoutGrid, PieChart as PieIcon, Table2 } from "lucide-react";
-import { useState } from "react";
+import { BarChart3, ChevronDown, LayoutGrid, PieChart as PieIcon, Table2 } from "lucide-react";
+import { Fragment, useState } from "react";
 import {
   Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, Treemap, XAxis, YAxis,
 } from "recharts";
@@ -14,6 +14,7 @@ export type View = "bar" | "donut" | "treemap" | "table";
 const ICONS: Record<View, typeof BarChart3> = {
   bar: BarChart3, donut: PieIcon, treemap: LayoutGrid, table: Table2,
 };
+const OTHER_KEY = "__other";
 const NAMES: Record<View, string> = { bar: "Bars", donut: "Donut", treemap: "Treemap", table: "Table" };
 
 function useView(id: string, views: View[]): [View, (v: View) => void] {
@@ -135,13 +136,48 @@ function BarLabel({ x = 0, y = 0, payload }: { x?: number; y?: number; payload?:
 function Donut({ data, total, onSelect }: { data: Item[]; total: number; onSelect?: (k: string) => void }) {
   // The coloured entities (at most MAX, slots 1..n) + "Other". Segments run in slot order, so
   // touching segments are validated neighbour pairs; the legend carries identity, not colour alone.
+  const [otherOpen, setOtherOpen] = useState(false);
   const coloured = data.filter((d) => d.color && d.color !== OTHER).slice(0, MAX);
   const rest = data.filter((d) => !coloured.includes(d));
   const segs: Item[] = [...coloured].sort((a, b) => (a.slot ?? 99) - (b.slot ?? 99));
-  if (rest.length) {
-    segs.push({ key: "__other", label: rest.length === 1 ? rest[0].label : `Other (${rest.length})`,
+  if (rest.length === 1) segs.push({ ...rest[0], color: OTHER });
+  if (rest.length > 1) {
+    segs.push({ key: OTHER_KEY, label: `Other (${rest.length})`,
                 cents: rest.reduce((s, r) => s + r.cents, 0), color: OTHER });
   }
+  // "Other" has no single destination: it opens its members in the legend instead.
+  const choose = (k: string) => (k === OTHER_KEY ? setOtherOpen((o) => !o) : onSelect?.(k));
+  const clickable = !!onSelect;
+  const pct = (c: number) => `${Math.round((c / total) * 100)}%`;
+  const Row = ({ item, nested = false }: { item: Item; nested?: boolean }) => {
+    const isOther = item.key === OTHER_KEY;
+    const body = (
+      <>
+        {nested ? <span className="w-2.5 shrink-0" /> : (
+          <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: item.color }} />
+        )}
+        <span className={cn("truncate", nested ? "text-muted" : "text-ink-2")}>{item.label}</span>
+        {isOther && (
+          <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 text-muted transition-transform",
+                                     otherOpen && "rotate-180")} />
+        )}
+        <span className={cn("ml-auto tabular", nested ? "text-ink-2" : "text-ink")}>
+          {money(item.cents, { whole: true })}
+        </span>
+        <span className="w-10 text-right tabular text-xs text-muted">{pct(item.cents)}</span>
+      </>
+    );
+    return (
+      <li>
+        {clickable || isOther ? (
+          <button type="button" onClick={() => choose(item.key)} aria-expanded={isOther ? otherOpen : undefined}
+                  className="-mx-1.5 flex w-[calc(100%+0.75rem)] items-center gap-2 rounded-md px-1.5 py-0.5 text-left hover:bg-surface-2">
+            {body}
+          </button>
+        ) : <div className="flex items-center gap-2 py-0.5">{body}</div>}
+      </li>
+    );
+  };
   return (
     <div className="flex flex-col items-center gap-4 sm:flex-row">
       <div className="relative h-52 w-52 shrink-0">
@@ -149,8 +185,8 @@ function Donut({ data, total, onSelect }: { data: Item[]; total: number; onSelec
           <PieChart>
             <Pie data={segs} dataKey="cents" nameKey="label" innerRadius="62%" outerRadius="96%"
                  stroke="var(--surface)" strokeWidth={2} startAngle={90} endAngle={-270}
-                 isAnimationActive={false} cursor={onSelect ? "pointer" : undefined}
-                 onClick={(d) => { const k = (d as unknown as { key: string }).key; if (k !== "__other") onSelect?.(k); }}>
+                 isAnimationActive={false} cursor={clickable || rest.length > 1 ? "pointer" : undefined}
+                 onClick={(d) => choose((d as unknown as { key: string }).key)}>
               {segs.map((s) => <Cell key={s.key} fill={s.color} />)}
             </Pie>
             <Tooltip content={({ active, payload }) => active && payload?.length
@@ -162,16 +198,12 @@ function Donut({ data, total, onSelect }: { data: Item[]; total: number; onSelec
           <div className="text-xl font-semibold text-ink">{money(total, { whole: true })}</div>
         </div>
       </div>
-      <ul className="w-full space-y-1.5 text-sm">
+      <ul className="w-full space-y-0.5 text-sm">
         {segs.map((s) => (
-          <li key={s.key} className="flex items-center gap-2">
-            <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: s.color }} />
-            <span className="truncate text-ink-2">{s.label}</span>
-            <span className="ml-auto tabular text-ink">{money(s.cents, { whole: true })}</span>
-            <span className="w-10 text-right tabular text-xs text-muted">
-              {Math.round((s.cents / total) * 100)}%
-            </span>
-          </li>
+          <Fragment key={s.key}>
+            <Row item={s} />
+            {s.key === OTHER_KEY && otherOpen && rest.map((r) => <Row key={r.key} item={r} nested />)}
+          </Fragment>
         ))}
       </ul>
     </div>
