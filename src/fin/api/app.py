@@ -13,11 +13,11 @@ from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-from sqlalchemy import func, select
+from sqlalchemy import exists, func, or_, select
 from sqlalchemy.orm import Session
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
-from fin.api.spending import months_with_data, summarize, txn_month
+from fin.api.spending import SPENDING_TYPES, months_with_data, summarize, txn_month
 from fin.config import REPO_ROOT, data_paths, load_cards, load_settings, load_taxonomy
 from fin.db import models as m
 from fin.db import session_factory
@@ -47,6 +47,31 @@ class Resolve(BaseModel):
 class BulkResolve(BaseModel):
     ids: list[int]
     status: str = "resolved"
+
+
+
+def category_filter(categories: list[str]):
+    """Transactions in any of these categories (a parent includes its subcategories).
+
+    A split charge counts when any of its parts does, as it does in the spending charts.
+    "uncategorized" means spending with no category, never payments or credits."""
+
+    def in_cat(col, c: str):
+        return (col == c) | col.like(f"{c}.%")
+
+    conds = []
+    for c in (c.strip() for c in categories):
+        if not c:
+            continue
+        if c == "uncategorized":
+            conds.append(m.Transaction.type.in_(SPENDING_TYPES)
+                         & (m.Transaction.category_id.is_(None)
+                            | (m.Transaction.category_id == "uncategorized")))
+            continue
+        conds.append(in_cat(m.Transaction.category_id, c))
+        conds.append(exists().where(m.Allocation.transaction_id == m.Transaction.id,
+                                    in_cat(m.Allocation.category_id, c)))
+    return or_(*conds)
 
 
 def create_app(db_file: Path | None = None, web_dist: Path | None = WEB_DIST) -> FastAPI:
@@ -126,15 +151,8 @@ def create_app(db_file: Path | None = None, web_dist: Path | None = WEB_DIST) ->
             q = q.where(m.Transaction.card_id == card)
         if person:
             q = q.where(m.Transaction.person_id == person)
-        if category == "uncategorized":  # the spending charts' "Uncategorized": spending only
-            from fin.api.spending import SPENDING_TYPES
-
-            q = q.where(m.Transaction.type.in_(SPENDING_TYPES),
-                        m.Transaction.category_id.is_(None)
-                        | (m.Transaction.category_id == "uncategorized"))
-        elif category:
-            q = q.where((m.Transaction.category_id == category)
-                        | m.Transaction.category_id.like(f"{category}.%"))
+        if category:
+            q = q.where(category_filter(category.split(",")))
         if group:
             q = q.where(m.Merchant.merchant_group == group)
         if type:

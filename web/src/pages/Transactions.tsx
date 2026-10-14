@@ -42,6 +42,8 @@ export function Transactions({ month, meta }: { month: string; meta: Meta }) {
   const [open, setOpen] = useState<number | null>(null);
   const { data: summary } = useQuery({ queryKey: ["summary", month], queryFn: () => api.summary(month) });
   const cat = useMemo(() => categoryColors(meta, summary?.by_category ?? []), [meta, summary]);
+  // Several categories at once: the Overview donut's "Other" links here with all of its members.
+  const several = filters.category?.includes(",") ? filters.category.split(",") : null;
   const catName = useMemo(() => Object.fromEntries(meta.categories.map((c) => [c.id, c.name])), [meta]);
   const cardName = useMemo(() => Object.fromEntries(meta.cards.map((c) => [c.id, c.name])), [meta]);
   const personName = useMemo(() => Object.fromEntries(meta.people.map((p) => [p.id, p.name])), [meta]);
@@ -93,8 +95,10 @@ export function Transactions({ month, meta }: { month: string; meta: Meta }) {
           <option value="">Everyone</option>
           {meta.people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
         </Select>
-        <Select value={filters.category ?? ""} onChange={(e) => set("category", e.target.value)} aria-label="Category">
+        <Select value={filters.category ?? ""} onChange={(e) => set("category", e.target.value)} aria-label="Category"
+                title={several ? several.map((c) => catName[c] ?? c).join(", ") : undefined}>
           <option value="">All categories</option>
+          {several && <option value={filters.category}>{several.length} categories (Other)</option>}
           {meta.categories.filter((c) => !c.parent_id).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </Select>
         <Select value={filters.group ?? ""} onChange={(e) => set("group", e.target.value)} aria-label="Merchant group">

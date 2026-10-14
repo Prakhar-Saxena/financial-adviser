@@ -41,7 +41,7 @@ export function Overview({ month, meta }: { month: string; meta: Meta }) {
   const name = (list: { id: string; name: string }[], id: string) => list.find((x) => x.id === id)?.name ?? id;
   const cur = data.trend.find((t) => t.month === data.month);
   const share = (c?: number) => (cur && cur.cents ? Math.round(((c ?? 0) / cur.cents) * 100) : 0);
-  const goCategory = (key: string) => nav(`/transactions?category=${key}`);
+  const goCategory = (key: string) => nav(`/transactions?${new URLSearchParams({ category: key })}`);
   const cat = categoryColors(meta, data.by_category);
   const catName = (id: string) => { const p = parentOf(id); return meta.categories.find((c) => c.id === p)?.name ?? p; };
   const cards = listColors(meta.cards.map((c) => c.id), data.by_card);
