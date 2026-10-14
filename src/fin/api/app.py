@@ -50,6 +50,17 @@ class BulkResolve(BaseModel):
 
 
 
+
+class HashedAssets(StaticFiles):
+    """Vite's hashed build output: safe to cache forever."""
+
+    async def get_response(self, path: str, scope):
+        response = await super().get_response(path, scope)
+        if response.status_code == 200:
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        return response
+
+
 def category_filter(categories: list[str]):
     """Transactions in any of these categories (a parent includes its subcategories).
 
@@ -464,13 +475,16 @@ def create_app(db_file: Path | None = None, web_dist: Path | None = WEB_DIST) ->
     # --------------------------------------------------------- web app
 
     if web_dist and web_dist.exists():
-        app.mount("/assets", StaticFiles(directory=web_dist / "assets"), name="assets")
+        # Built assets have content hashes in their names, so they never change; the page that
+        # names them must be revalidated, or a browser keeps running an old build after updates.
+        app.mount("/assets", HashedAssets(directory=web_dist / "assets"), name="assets")
+        revalidate = {"Cache-Control": "no-cache"}
 
         @app.get("/{path:path}", include_in_schema=False)
         def spa(path: str):
             target = web_dist / path
             if path and target.is_file() and web_dist in target.resolve().parents:
-                return FileResponse(target)
-            return FileResponse(web_dist / "index.html")
+                return FileResponse(target, headers=revalidate)
+            return FileResponse(web_dist / "index.html", headers=revalidate)
 
     return app

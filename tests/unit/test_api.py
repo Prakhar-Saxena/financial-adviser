@@ -193,3 +193,18 @@ def test_transactions_filter_matches_split_parts(client):
         txn_id, part = a.transaction_id, a.category_id
     rows = c.get("/api/transactions", params={"category": part.split(".")[0]}).json()
     assert txn_id in {r["id"] for r in rows}
+
+
+def test_web_build_caching(tmp_path, client):
+    """The page is revalidated on every load; hashed assets are cached forever."""
+    _, db = client
+    (tmp_path / "assets").mkdir()
+    (tmp_path / "index.html").write_text('<script src="/assets/index-abc123.js"></script>')
+    (tmp_path / "assets" / "index-abc123.js").write_text("// build")
+    c = TestClient(create_app(db, web_dist=tmp_path), base_url="http://127.0.0.1")
+    for path in ("/", "/transactions"):
+        r = c.get(path)
+        assert r.status_code == 200 and r.headers["cache-control"] == "no-cache"
+    r = c.get("/assets/index-abc123.js")
+    assert r.status_code == 200 and "immutable" in r.headers["cache-control"]
+    assert "cache-control" not in c.get("/assets/missing.js").headers
