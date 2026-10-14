@@ -165,3 +165,31 @@ def test_transactions_filter_uncategorized(client):
     rows = c.get("/api/transactions", params={"category": "uncategorized"}).json()
     assert target in {r["id"] for r in rows}
     assert all(r["category_id"] in (None, "uncategorized") and r["type"] != "payment" for r in rows)
+
+
+def test_transactions_filter_several_categories(client):
+    """The donut's "Other" links with several categories: the union of each one's rows."""
+    c, _ = client
+    month = c.get("/api/meta").json()["months"][-1]
+    cats = [r["key"] for r in c.get("/api/summary", params={"month": month}).json()["by_category"]]
+    assert len(cats) >= 2
+
+    def ids(category: str) -> set[int]:
+        rows = c.get("/api/transactions", params={"month": month, "category": category}).json()
+        return {r["id"] for r in rows}
+
+    union = set().union(*(ids(k) for k in cats[:2]))
+    assert ids(",".join(cats[:2])) == union and union
+
+
+def test_transactions_filter_matches_split_parts(client):
+    """A split charge is listed under every category it is split into, as in the charts."""
+    c, db = client
+    with session_factory(db)() as s:
+        a = s.scalars(select(m.Allocation).join(
+            m.Transaction, m.Transaction.id == m.Allocation.transaction_id).where(
+            m.Allocation.category_id != m.Transaction.category_id)).first()
+        assert a, "fixture has a split charge with a part outside its main category"
+        txn_id, part = a.transaction_id, a.category_id
+    rows = c.get("/api/transactions", params={"category": part.split(".")[0]}).json()
+    assert txn_id in {r["id"] for r in rows}
