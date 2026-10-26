@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Prakhar Saxena
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Costco receipt transcripts and Costco ↔ card matching (SPEC §9.4, §12.3). Synthetic data."""
 
 import json

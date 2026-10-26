@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Prakhar Saxena
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import type { Meta } from "@/api";
 
 // Categorical colours: CSS variables, validated in light and dark (dataviz validate_palette.js).

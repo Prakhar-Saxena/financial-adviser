@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Prakhar Saxena
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createColumnHelper, flexRender, getCoreRowModel, getSortedRowModel, useReactTable,

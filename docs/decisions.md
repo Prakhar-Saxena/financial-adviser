@@ -420,3 +420,15 @@ Dated record of what was discovered and decided. Newest at the bottom of each da
   available), SPDX `AGPL-3.0-only` in pyproject.toml and web/package.json.
 - To keep dual licensing possible: outside code contributions only under a CLA granting relicensing rights (policy
   still to be decided), and only permissive dependencies (now a CLAUDE.md rule).
+
+### Licence: AGPL-3.0-or-later, no dual licensing (user, 2026-10-25)
+- Supersedes the entry above. The user wants the project free forever: **AGPL-3.0-or-later**, no dual licensing,
+  no commercial-licence option, no CLA. Contributors keep their copyright (`CONTRIBUTING.md`).
+- `LICENSE` replaced with the official text from gnu.org (it differed from GitHub's copy only in line wrapping in
+  the "How to Apply" appendix). `COPYRIGHT` and README no longer offer commercial licences.
+- SPDX `AGPL-3.0-or-later` in pyproject.toml and web/package.json, plus a two-line
+  `Copyright (C) 2026 Prakhar Saxena` / `SPDX-License-Identifier` header in every source file. Skipped: Alembic
+  migrations under `versions/` (generated), `script.py.mako` (Alembic's template), JSON, Markdown and config files.
+- Dashboard footer links to the source (AGPL §13), although `fin serve` binds to 127.0.0.1 only.
+- Dependency audit (installed metadata): all runtime deps are MIT, BSD, Apache-2.0, ISC, PSF-2.0, MIT-0, MIT-CMU or
+  MPL-2.0 (certifi), all compatible. lightningcss (MPL-2.0) is build-only.

@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Prakhar Saxena
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Link statement lines to transactions (decided 2026-10-06; see docs/decisions.md).
 
 Chase's activity export only covers "since last statement", but every statement lists all

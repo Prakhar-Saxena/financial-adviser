@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Prakhar Saxena
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """`fin process`: link → rules → AI → match → allocate → reconcile → review items (SPEC §16).
 
 Idempotent: every step recomputes from the stored data, so running it twice changes nothing.

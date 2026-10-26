@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Prakhar Saxena
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Split a charge across item categories (SPEC §12.4)."""
 
 from __future__ import annotations

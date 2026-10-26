@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Prakhar Saxena
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Per-site playbooks (SPEC §9.1). The agent proposes; the user accepts or rejects."""
 
 from __future__ import annotations

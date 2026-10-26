@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Prakhar Saxena
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Descriptor cleaning (SPEC §10). `description_raw` is always kept as-is."""
 
 from __future__ import annotations

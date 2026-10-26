@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Copyright (C) 2026 Prakhar Saxena
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Guard hook for browsing sessions (SPEC §9.1). Standard library only.
 
 Registered as a PreToolUse and PostToolUse command hook for every tool:

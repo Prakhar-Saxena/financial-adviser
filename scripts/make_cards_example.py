@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Prakhar Saxena
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Generate config/cards.example.json from config/cards.json with fake personal values.
 
 Structure, ids, issuers, sites and products are kept; names and card endings are replaced.

@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Prakhar Saxena
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Spending math for the dashboard (SPEC §13). Cents everywhere; dollars only in the UI.
 
 A transaction's spending lines are its allocations when it has any (item-level splits),

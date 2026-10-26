@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Prakhar Saxena
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """`fin backup`: SQLite online backup into backups/ (SPEC §7). Keeps the newest KEEP copies."""
 
 from __future__ import annotations

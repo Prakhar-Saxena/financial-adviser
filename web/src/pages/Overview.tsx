@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Prakhar Saxena
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import { useQuery } from "@tanstack/react-query";
 import { AreaChart as AreaIcon, BarChart3, ClipboardCheck, Gift, LineChart as LineIcon, ShoppingCart, Wallet } from "lucide-react";
 import { useState } from "react";

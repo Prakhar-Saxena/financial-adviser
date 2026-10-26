@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Prakhar Saxena
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Merchant rules and category precedence (SPEC §10, §13).
 
 Precedence: user override (per transaction) > user rule > seed rule > ai_cache > AI batch >

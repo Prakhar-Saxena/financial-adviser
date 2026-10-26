@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Prakhar Saxena
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Guard hook decisions from hook payloads (SPEC §9.1, §18).
 
 write_pre/write_post.json were recorded from a real Claude Code session. Browser payloads

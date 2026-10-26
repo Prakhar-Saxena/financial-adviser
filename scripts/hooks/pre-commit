@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Copyright (C) 2026 Prakhar Saxena
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # Blocks commits of real data, secrets and large files (SPEC §7).
 # Installed by `fin init` via: git config core.hooksPath scripts/hooks
 set -euo pipefail

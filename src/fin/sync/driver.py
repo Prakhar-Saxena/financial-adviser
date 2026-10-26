@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Prakhar Saxena
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Driven browsing session: the same session as `fin sync`, run from a script (decided 2026-10-06).
 
 The user lets Claude Code run syncs, but the interactive `claude` UI needs a terminal. The

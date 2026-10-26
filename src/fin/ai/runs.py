@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Prakhar Saxena
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Audit-trail folders for classifier calls: ai-runs/<timestamp>_<task>/ (SPEC §6)."""
 
 from __future__ import annotations

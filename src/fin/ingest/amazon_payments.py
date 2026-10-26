@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Prakhar Saxena
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Amazon "Your Payments → Transactions" pages (decided 2026-10-06; SPEC §9.3 extension).
 
 Documented from the first real page (`cpe/yourpayments/transactions`, saved with

@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Prakhar Saxena
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Review items that `fin process` owns (SPEC §8 review kinds).
 
 Each run declares the items it still finds. New ones are created, existing ones are left as
