@@ -83,6 +83,18 @@ def test_repo_gitignore_and_check():
     assert not_ignored
 
 
+def test_source_files_have_license_header():
+    files = subprocess.run(
+        ["git", "ls-files", "*.py", "*.ts", "*.tsx", "*.css", "*.html",
+         "Makefile", "scripts/hooks/pre-commit", "tests/fake_bin/claude"],
+        cwd=REPO, capture_output=True, text=True, check=True,
+    ).stdout.split()
+    files = [f for f in files if not f.startswith("src/fin/db/migrations/versions/")]  # generated
+    missing = [f for f in files if "SPDX-License-Identifier: AGPL-3.0-or-later"
+               not in (REPO / f).read_text(encoding="utf-8")[:300]]
+    assert files and not missing, f"add the CONTRIBUTING.md header to: {missing}"
+
+
 # ------------------------------------------------------------------ redact
 
 
