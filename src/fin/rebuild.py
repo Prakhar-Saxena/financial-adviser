@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Prakhar Saxena
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """`fin rebuild`: regenerate every derived table from raw/ (SPEC §4, §16).
 
 Keeps: imports (the evidence index), user_overrides, user rules, sync_runs and sync_gap

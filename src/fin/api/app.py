@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Prakhar Saxena
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Local dashboard API (SPEC §15.1). Bound to 127.0.0.1 only; trusted hosts localhost/127.0.0.1.
 
 No CORS: the Vite dev server proxies /api to this app, and `fin serve` serves the built app.

@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Prakhar Saxena
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Playwright MCP server config for one browsing run (SPEC §9.1)."""
 
 from __future__ import annotations

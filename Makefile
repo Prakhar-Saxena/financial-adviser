@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Prakhar Saxena
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # Everyday commands. Everything runs in the foreground: Ctrl+C stops it, nothing lingers.
 # `make` or `make help` lists the targets.
 

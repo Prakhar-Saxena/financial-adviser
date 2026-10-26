@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Prakhar Saxena
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { fileURLToPath } from "node:url";

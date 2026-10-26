@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Prakhar Saxena
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Classifier calls through `claude -p`, on the Claude subscription only (SPEC §14).
 
 Never uses --bare and never passes ANTHROPIC_API_KEY; the key is only checked for and

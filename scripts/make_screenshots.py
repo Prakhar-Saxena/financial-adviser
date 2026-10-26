@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Prakhar Saxena
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Mock dashboard screenshots for the README.
 
 Builds a throwaway database of fictional data (the Example household from

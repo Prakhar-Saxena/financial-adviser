@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Prakhar Saxena
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Costco receipts ↔ card transactions (SPEC §12.1, §12.3).
 
 - Every warehouse receipt should match a card transaction in a Costco merchant group with the

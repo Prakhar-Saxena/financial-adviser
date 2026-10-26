@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Prakhar Saxena
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """AI categorization for what rules don't cover (SPEC §14). Cached forever per prompt version.
 
 The classifier only sees cleaned descriptors, amounts and dates (merchants) or item titles

@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Prakhar Saxena
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import { useQuery } from "@tanstack/react-query";
 import { ChartPie, Moon, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -76,6 +79,16 @@ export function App() {
           <Route path="/rules" element={<Rules meta={meta} />} />
         </Routes>
       )}
+      <footer className="mt-10 border-t border-line pt-4 text-xs text-muted">
+        Free software under the{" "}
+        <a className="underline hover:text-ink" href="https://www.gnu.org/licenses/agpl-3.0.html" target="_blank" rel="noreferrer">
+          GNU AGPL v3 or later
+        </a>
+        {" · "}
+        <a className="underline hover:text-ink" href="https://github.com/Prakhar-Saxena/financial-adviser" target="_blank" rel="noreferrer">
+          Source code
+        </a>
+      </footer>
     </div>
   );
 }

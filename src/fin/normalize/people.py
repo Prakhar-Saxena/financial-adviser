@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Prakhar Saxena
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Cardholder attribution (SPEC §9.2, as decided 2026-10-06).
 
 Authorized users' names appear on their transactions. So:

@@ -3,7 +3,7 @@ name = "fin"
 version = "0.1.0"
 description = "Local expense tracker (Financial Adviser MVP)"
 authors = [{ name = "Prakhar Saxena" }]
-license = "AGPL-3.0-only"
+license = "AGPL-3.0-or-later"
 license-files = ["LICENSE", "COPYRIGHT"]
 requires-python = ">=3.12"
 dependencies = [

@@ -12,8 +12,9 @@ Decisions and verified facts: `docs/decisions.md`. Claude CLI spike: `docs/ai-cl
   runs them in their own terminal. Claude takes over after the session ends.
 - If reality disagrees with the spec, stop and say so. Never work around §2.
 - Free, open-source dependencies are pre-approved (user, 2026-10-06); record each in docs/decisions.md.
-- Licence: AGPL-3.0-only, sole copyright holder. Only add dependencies with permissive,
+- Licence: AGPL-3.0-or-later, no dual licensing, no CLA. Only add dependencies with permissive,
   AGPL-compatible licences (MIT, BSD, Apache-2.0, ISC, PSF); no GPL/AGPL/proprietary libraries.
+  New source files start with the `Copyright (C) <year> Prakhar Saxena` + SPDX header.
 
 ## SPEC §2. Hard constraints (non-negotiable)
 

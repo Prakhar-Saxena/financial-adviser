@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Prakhar Saxena
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Typed client for the local API (src/fin/api/app.py). Amounts are integer cents.
 
 export type Row = { key: string; cents: number; name?: string };

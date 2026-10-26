@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Prakhar Saxena
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """`fin import` mechanics (SPEC §9.6).
 
 A browsing-run folder `inbox/<site>/<date>/` is imported from its manifest. Each listed file

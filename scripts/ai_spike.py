@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Prakhar Saxena
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """SPEC §14.3 spike: verify the `claude -p` classifier setup on FAKE records only.
 
 Usage: uv run python scripts/ai_spike.py [--sizes 3,50] [--runs-dir DIR]

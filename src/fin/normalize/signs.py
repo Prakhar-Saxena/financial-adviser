@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Prakhar Saxena
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Amount signs and transaction types (SPEC §8, §9.2).
 
 §8 convention: positive = money out (purchase, fee, interest); negative = money in.

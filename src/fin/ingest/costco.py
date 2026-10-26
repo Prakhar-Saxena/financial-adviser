@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Prakhar Saxena
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Costco warehouse receipts (SPEC §9.4).
 
 Receipts open in a dialog that `browser_pdf_save` doesn't capture (checked on the first

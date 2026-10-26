@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Prakhar Saxena
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Validate a browsing run's manifest.json and run_report.json (SPEC §9.1, §9.6).
 
 The manifest is the agent's claim about each file. Validation here is structural:

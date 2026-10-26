@@ -179,7 +179,9 @@ make screenshots   # README screenshots from a throwaway mock database
 
 Copyright (C) 2026 Prakhar Saxena.
 
-Licensed under the [GNU Affero General Public License v3.0 only](LICENSE) (`AGPL-3.0-only`).
-Commercial licences under other terms are available from the copyright holder.
+Licensed under the [GNU Affero General Public License v3.0 or later](LICENSE) (`AGPL-3.0-or-later`).
+Anyone may use, study, modify and share it. If you distribute it, or run a modified version
+for others over a network, you must offer your full source code under the same licence.
 
-Contributions: please open an issue to discuss before sending code.
+Contributions are welcome under the same licence; no CLA is required. See
+[CONTRIBUTING.md](CONTRIBUTING.md).

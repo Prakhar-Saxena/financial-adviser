@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Copyright (C) 2026 Prakhar Saxena
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Fake `claude` CLI for tests (SPEC §18). Never calls a model.
 
 FAKE_CLAUDE_MODE: ok | limit | limit_text | badjson | schema_invalid | missing_key | error

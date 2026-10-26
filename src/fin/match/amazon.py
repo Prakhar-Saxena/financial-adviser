@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Prakhar Saxena
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Amazon matching and splits (SPEC §12.1, §12.2, §12.4).
 
 Candidates, strongest first:

@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Prakhar Saxena
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Golden tests (fixture -> expected JSON) and parser unit tests (SPEC §18)."""
 
 import json

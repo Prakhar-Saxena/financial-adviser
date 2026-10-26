@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Prakhar Saxena
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 from fin.config import CONFIG_DIR, load_cards
 from fin.normalize.people import PeopleIndex, normalize_name
 
