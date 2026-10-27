@@ -110,9 +110,10 @@ Progress = Callable[[str, str], None]
 
 class CardRefresher:
     def __init__(self, s: Session, paths: DataPaths, settings: Settings, cards: CardsConfig,
-                 fetcher: Fetcher, *, force: bool = False, progress: Progress | None = None):
+                 fetcher: Fetcher, *, force: bool = False, retext: bool = False,
+                 progress: Progress | None = None):
         self.s, self.paths, self.settings, self.cards = s, paths, settings, cards
-        self.fetcher, self.force = fetcher, force
+        self.fetcher, self.force, self.retext = fetcher, force, retext
         self.progress = progress or (lambda card, step: None)
 
     def run(self, card: Card, rep: CardReport, discover_now: bool) -> None:
@@ -127,6 +128,9 @@ class CardRefresher:
         if reason:
             self._discover(card, rep, domains, reason)
             discovered = True
+        if self.retext:
+            self._step(card, rep, "re-read stored files")
+            self.retext_all(card, rep)
         self._step(card, rep, "fetch")
         self.fetch_all(card, rep, domains)
         if not discovered:
@@ -191,6 +195,21 @@ class CardRefresher:
             rep.docs_checked += 1
             if self.fetch_one(card, d, domains) == "changed":
                 rep.docs_changed += 1
+
+    def retext_all(self, card: Card, rep: CardReport) -> None:
+        """Extract text again from the stored files (after the text extraction improved), without
+        downloading anything. A changed text becomes a new version, so extraction reruns."""
+        for d in self.s.scalars(select(m.CardDocument).where(
+                m.CardDocument.card_id == card.id).order_by(m.CardDocument.id)).all():
+            v = docs.latest_ok_version(self.s, d.id)
+            if v is None or not v.file_path or not Path(v.file_path).is_file():
+                continue
+            checked = d.last_checked_at
+            res = docs.store(self.s, self.paths, d, Path(v.file_path).read_bytes(),
+                             v.content_type or "", doc_names(card, self.cards, self.settings,
+                                                             d.doc_type))
+            d.last_checked_at = checked  # not a fetch: keep the date of the last real check
+            rep.docs_changed += res.kind == "changed"
 
     def fetch_one(self, card: Card, d: m.CardDocument, domains: list[str]) -> str:
         prev = docs.latest_ok_version(self.s, d.id)
@@ -268,8 +287,9 @@ class CardRefresher:
         if prev is not None and prev.sha256 == hashlib.sha256(data).hexdigest():
             d.last_checked_at = utcnow()
             return "unchanged"
-        res = docs.store(self.s, self.paths, d, data, ctype,
-                         doc_names(card, self.cards, self.settings, d.doc_type))
+        # I chose this file for this card myself, so it needn't name the card (Chase's pricing
+        # pages, for one, never do). It still has to be a readable document of real length.
+        res = docs.store(self.s, self.paths, d, data, ctype, [])
         if res.kind == "rejected":
             d.status, d.note = "broken", f"manual file rejected: {res.reason}"
         elif d.status != "active":
@@ -294,6 +314,11 @@ class CardRefresher:
             rep.outcome = f"incomplete: {e}"
             review.open_item(self.s, "card_terms_unverified", card.id, "incomplete",
                              {"problem": "incomplete", "message": str(e)})
+            # A pending version the current documents no longer support is withdrawn.
+            pending = compose.current(self.s, card.id, "pending")
+            if pending is not None:
+                pending.status, pending.decided_at = "superseded", utcnow()
+                review.close_items(self.s, "card_terms_pending", card.id, "pending")
             return
         review.close_items(self.s, "card_terms_unverified", card.id, "incomplete")
         if dropped:
@@ -396,7 +421,7 @@ def start_run(s: Session, trigger: str, card_ids: list[str]) -> m.CardRefreshRun
 
 def refresh(s: Session, paths: DataPaths, settings: Settings, cards: CardsConfig, *,
             card_ids: list[str] | None = None, discover: bool = False, force: bool = False,
-            if_due: bool = False, trigger: str = "cli",
+            retext: bool = False, if_due: bool = False, trigger: str = "cli",
             transport: httpx.BaseTransport | None = None,
             sleep: Callable[[float], None] = time.sleep, progress: Progress | None = None,
             run: m.CardRefreshRun | None = None) -> RefreshResult:
@@ -411,7 +436,7 @@ def refresh(s: Session, paths: DataPaths, settings: Settings, cards: CardsConfig
         if run is None:
             run = start_run(s, trigger, [c.id for c in wanted])
         fetcher = Fetcher(settings.cards, transport, sleep=sleep)
-        worker = CardRefresher(s, paths, settings, cards, fetcher, force=force,
+        worker = CardRefresher(s, paths, settings, cards, fetcher, force=force, retext=retext,
                                progress=progress)
         reports: list[CardReport] = []
         errors: list[str] = []

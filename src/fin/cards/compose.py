@@ -73,7 +73,7 @@ def merchant_key(s: Session, name: str) -> str:
 
 def _evidence(items: list[dict], refs: dict[str, int]) -> list[dict]:
     return [{"doc": e["doc"], "page": e.get("page"), "quote": e["quote"],
-             "doc_version_id": refs.get(e["doc"])} for e in items]
+             "doc_version_id": refs.get(e["doc"])} for e in items if e.get("_ok", True)]
 
 
 def _ok(item: dict) -> bool:
@@ -219,11 +219,13 @@ def diff(old: CardProfile | None, new: CardProfile) -> dict[str, Any]:
                                      ("credits", CREDIT_MATERIAL), ("benefits", ())):
         a, b = _keyed(getattr(old, section)), _keyed(getattr(new, section))
         for k in a.keys() - b.keys():
+            terms = {"terms": _credit_terms(a[k])} if section == "credits" else {}
             d["removed"].append({"section": section, "item": _label(section, a[k]),
-                                 "material": True})
+                                 "material": True, **terms})
         for k in b.keys() - a.keys():
+            terms = {"terms": _credit_terms(b[k])} if section == "credits" else {}
             d["added"].append({"section": section, "item": _label(section, b[k]),
-                               "material": section != "benefits"})
+                               "material": section != "benefits", **terms})
         for k in a.keys() & b.keys():
             fields = _changed_fields(a[k], b[k])
             if fields:
@@ -232,12 +234,32 @@ def diff(old: CardProfile | None, new: CardProfile) -> dict[str, Any]:
                                      "material": any(f in material_fields for f in fields)})
             elif a[k] != b[k]:
                 d["reworded"].append({"section": section, "item": _label(section, b[k])})
+    _pair_renamed_credits(d)
     if old.notes != new.notes:
         d["reworded"].append({"section": "notes", "item": "notes"})
     for key in ("added", "removed", "changed"):
         d[key].sort(key=lambda x: (x["section"], x["item"]))
     d["material"] = any(x["material"] for k in ("added", "removed", "changed") for x in d[k])
     return d
+
+
+def _credit_terms(c: Credit) -> list:
+    return [c.amount_cents, c.period, sorted(c.merchants), sorted(c.categories),
+            c.enrollment_required]
+
+
+def _pair_renamed_credits(d: dict[str, Any]) -> None:
+    """A credit removed and one added with the same amount, period, merchants and categories is
+    the same credit under a new name: reworded, not material."""
+    for r in list(d["removed"]):
+        match = next((a for a in d["added"] if r.get("terms") and a.get("terms") == r["terms"]),
+                     None)
+        if match is not None:
+            d["removed"].remove(r)
+            d["added"].remove(match)
+            d["reworded"].append({"section": "credits", "item": f"{r['item']} -> {match['item']}"})
+    for x in d["removed"] + d["added"]:
+        x.pop("terms", None)
 
 
 # --------------------------------------------------------------------------- versions
