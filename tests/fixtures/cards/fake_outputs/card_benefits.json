@@ -1,0 +1,33 @@
+{
+  "benefits": [
+    {
+      "kind": "extended_warranty",
+      "name": "Extended Warranty Protection",
+      "summary": "Extends an eligible manufacturer's warranty of 3 years or less by one additional year.",
+      "limits": "up to $10,000 per claim",
+      "coverage": null,
+      "evidence": [
+        {
+          "doc": "D1",
+          "page": 2,
+          "quote": "Extended Warranty Protection extends the time period of the original manufacturer's written U.S. warranty by one additional year, up to $10,000 per claim."
+        }
+      ]
+    },
+    {
+      "kind": "rental_car_cdw",
+      "name": "Auto Rental Collision Damage Waiver",
+      "summary": "Covers theft and collision damage for most rental cars when you decline the rental company's coverage.",
+      "limits": "up to the actual cash value of the vehicle",
+      "coverage": "secondary",
+      "evidence": [
+        {
+          "doc": "D1",
+          "page": 3,
+          "quote": "This coverage is secondary to your personal auto insurance."
+        }
+      ]
+    }
+  ],
+  "notes": []
+}

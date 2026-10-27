@@ -3,9 +3,10 @@
 
 """`fin rebuild`: regenerate every derived table from raw/ (SPEC §4, §16).
 
-Keeps: imports (the evidence index), user_overrides, user rules, sync_runs and sync_gap
-review items. Everything else is deleted and rebuilt by re-running each imported file's
-parser in the original import order. `fin process` then redoes matching and categories.
+Keeps: imports (the evidence index), user_overrides, user rules, sync_runs, sync_gap
+review items, and every card optimizer table and review kind (docs/SPEC-cards.md §6).
+Everything else is deleted and rebuilt by re-running each imported file's parser in the
+original import order. `fin process` then redoes matching and categories.
 """
 
 from __future__ import annotations
@@ -24,6 +25,8 @@ from fin.ingest.inbox import PARSERS, safe_error
 DERIVED = [m.Allocation, m.Match, m.OrderCharge, m.OrderItem, m.Order, m.StatementLine,
            m.Transaction, m.Statement, m.Merchant, m.AIRun]
 
+KEPT_REVIEW_KINDS = ("sync_gap", *m.CARD_REVIEW_KINDS)
+
 
 @dataclass
 class RebuildResult:
@@ -34,7 +37,7 @@ class RebuildResult:
 
 def rebuild(s: Session) -> RebuildResult:
     load_parsers()
-    s.execute(delete(m.ReviewItem).where(m.ReviewItem.kind != "sync_gap"))
+    s.execute(delete(m.ReviewItem).where(m.ReviewItem.kind.not_in(KEPT_REVIEW_KINDS)))
     for table in DERIVED:
         s.execute(delete(table))
     s.execute(delete(m.Rule).where(m.Rule.created_by == "seed"))

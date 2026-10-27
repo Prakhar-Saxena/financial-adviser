@@ -1,0 +1,43 @@
+{
+  "documents": [
+    {
+      "url": "https://www.example.com/cards/everyday-visa?utm_source=search#rates",
+      "doc_type": "product_page",
+      "title": "Example Bank Everyday Visa",
+      "why": "The issuer's product page for this card.",
+      "confidence": 0.95
+    },
+    {
+      "url": "https://www.example.com/cards/everyday-visa/rewards-terms",
+      "doc_type": "rewards_terms",
+      "title": "Everyday Visa Rewards Terms",
+      "why": "Rewards program terms for the card.",
+      "confidence": 0.9
+    },
+    {
+      "url": "https://docs.example.com/benefits/everyday-visa-guide.pdf",
+      "doc_type": "benefits_guide",
+      "title": "Guide to Benefits",
+      "why": "Benefits guide PDF linked from the product page.",
+      "confidence": 0.85
+    },
+    {
+      "url": "https://www.example.com/cards/everyday-visa",
+      "doc_type": "product_page",
+      "title": "Duplicate of the product page",
+      "why": "Same page without tracking parameters.",
+      "confidence": 0.5
+    },
+    {
+      "url": "https://reviews.example.org/everyday-visa",
+      "doc_type": "other",
+      "title": "A third-party review",
+      "why": "Off the allowlist; code must drop it.",
+      "confidence": 0.3
+    }
+  ],
+  "not_found": [
+    "cardmember_agreement"
+  ],
+  "notes": "Fictional fixture for tests."
+}

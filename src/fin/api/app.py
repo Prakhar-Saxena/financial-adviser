@@ -20,7 +20,9 @@ from sqlalchemy import exists, func, or_, select
 from sqlalchemy.orm import Session
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
+from fin.api.routes.cards import cards_router, require_json
 from fin.api.spending import SPENDING_TYPES, months_with_data, summarize, txn_month
+from fin.cards.refresh import abort_stale_runs
 from fin.config import REPO_ROOT, data_paths, load_cards, load_settings, load_taxonomy
 from fin.db import models as m
 from fin.db import session_factory
@@ -300,7 +302,7 @@ def create_app(db_file: Path | None = None, web_dist: Path | None = WEB_DIST) ->
         return {"transactions": sum(hits.values()),
                 "descriptions": sorted(hits.items(), key=lambda kv: -kv[1])[:20]}
 
-    @app.post("/api/process")
+    @app.post("/api/process", dependencies=[Depends(require_json)])
     def reprocess(s: Session = Depends(db)):
         """Re-run fin process without AI, so new rules and corrections apply now."""
         from fin.pipeline import process
@@ -474,6 +476,14 @@ def create_app(db_file: Path | None = None, web_dist: Path | None = WEB_DIST) ->
                         "files_imported": run.files_imported if run else 0,
                         "guard_blocks": run.guard_blocks if run else 0, "open_gaps": gaps})
         return out
+
+    # ------------------------------------------------------------- cards
+
+    settings = load_settings()
+    paths = data_paths(settings)
+    with Session_() as s:
+        abort_stale_runs(s)
+    app.include_router(cards_router(db, settings, cards, paths))
 
     # --------------------------------------------------------- web app
 

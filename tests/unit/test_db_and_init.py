@@ -31,7 +31,10 @@ def test_migration_matches_models(db):
     assert diff == []
     tables = set(inspect(engine).get_table_names())
     for t in ("transactions", "statements", "orders", "order_items", "order_charges", "matches",
-              "allocations", "review_items", "ai_cache", "sync_runs", "user_overrides"):
+              "allocations", "review_items", "ai_cache", "sync_runs", "user_overrides",
+              "card_documents", "card_doc_versions", "card_extractions", "card_profiles",
+              "merchant_profiles", "merchant_aliases", "card_facts", "card_refresh_runs",
+              "card_discoveries"):
         assert t in tables
 
 

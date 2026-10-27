@@ -32,3 +32,46 @@ unmatched_grace_days = 5
 host = "127.0.0.1"
 api_port = 8765
 web_dev_port = 5173
+
+[cards]                       # card optimizer (docs/SPEC-cards.md §15)
+refresh_days = 30             # check the known documents monthly
+rediscover_days = 120         # look for new or moved documents
+research_model = "sonnet"     # card_discover
+extract_model = "sonnet"      # card_terms, card_benefits
+merchant_model = "haiku"      # merchant_profile; never another model
+discover_max_turns = 30
+discover_max_searches = 20    # CLAUDE_CODE_MAX_WEB_SEARCHES_PER_SESSION for card_discover
+timeout_seconds = 900
+max_doc_mb = 25
+max_extract_chars = 240000
+min_request_interval_s = 3
+auto_publish = false          # true: material changes publish without my approval
+default_amount_cents = 10000
+count_unused_credits = true
+tips_months = 3
+user_agent = "fin-card-docs/0.1 (personal use)"
+
+# Where documents may come from. Bare domains; subdomains are included. A card's list is its
+# issuer's allowed_domains in cards.json + "common" + its issuer's key + its own key.
+# Review changes here like code.
+[cards.doc_domains]
+common = ["consumerfinance.gov"]
+chase_prime_visa = ["amazon.com"]   # co-brand partners' card pages
+citi_costco = ["costco.com"]
+
+[cards.product_aliases]       # for the "mentions the product" check (® and ™ ignored)
+amex_platinum = ["Platinum Card"]
+amex_gold = ["Gold Card"]
+chase_sapphire_reserve = ["Sapphire Reserve"]
+chase_freedom_unlimited = ["Freedom Unlimited"]
+chase_prime_visa = ["Prime Visa"]
+citi_costco = ["Costco Anywhere Visa"]
+
+[cards.valuations]            # cents per point; defaults that the dashboard can override
+cash_back = 1.0
+amex_mr = 1.0
+chase_ur = 1.0
+citi_typ = 1.0
+
+[cards.currency]              # optional: override the currency a card earns, for example
+# chase_freedom_unlimited = "chase_ur"   # if I move Freedom Unlimited points to the Sapphire Reserve

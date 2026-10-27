@@ -432,3 +432,126 @@ Dated record of what was discovered and decided. Newest at the bottom of each da
 - Dashboard footer links to the source (AGPL §13), although `fin serve` binds to 127.0.0.1 only.
 - Dependency audit (installed metadata): all runtime deps are MIT, BSD, Apache-2.0, ISC, PSF-2.0, MIT-0, MIT-CMU or
   MPL-2.0 (certifi), all compatible. lightningcss (MPL-2.0) is build-only.
+
+## 2026-10-26 (Card optimizer, Phase C0)
+
+### Spec changes (approved by starting C0)
+- SPEC-cards §3 copied into `docs/SPEC.md` (§2.2, §2.3, §2.5, §7 repo hygiene / what Claude sees / untrusted
+  input, §16 `fin cards`) and, shortened, into `CLAUDE.md`, plus a pointer to `docs/SPEC-cards.md`.
+
+### Built
+- `[cards]` settings → `CardsSettings` (`fin.config`). Additions to SPEC-cards §15:
+  - `discover_max_searches = 20` (the `CLAUDE_CODE_MAX_WEB_SEARCHES_PER_SESSION` value, instead of a literal)
+  - `merchant_model` is `Literal["haiku"]`, like `classify_model`
+  - `user_agent` may not contain "Mozilla", so it can't imitate a browser
+  - `domains_for(card, issuer)` builds a card's allowlist: issuer domains + common + issuer key + card key
+- `config/reward_categories.json`: the 33 §4 ids with names, descriptions and MCC hints; `__REWARD_CATEGORY_IDS__`
+  and `__BENEFIT_KINDS__` schema placeholders are filled at call time like `__CATEGORY_IDS__`.
+- `config/merchant_profiles.yaml` (seeds) is **deferred to C2**, where seeds are built and the Costco/Visa
+  acceptance fact gets checked and sourced.
+- `fin.cards.models`: CardProfile, EarnRule, Cap, Credit, Benefit, Fee, Evidence, MerchantProfile (pydantic).
+  Money is cents in profiles. The **extraction schemas use US dollars** (`amount_usd`, `usd`), as the documents
+  write them; compose converts. Identities for diffs: a rule's scope, a credit's normalized name + period, a
+  benefit's kind.
+- Migration 0005: the eight §6 tables, partial unique indexes for "one active / one pending profile per card",
+  an expression index `(kind, COALESCE(card_id,''), ref, COALESCE(period,''))` on card_facts, and the three new
+  review kinds (batch-mode table rebuild). Both are hand-added; autogenerate can't see them on SQLite.
+  ORM class names `CardProfileVersion` and `MerchantProfileRow` avoid clashing with the pydantic models.
+- `fin rebuild` keeps all card tables and `card_*` review items. A test checks that no card table has a foreign
+  key to a table rebuild deletes; they reference only `cards` and each other.
+- `fin init` creates `card-docs/{files,text,manual}` and `locks/` (700). **Fix:** `fin init` on an existing DB
+  now migrates through `ensure_current()` (backup first). Before the fix it called `upgrade()` directly, so this
+  session's `fin init` moved the real DB from 0004 to 0005 without a pre-migration backup. Checked afterwards:
+  288 transactions and 59 review items intact.
+- `fin doctor`: `[cards]` settings valid with bare domains, reward_categories.json loads, every card has product
+  aliases, `card-docs/` is 700. All green on the real setup.
+- `fin cards status` (Typer sub-app `fin.cards.cli`), empty state for now. `make cards` added.
+- `fin.ai.claude_cli`:
+  - `build_argv` (classifier) unchanged: haiku only, same flags.
+  - New `Invocation` + `research_invocation`, `extract_invocation`, `merchant_invocation(web=…, effort=…)`
+  - Roles with tools add `--setting-sources ""`, `--permission-mode dontAsk`, `--disallowedTools "mcp__*"`,
+    `--no-chrome`; WebFetch gets one `domain:x` and one `domain:*.x` rule per allowlisted domain.
+  - `run_task(..., invocation=)` refuses extra env vars named `ANTHROPIC_*` or `CLAUDE_CODE_USE_*`, and records
+    role, allowed domains and permission denials (tool + URL) in meta.json.
+  - Every call holds `locks/claude.lock` (`fcntl.flock`) from the auth check to exit. `lock_wait=` raises
+    `AIBusyError` instead of waiting forever (for the dashboard's 120-second lookups).
+- Fake `claude`: canned outputs by `--system-prompt-file` name from `tests/fixtures/cards/fake_outputs/`
+  (fictional "Example Bank Everyday Visa"), merchant_profile results per record, modes `bad_quote` and `bad_number`.
+- Tests: an autouse fixture now points `FIN_DATA_DIR` at a tmp dir for every test. Before it, the first run of the
+  classifier tests created an empty `locks/claude.lock` in the real data dir (700/600, harmless; `fin init`
+  creates the same).
+
+### Spike (details in ai-cli-notes.md)
+- Checks 1, 2, 3 and 6 pass. Check 5 done: discover and terms on Chase Freedom Unlimited, terms with sonnet and
+  haiku side by side for the user to choose.
+- **Check 4 gap:** WebFetch saved a fetched PDF to `~/.claude/projects/<run-dir>/<session>/tool-results/` despite
+  `--no-session-persistence`. Proposed fix: after every call with tools, delete `~/.claude/projects/<slug of the
+  run dir>/` (unique per run folder, so nothing else is touched), and have `fin doctor` warn about leftover
+  `*ai-runs*` folders there. Waiting for the user's OK. The one folder from the spike is left in place for review.
+- `scripts/cards_spike.py` uses `httpx` from the dev group. It moves to runtime dependencies in C1 with the fetcher.
+
+### C0 review (user, 2026-10-26)
+- **Documents are permanent, never ephemeral.** The user's requirement: once fetched, documents stay as reusable
+  context (across restarts, and across searches such as "gas station" then "walmart"). This is the SPEC-cards §5
+  design: Python stores every document version in `card-docs/` and indexes it in the DB. Searches never download
+  anything, and the monthly refresh re-reads only changed text.
+- **Spike gap 4 fixed** (approved): WebFetch's stray copies under `~/.claude/projects/<run slug>/` are deleted
+  after every `claude -p` call (`remove_run_leftovers`, in a `finally`, so timeouts too). Only the folder named
+  for that run's own cwd is touched. `fin doctor` warns about leftovers for `ai-runs/` folders. The spike's
+  leftover folder was removed this way, and doctor now shows PASS.
+- `extract_model` stays **sonnet**.
+- `merchant_profile` runs with **`--effort low`** from Phase C2.
+
+## 2026-10-26 (Card optimizer, Phase C1)
+
+### Built
+- `fin.cards`: `fetch` (httpx; HTTPS only, allowlist on every redirect hop, robots.txt for our user agent,
+  a new client per document so no cookies, ETag/Last-Modified, `max_doc_mb` streamed, per-host pacing, challenge
+  pages → `blocked`), `docs` (store: `files/<sha[:2]>/<sha>.<ext>`, `text/<text_sha>.txt`, 600/700; PDF via
+  pdfplumber with `[[page N]]`, HTML via BeautifulSoup without scripts/nav/forms/cookie banners, `[[section N]]`
+  per h1–h3, table rows as `a | b`), `discover`, `extract` (input_key cache, page budget), `verify`, `compose`,
+  `refresh`, `review`. CLI: `refresh`, `accept`, `reject`, `sources`, `add-source`, `add-doc`.
+  `make cards-refresh [CARD=…]` (alias `make card-research`).
+- `fin weekly` runs `fin cards refresh --if-due --trigger weekly` after `fin process` (skipped with `--no-ai`);
+  its exit code is ignored.
+- API `src/fin/api/routes/cards.py`: profiles, accept/reject, refresh in a background thread with progress,
+  documents (PDF inline, HTML only as extracted text, nosniff, paths confined to `card-docs/`). New POSTs and
+  the existing `POST /api/process` answer 415 without `Content-Type: application/json`; the web client already
+  sent it, and now also sends a `{}` body to `/api/process`.
+- Dashboard: "Best card" tab with the Card terms view (Find a card / Missed rewards greyed out until C2/C3);
+  Review page groups for the three card review kinds. Best card renders even before any transactions exist
+  (the other pages still wait for data).
+- `prompts/card_terms.md` 2026-10-26.2: dates stated in prose go into `valid_from`/`valid_to` (spike finding).
+- Fixtures: fictional Example Bank pages in `tests/fixtures/cards/docs/`, the benefits-guide PDF made by
+  `scripts/make_card_fixtures.py` (headless Chrome). 34 new tests (406 total).
+- Dependency: **httpx** moved from dev to runtime (BSD-3-Clause).
+
+### Choices the spec left open
+- **Migration 0006 `card_discoveries`**: one row per `card_discover` call, so "when did we last look" survives a
+  discovery that found nothing new (`card_documents.discovered_at` can't tell). Kept by `fin rebuild`.
+- **Discovery throttle:** besides `rediscover_days`, problem-triggered discovery (broken/blocked/no documents)
+  runs at most once a week per card unless `--discover`. Otherwise a card whose guide is blocked would spend a
+  sonnet+search call on every refresh. Consequence: a document that breaks in the same run as its discovery
+  waits a week (or `--discover`) before rediscovery; its `card_source_problem` item opens right away.
+- **Material changes** also include an added earn rule or credit (it changes what a search recommends); an
+  added benefit is not material. The spec lists only changes and removals.
+- **Usable documents:** a broken/blocked/needs_browser document's last good text keeps being read until an
+  active document of the same type has text; then the broken one is `retired`. Dropping it at once would remove
+  rules and propose a pending version just because a URL moved.
+- **Thin or wrong page** (< 1,500 chars or doesn't name the product; program-level documents may name the
+  issuer instead) → version row `rejected` with no file, document `needs_browser`. Unsupported type, unreadable
+  file or > `max_doc_mb` → `broken`. Robots disallow → `blocked`. Plain 5xx/429/timeouts count as failures
+  (3 in a row → `broken`); 503 counts as a block only with challenge-page markers.
+- **Manual drop zone:** file type guessed from the file name (`benefit`/`guide` → benefits_guide, `agreement`,
+  `pricing`/`rates`, `program`, `reward`/`terms`; otherwise product_page). `add-doc --type` sets it exactly.
+- **Currency id:** Membership Rewards → `amex_mr`, Ultimate Rewards → `chase_ur`, ThankYou → `citi_typ`,
+  `cash_back` kind → `cash_back`, else `<issuer>_<kind>`. `[cards.currency]` overrides. Freedom Unlimited's
+  documents say "cash back", so it gets `cash_back` until the user sets `chase_freedom_unlimited = "chase_ur"`.
+- Caps that name other rules in `shared_with` get `shared_id = cap_<period>_<cents>`.
+- Merchant names in documents become `kb` merchant profiles with no category yet (C2's merchant_profile fills it).
+- The valuations / pooling form in the Card terms view is left for C2, with the settings API (§16 puts that API
+  in C2). Valuations show read-only from settings.
+
+### Not built (not met yet)
+- Browser fetch mode (§7.2): built only if a real page needs it. Waiting for the first real refresh.
+- C1 acceptance 1, 2 and 6 need the user's real refreshes (one card first, then all six with approval).

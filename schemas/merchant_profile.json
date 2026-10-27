@@ -1,0 +1,133 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "results"
+  ],
+  "properties": {
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "is_merchant",
+          "match_key",
+          "new",
+          "confidence"
+        ],
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "is_merchant": {
+            "type": "boolean"
+          },
+          "match_key": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "new": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "key",
+                  "display_name",
+                  "reward_category",
+                  "mcc_guess",
+                  "acceptance",
+                  "notes"
+                ],
+                "properties": {
+                  "key": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_]*$",
+                    "maxLength": 60
+                  },
+                  "display_name": {
+                    "type": "string",
+                    "maxLength": 80
+                  },
+                  "reward_category": {
+                    "type": "string",
+                    "enum": [
+                      "__REWARD_CATEGORY_IDS__"
+                    ]
+                  },
+                  "mcc_guess": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "pattern": "^[0-9]{4}$"
+                  },
+                  "acceptance": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "amex",
+                      "visa",
+                      "mastercard",
+                      "discover"
+                    ],
+                    "properties": {
+                      "amex": {
+                        "type": "string",
+                        "enum": [
+                          "yes",
+                          "no",
+                          "unknown"
+                        ]
+                      },
+                      "visa": {
+                        "type": "string",
+                        "enum": [
+                          "yes",
+                          "no",
+                          "unknown"
+                        ]
+                      },
+                      "mastercard": {
+                        "type": "string",
+                        "enum": [
+                          "yes",
+                          "no",
+                          "unknown"
+                        ]
+                      },
+                      "discover": {
+                        "type": "string",
+                        "enum": [
+                          "yes",
+                          "no",
+                          "unknown"
+                        ]
+                      }
+                    }
+                  },
+                  "notes": {
+                    "type": "string",
+                    "maxLength": 300
+                  }
+                }
+              }
+            ]
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        }
+      }
+    }
+  }
+}

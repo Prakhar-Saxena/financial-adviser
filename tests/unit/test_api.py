@@ -112,7 +112,8 @@ def test_rule_editor_flow(client):
     assert c.get("/api/rules/preview", params={"pattern": "("}).status_code == 422
     rid = c.post("/api/rules", json={"pattern": "MICROSOFT", "category_id": "bills.internet"}
                  ).json()["id"]
-    assert c.post("/api/process").status_code == 200
+    assert c.post("/api/process").status_code == 415  # needs JSON (SPEC-cards §12)
+    assert c.post("/api/process", json={}).status_code == 200
     t = next(t for t in c.get("/api/transactions").json() if t["description"] == "MICROSOFT")
     assert (t["category_id"], t["category_source"]) == ("bills.internet", "rule")
     assert c.delete(f"/api/rules/{rid}").json() == {"deleted": rid}

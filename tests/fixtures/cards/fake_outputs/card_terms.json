@@ -1,0 +1,142 @@
+{
+  "currency_name": "Everyday Points",
+  "currency_kind": "points",
+  "annual_fee": {
+    "usd": 95,
+    "evidence": [
+      {
+        "doc": "D1",
+        "page": 2,
+        "quote": "Annual fee: $95"
+      }
+    ]
+  },
+  "foreign_transaction_fee": {
+    "percent": 0,
+    "evidence": [
+      {
+        "doc": "D1",
+        "page": 2,
+        "quote": "No foreign transaction fees"
+      }
+    ]
+  },
+  "earn_rules": [
+    {
+      "is_base": false,
+      "rate": 4,
+      "rate_unit": "points",
+      "categories": [
+        "supermarkets"
+      ],
+      "merchant_names": [],
+      "channel": "any",
+      "portal": "",
+      "geography": "us",
+      "prepaid_only": false,
+      "requirements": [],
+      "valid_from": null,
+      "valid_to": null,
+      "cap": {
+        "amount_usd": 25000,
+        "period": "calendar_year",
+        "rate_after": 1,
+        "shared_with": ""
+      },
+      "excluded_categories": [
+        "wholesale_clubs",
+        "discount_stores"
+      ],
+      "exclusions": [
+        "superstores",
+        "warehouse clubs"
+      ],
+      "description": "4X at U.S. supermarkets on up to $25,000 a year, then 1X.",
+      "evidence": [
+        {
+          "doc": "D1",
+          "page": 1,
+          "quote": "Earn 4X points at U.S. supermarkets on up to $25,000 in purchases per calendar year, then 1X."
+        }
+      ]
+    },
+    {
+      "is_base": false,
+      "rate": 3,
+      "rate_unit": "points",
+      "categories": [
+        "dining"
+      ],
+      "merchant_names": [],
+      "channel": "any",
+      "portal": "",
+      "geography": "any",
+      "prepaid_only": false,
+      "requirements": [],
+      "valid_from": null,
+      "valid_to": null,
+      "cap": null,
+      "excluded_categories": [],
+      "exclusions": [],
+      "description": "3X at restaurants worldwide.",
+      "evidence": [
+        {
+          "doc": "D1",
+          "page": 1,
+          "quote": "Earn 3X points at restaurants worldwide."
+        }
+      ]
+    },
+    {
+      "is_base": true,
+      "rate": 1,
+      "rate_unit": "points",
+      "categories": [],
+      "merchant_names": [],
+      "channel": "any",
+      "portal": "",
+      "geography": "any",
+      "prepaid_only": false,
+      "requirements": [],
+      "valid_from": null,
+      "valid_to": null,
+      "cap": null,
+      "excluded_categories": [],
+      "exclusions": [],
+      "description": "1X on all other purchases.",
+      "evidence": [
+        {
+          "doc": "D1",
+          "page": 1,
+          "quote": "Earn 1X points on all other purchases."
+        }
+      ]
+    }
+  ],
+  "credits": [
+    {
+      "name": "Dining credit",
+      "amount_usd": 10,
+      "period": "month",
+      "merchant_names": [
+        "Example Eats"
+      ],
+      "categories": [],
+      "enrollment_required": true,
+      "posts_as": "statement_credit",
+      "valid_from": null,
+      "valid_to": null,
+      "description": "Up to $10 in statement credits each month at Example Eats.",
+      "evidence": [
+        {
+          "doc": "D2",
+          "page": 1,
+          "quote": "up to $10 in statement credits each month when you pay with your card at Example Eats. Enrollment required."
+        }
+      ]
+    }
+  ],
+  "notes": [
+    "Welcome offer of 60,000 points is a sign-up promotion and isn't an earn rule."
+  ]
+}
