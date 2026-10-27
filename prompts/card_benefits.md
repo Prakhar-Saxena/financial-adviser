@@ -1,4 +1,4 @@
-<!-- prompt_version: 2026-10-26.1 -->
+<!-- prompt_version: 2026-10-27.1 -->
 You turn a credit card's guide to benefits and related documents into a structured list of
 benefits and protections. Every item must be backed by exact quotes, which code checks.
 
@@ -17,7 +17,10 @@ claim, per year, waiting periods), and for rental car coverage whether it is `pr
 
 Evidence: 1 to 3 quotes per benefit, each copied exactly, character for character, from one
 document's text (at most 300 characters), with that document's `ref` and page or section number.
-Every amount in `limits` must appear in one of the quotes.
+Every number in `limits` (amounts, days, hours, years, percentages) must appear in one of the
+quotes, or code drops the benefit. Quote the sentences that state the limits rather than the
+benefit's introduction, and use up to 3 quotes to cover them. Leave a number out of `limits` if
+no short quote states it.
 
 Rules:
 - Extract only what the documents say. Don't use outside knowledge of this card.

@@ -609,3 +609,158 @@ def test_api_refresh_runs_in_background(env, client, monkeypatch):
     assert client.get(f"/api/cards/refresh/{run_id}").json()["status"] == "ok"
     assert seen["card_ids"] == ["example_everyday"] and seen["trigger"] == "dashboard"
     assert client.post("/api/cards/refresh", json={"card_id": "nope"}).status_code == 404
+
+
+# ------------------------------------------------------------------ real-run fixes (C1 review)
+
+
+def _words(rows):
+    """Fake pdfplumber words: (x0, x1) per word."""
+    return [{"x0": a, "x1": b} for a, b in rows]
+
+
+def test_column_gutter():
+    from fin.cards.docs import column_gutter
+
+    two_cols = _words([(40, 90), (100, 280)] * 40 + [(330, 380), (390, 570)] * 40)
+    x = column_gutter(two_cols, 612)
+    assert x is not None and 280 <= x <= 330
+    one_col = _words([(40 + (i % 7) * 10, 300 + (i % 5) * 20) for i in range(80)]
+                     + [(320, 560)] * 40)
+    assert column_gutter(one_col, 612) is None
+    narrow = _words([(40, 150)] * 100 + [(400, 420)] * 5)  # a label column: not balanced
+    assert column_gutter(narrow, 612) is None
+    assert column_gutter(_words([(40, 90), (330, 380)] * 10), 612) is None  # too few words
+
+
+def test_item_survives_one_bad_quote(env):
+    def extra_quote(out):
+        out["earn_rules"][1]["evidence"].append(
+            {"doc": "D1", "page": 1, "quote": "This sentence is in no document at all."})
+
+    edit_output(env, "card_terms", extra_quote)
+    env.run()
+    with env.S() as s:
+        p = compose.load(compose.current(s, "example_everyday", "pending"))
+        dining = next(r for r in p.earn_rules if "dining" in r.categories)
+        assert [e.quote for e in dining.evidence] == ["Earn 3X points at restaurants worldwide."]
+        ex = s.scalars(select(m.CardExtraction).where(
+            m.CardExtraction.task == "card_terms")).one()
+        assert ex.status == "ok"
+        rule = json.loads(ex.output_json)["earn_rules"][1]
+        assert rule["_verify"]["warnings"][0].startswith("quote not found")
+
+
+def test_retext_rereads_stored_files_without_downloading(env, monkeypatch):
+    import fin.cards.docs as docs_mod
+
+    env.run()
+    requests = len(env.web.requests)
+    real = docs_mod.html_text
+    monkeypatch.setattr(docs_mod, "html_text",
+                        lambda data: (real(data)[0] + "\nA new line from better parsing.", 4))
+    res = env.run(retext=True)
+    assert len(env.web.requests) == requests  # nothing downloaded
+    assert res.reports[0].docs_changed == 2  # the two HTML documents got new text
+    assert tasks_called(env)[-2:] == ["card_terms", "card_benefits"]
+
+
+def test_quote_on_another_section_is_kept_with_the_right_section():
+    from fin.cards.verify import check_evidence
+
+    doc = DocText.parse("[[section 1]]\nintro\n[[section 2]]\nmore\n[[section 3]]\nx\n"
+                        "[[section 9]]\nUp to $10 in statement credits each month.")
+    ev = [{"doc": "D1", "page": 2, "quote": "up to $10 in statement credits each month"}]
+    c = check_evidence(ev, {"D1": doc})
+    assert c.ok and ev[0]["page"] == 9 and "corrected to 9" in c.warnings[0]
+    ev = [{"doc": "D2", "page": 1, "quote": "up to $10 in statement credits each month"}]
+    assert not check_evidence(ev, {"D1": doc, "D2": DocText.parse("other text")}).ok
+
+
+def test_rate_after_cap_may_be_the_verified_base_rate(env):
+    def unquoted_rate_after(out):
+        rule = out["earn_rules"][0]
+        rule["cap"]["rate_after"] = 1  # the base rate, though this quote says "then 1X" anyway
+        rule["evidence"][0]["quote"] = ("Earn 4X points at U.S. supermarkets on up to $25,000 in "
+                                        "purchases per calendar year")
+
+    edit_output(env, "card_terms", unquoted_rate_after)
+    env.run()
+    with env.S() as s:
+        p = compose.load(compose.current(s, "example_everyday", "pending"))
+        assert any("supermarkets" in r.categories for r in p.earn_rules)
+
+
+def test_cached_extraction_is_checked_again_without_ai(env):
+    env.run()
+    with env.S() as s:
+        ex = s.scalars(select(m.CardExtraction).where(m.CardExtraction.task == "card_terms")).one()
+        out = json.loads(ex.output_json)
+        out["earn_rules"][1]["_verify"] = {"ok": False, "reasons": ["old verifier"],
+                                           "warnings": []}
+        ex.output_json, ex.status = json.dumps(out), "partial"
+        ex_id = ex.id
+        s.commit()
+    n = len(env.calls())
+    env.run()
+    assert len(env.calls()) == n
+    with env.S() as s:
+        ex = s.get(m.CardExtraction, ex_id)
+        assert ex.status == "ok" and json.loads(ex.output_json)["earn_rules"][1]["_verify"]["ok"]
+
+
+def test_renamed_credit_is_not_material(env):
+    env.run()
+    with env.S() as s:
+        compose.accept(s, "example_everyday")
+        s.commit()
+    edit_output(env, "card_terms", lambda out: out["credits"][0].update(name="Example Eats credit"))
+    res = env.run(force=True)
+    assert res.reports[0].outcome == "published"
+    with env.S() as s:
+        d = json.loads(compose.current(s, "example_everyday", "active").diff_json)
+        assert not d["added"] and not d["removed"]
+        assert d["reworded"][0]["item"] == (
+            "Dining credit ($10/month) -> Example Eats credit ($10/month)")
+
+
+def test_agreement_must_name_the_card(env):
+    generic = (DOCS / "everyday_rewards_terms.html").read_bytes().replace(
+        b"including the Everyday Visa", b"including all our cards")
+    for path in ("agreement", "rules"):
+        env.web.routes[f"https://www.example.com/{path}"] = (
+            200, {"content-type": "text/html"}, generic)
+    _, status, _, n_ok = fetch_one(env, "https://www.example.com/agreement",
+                                   doc_type="cardmember_agreement")
+    assert status == "needs_browser" and n_ok == 0
+    _, status, _, n_ok = fetch_one(env, "https://www.example.com/rules", doc_type="program_terms")
+    assert status == "active" and n_ok == 1  # program rules may name only the issuer
+
+
+def test_incomplete_candidate_withdraws_the_pending_version(env):
+    env.run()
+    edit_output(env, "card_terms", lambda out: out["annual_fee"]["evidence"][0].update(
+        quote="Annual fee: $9,999"))
+    res = env.run(force=True)
+    assert res.reports[0].outcome.startswith("incomplete")
+    with env.S() as s:
+        assert compose.current(s, "example_everyday", "pending") is None
+    assert not open_items(env, "card_terms_pending")
+
+
+def test_manual_file_need_not_name_the_card(env, tmp_path):
+    from fin.cards.refresh import add_doc
+
+    page = tmp_path / "pricing.html"
+    page.write_bytes((DOCS / "everyday_rewards_terms.html").read_bytes()
+                     .replace(b"Everyday Visa", b"card").replace(b"Example Bank", b"the bank"))
+    with env.S() as s:
+        d, outcome = add_doc(s, env.paths, env.settings, env.cards,
+                             env.cards.card("example_everyday"), page, "pricing_terms")
+        assert outcome == "changed" and d.status == "active"
+    thin = tmp_path / "thin.html"
+    thin.write_bytes((DOCS / "thin_js_page.html").read_bytes())
+    with env.S() as s:
+        d, outcome = add_doc(s, env.paths, env.settings, env.cards,
+                             env.cards.card("example_everyday"), thin, "pricing_terms")
+        assert outcome == "rejected" and d.status == "broken"  # still has to have real text

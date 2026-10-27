@@ -73,6 +73,13 @@ class DocText:
             return False
         return any(q in normalize(window, keep_hyphens=k) for k in (False, True))
 
+    def locate(self, quote: str) -> int | None:
+        """The first page or section holding the quote (or straddling into the next)."""
+        for n in sorted(self.pages):
+            if self.contains(quote, n):
+                return n
+        return None
+
 
 def numbers_in(text: str) -> set[float]:
     """Every number a quote states: digits ("$25,000", "4X", "1.5%") and words ("four"),
@@ -110,15 +117,30 @@ class Check:
 
 
 def check_evidence(evidence: list[dict], docs: dict[str, DocText]) -> Check:
+    """Each quote is marked `_ok`. The item passes when at least one quote is found; quotes
+    that aren't found are dropped later and listed as warnings."""
     c = Check()
+    missing = []
     for e in evidence:
         doc = docs.get(e.get("doc", ""))
-        if doc is None:
-            c.fail(f"cites unknown document {e.get('doc')!r}")
-        elif doc.contains(e.get("quote", ""), e.get("page")):
+        e["_ok"] = doc is not None and doc.contains(e.get("quote", ""), e.get("page"))
+        if not e["_ok"] and doc is not None:
+            # The exact quote is the check; a wrong page or section number is only a bad link.
+            found = doc.locate(e.get("quote", ""))
+            if found is not None:
+                c.warnings.append(f"page {e.get('page')} corrected to {found}")
+                e["page"], e["_ok"] = found, True
+        if e["_ok"]:
             c.verified_quotes.append(e["quote"])
+        elif doc is None:
+            missing.append(f"cites unknown document {e.get('doc')!r}")
         else:
-            c.fail(f"quote not found in {e['doc']}: {e.get('quote', '')[:80]!r}")
+            missing.append(f"quote not found in {e['doc']}: {e.get('quote', '')[:80]!r}")
+    if c.verified_quotes:
+        c.warnings += missing
+    else:
+        for reason in missing:
+            c.fail(reason)
     return c
 
 
@@ -140,14 +162,20 @@ def check_dates(c: Check, item: dict) -> None:
                 c.fail(f"{k} is not a date: {item[k]!r}")
 
 
-def verify_rule(rule: dict, docs: dict[str, DocText]) -> Check:
+def verify_rule(rule: dict, docs: dict[str, DocText], base_rate: float | None = None) -> Check:
+    """`base_rate` is the card's verified base rate: after a cap, purchases earning it ("then
+    1X", often said only as "the base rate") need no quote of their own."""
     c = check_evidence(rule["evidence"], docs)
     values = [("rate", rule["rate"])]
     if rule.get("cap"):
         cap = rule["cap"]
-        values += [("cap", cap["amount_usd"]), ("rate after cap", cap["rate_after"])]
+        values.append(("cap", cap["amount_usd"]))
+        if base_rate is None or abs(cap["rate_after"] - base_rate) > 1e-6:
+            values.append(("rate after cap", cap["rate_after"]))
     if c.ok:
         check_numbers(c, values)
+    if rule.get("cap") and not 0 <= rule["cap"]["rate_after"] <= MAX_RATE:
+        c.fail(f"rate after cap {rule['cap']['rate_after']:g} is out of range")
     for name, v in values:
         if v < 0 or (name != "cap" and v > MAX_RATE):
             c.fail(f"{name} {v:g} is out of range")
@@ -220,9 +248,14 @@ def verify_terms(output: dict[str, Any], docs: dict[str, DocText]) -> Verified:
     _annotate(v, "foreign_transaction_fee", "foreign transaction fee",
               output["foreign_transaction_fee"],
               verify_fee(output["foreign_transaction_fee"], "percent", docs))
+    base_rate = None
+    for r in output["earn_rules"]:
+        if r["is_base"] and verify_rule(r, docs).ok:
+            base_rate = r["rate"]
+            break
     for r in output["earn_rules"]:
         label = r.get("description") or f"{r['rate']:g}x"
-        _annotate(v, "earn_rule", label, r, verify_rule(r, docs))
+        _annotate(v, "earn_rule", label, r, verify_rule(r, docs, base_rate))
     bases = [r for r in output["earn_rules"] if r["is_base"] and r["_verify"]["ok"]]
     for extra in bases[1:]:
         extra["_verify"]["ok"] = False

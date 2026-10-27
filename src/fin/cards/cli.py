@@ -68,6 +68,8 @@ def refresh(
     card: Annotated[str | None, typer.Option(help="One card id (default: every card)")] = None,
     discover: Annotated[bool, typer.Option("--discover", help="Look for documents again")] = False,
     force: Annotated[bool, typer.Option("--force", help="Re-extract even if cached")] = False,
+    retext: Annotated[bool, typer.Option(
+        "--retext", help="Re-read stored files' text (after a fin update); no download")] = False,
     if_due: Annotated[bool, typer.Option("--if-due", help="Skip cards checked recently")] = False,
     trigger: Annotated[str, typer.Option(hidden=True)] = "cli",
 ) -> None:
@@ -88,7 +90,7 @@ def refresh(
         try:
             res = run_refresh(s, data_paths(settings), settings, cards,
                               card_ids=[card] if card else None, discover=discover, force=force,
-                              if_due=if_due, trigger=trigger, progress=progress)
+                              retext=retext, if_due=if_due, trigger=trigger, progress=progress)
         except RefreshBusyError as e:
             typer.echo(f"Card refresh: {e}.")
             raise typer.Exit(1) from None

@@ -139,7 +139,9 @@ def extract(s: Session, paths: DataPaths, settings: Settings, card: Card, task_n
         m.CardExtraction.card_id == card.id, m.CardExtraction.task == task_name,
         m.CardExtraction.input_key == key)).first()
     if row is not None and row.status in ("ok", "partial") and not force:
-        return ExtractOutcome(task_name, "cached", row.id)
+        # No call: but check the stored output again, so verifier fixes apply without AI.
+        problems = _verify_and_store(s, row, card, task_name, json.loads(row.output_json), srcs)
+        return ExtractOutcome(task_name, "cached", row.id, problems=problems)
 
     texts, pages_sent = budget(srcs, task_name, cs.max_extract_chars)
     payload: dict = {
@@ -173,21 +175,37 @@ def extract(s: Session, paths: DataPaths, settings: Settings, card: Card, task_n
                       error=str(e)[:500]))
         raise
 
-    docs = {x.ref: DocText.parse(x.text) for x in srcs}
-    v: Verified = (verify_terms if task_name == "card_terms" else verify_benefits)(res.output, docs)
-    output = {**v.output, "_refs": {x.ref: x.version.id for x in srcs}, "_problems": v.problems}
-    row.status = "partial" if v.problems else "ok"
-    row.output_json = json.dumps(output, ensure_ascii=False)
-    row.n_items, row.n_verified, row.n_rejected = v.n_items, v.n_verified, v.n_rejected
     s.add(m.AIRun(task=task_name, run_dir=str(run), n_items=len(srcs), status="ok",
                   duration_ms=res.duration_ms))
+    problems = _verify_and_store(s, row, card, task_name, res.output, srcs)
+    return ExtractOutcome(task_name, row.status, row.id, called=True, problems=problems)
+
+
+def _strip(node):
+    """The model's output without our annotations (`_verify`, `_ok`, `_refs`, ...)."""
+    if isinstance(node, dict):
+        return {k: _strip(v) for k, v in node.items() if not k.startswith("_")}
+    if isinstance(node, list):
+        return [_strip(v) for v in node]
+    return node
+
+
+def _verify_and_store(s: Session, row: m.CardExtraction, card: Card, task_name: str,
+                      output: dict, srcs: list[Source]) -> list[dict]:
+    docs = {x.ref: DocText.parse(x.text) for x in srcs}
+    check = verify_terms if task_name == "card_terms" else verify_benefits
+    v: Verified = check(_strip(output), docs)
+    out = {**v.output, "_refs": {x.ref: x.version.id for x in srcs}, "_problems": v.problems}
+    row.status = "partial" if v.problems else "ok"
+    row.output_json = json.dumps(out, ensure_ascii=False)
+    row.n_items, row.n_verified, row.n_rejected = v.n_items, v.n_verified, v.n_rejected
     s.flush()
     if v.problems:
         review.open_item(s, "card_terms_unverified", card.id, task_name,
                          {"task": task_name, "extraction_id": row.id, "problems": v.problems})
     else:
         review.close_items(s, "card_terms_unverified", card.id, task_name)
-    return ExtractOutcome(task_name, row.status, row.id, called=True, problems=v.problems)
+    return v.problems
 
 
 def latest_good(s: Session, card_id: str, task: str) -> m.CardExtraction | None:

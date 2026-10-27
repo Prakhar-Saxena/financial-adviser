@@ -555,3 +555,60 @@ Dated record of what was discovered and decided. Newest at the bottom of each da
 ### Not built (not met yet)
 - Browser fetch mode (§7.2): built only if a real page needs it. Waiting for the first real refresh.
 - C1 acceptance 1, 2 and 6 need the user's real refreshes (one card first, then all six with approval).
+
+### First full refresh (2026-10-27, real cards; C1 acceptance 6)
+- Freedom Unlimited alone first: 3 calls (discover 36 s / 6 turns, card_terms 12 s, card_benefits 8 s), 13 of 13
+  items verified. Checked by hand against the stored documents (Opus, in session): every rate, fee, credit and
+  benefit matches.
+- The other five in one run: 14 `claude -p` calls (5 discover, 5 card_terms, 4 card_benefits), 7 min wall
+  (02:03:48–02:10:47Z), about 443k input tokens (incl. cache) and 35k output tokens, no permission denials,
+  no usage limit. Freedom Unlimited cost 0 calls (cached), as designed. 28 documents checked, 21 stored.
+- Outcome: Gold, Sapphire Reserve, Prime Visa, Costco pending v1; Platinum incomplete (no earn rates found).
+- Reality vs. spec, raised with the user:
+  - americanexpress.com terms pages (Platinum/Gold pricing, Platinum benefits) are built by JavaScript: the
+    HTML (200 kB–1 MB) has no card text → `needs_browser`. No Platinum product page was fetched at all.
+  - Membership Rewards terms redirect to `go.amex` (not allowlisted) → `needs_domain`.
+  - Prime Visa pricing on sites.chase.com is disallowed by robots.txt → `blocked`.
+  - No benefits guide found for Gold, Prime Visa, Costco, Platinum.
+  - Two-column PDFs (Prime Visa rewards terms) come out of pdfplumber with the columns interleaved, so a correct
+    quote failed verification.
+  - Sapphire Reserve benefits: 7 benefits dropped because `limits` held numbers ("31 days", "$2,000") that
+    weren't in the item's quotes.
+
+### C1 review fixes after the first real refresh (2026-10-27)
+- **Browser mode: tried, not built.** Playwright for Python with the installed Chrome (headless, fresh profile,
+  only allowlisted hosts; also with nothing blocked; also with the user's exact `offerTrackingCode` URLs) gets
+  "Sorry, something went wrong" from americanexpress.com's terms pages: they refuse automated browsers. Per
+  SPEC-cards §0.4 / §7.2 we don't work around that, so Playwright was removed again and those pages take the
+  manual path. Amex *product* pages download fine over plain HTTP (Platinum's had simply not been discovered;
+  added with `add-source`).
+- **`go.amex`** added under `[cards.doc_domains] amex`: `.amex` is American Express's own brand TLD (only the
+  registry operator, Amex, can hold names under it). The Membership Rewards terms redirect there.
+- **Two-column PDFs:** `column_gutter()` finds a vertical gap in the middle 30% of a page crossed by at most 1%
+  of words with at least 25% of the words on each side, and reads the columns left then right. Chase's rewards
+  terms are two-column; rate tables and benefits guides stay single-column.
+- **`fin cards refresh --retext`:** re-reads stored files with the current text extraction, no download.
+- **Verification policy changes** (SPEC-cards §7.4 still holds: every item keeps at least one verified quote,
+  and its numbers must be in verified quotes):
+  - An item with one bad quote keeps its verified quotes; bad ones are dropped and listed as warnings.
+  - An exact quote found on a different page/section of the *same* document is kept, and its page is corrected.
+    The quote is the check; the number only drives the link. Sapphire Reserve's HTML product page has 40
+    sections and the model cited section 2 for quotes in 32–33.
+  - A cap's `rate_after` equal to the card's verified base rate needs no quote of its own ("then 1X" is often
+    only implied). This kept Costco's 4% gas and Platinum's 5X flights.
+  - Cached extractions are verified again on every refresh (no AI call), so verifier fixes apply at once.
+- **Prompts:** card_terms 2026-10-27.1 (quote a heading that carries the rate, e.g. "5X Points on Flights");
+  card_benefits 2026-10-27.1 (every number in `limits` must be quoted).
+- **A cardmember agreement must name the card.** Chase's `COL00095.pdf` is a generic agreement naming no product;
+  it passed because agreements could name just the issuer, and gave Sapphire Reserve a wrong 3% foreign
+  transaction fee. Retired on both Chase cards. Freedom Unlimited's 3% now comes from its own CFPB agreement.
+- **A pending version the documents no longer support is withdrawn** (superseded) when compose can't build a
+  candidate. Sapphire Reserve's wrong v3 went this way; the card is "incomplete" until a document states its
+  foreign transaction fee.
+- **Renamed credits:** a removed and an added credit with the same amount, period, merchants, categories and
+  enrollment are one credit renamed → reworded, not material.
+- Hand check (Opus) of every pending profile against the stored documents: correct, except the Sapphire fee
+  above. Gold's "5X on prepaid hotels through AmexTravel.com" is in Amex's own Gold earn summary.
+- Calls this round: 12 (retext) + 6 (terms prompt) + 3 (Chase fixes) = 21.
+- For C2's engine: a rule naming merchants applies only to those merchants, even when it also lists a category
+  (Lyft 2% lists rideshare_taxi; Costco 5% gas lists gas_stations; Prime 5% lists "other").

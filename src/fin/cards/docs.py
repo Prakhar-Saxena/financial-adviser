@@ -25,9 +25,9 @@ from fin.db import models as m
 from fin.db.models import utcnow
 
 MIN_TEXT_CHARS = 1500
-# Documents about the rewards program or the account in general may name only the issuer.
-PROGRAM_LEVEL = {"program_terms", "rewards_terms", "cardmember_agreement", "benefits_guide",
-                 "benefit_terms"}
+# Documents about the rewards program or the account in general may name only the issuer. A
+# cardmember agreement must name the card: a generic one carries another product's fee table.
+PROGRAM_LEVEL = {"program_terms", "rewards_terms", "benefits_guide", "benefit_terms"}
 TERMS_TYPES = ("product_page", "rewards_terms", "program_terms", "pricing_terms",
                "cardmember_agreement", "benefit_terms")
 BENEFITS_TYPES = ("benefits_guide", "benefit_terms", "product_page")
@@ -58,10 +58,39 @@ def pdf_text(data: bytes) -> tuple[str, int]:
 
     try:
         with pdfplumber.open(io.BytesIO(data)) as pdf:
-            pages = [p.extract_text() or "" for p in pdf.pages]
+            pages = [_page_text(p) for p in pdf.pages]
     except Exception as e:  # pdfminer raises many types on a bad file
         raise UnreadableError(f"unreadable PDF: {type(e).__name__}") from None
     return "\n".join(f"[[page {i}]]\n{t}" for i, t in enumerate(pages, 1)), len(pages)
+
+
+def column_gutter(words: list[dict], width: float) -> float | None:
+    """The x of the gap between two text columns, or None for a single-column page.
+
+    Issuers' terms PDFs are often two-column, and reading them line by line interleaves the
+    columns. A gutter is a vertical line in the middle 30% of the page that at most 1% of the
+    words cross, with at least a quarter of the words on each side (rate tables and narrow
+    single-column layouts fail that)."""
+    if len(words) < 60:
+        return None
+    best_x, best_n = 0.0, len(words)
+    for x in range(int(width * 0.35), int(width * 0.65), 2):
+        n = sum(1 for w in words if w["x0"] < x < w["x1"])
+        if n < best_n:
+            best_x, best_n = float(x), n
+    left = sum(1 for w in words if w["x1"] <= best_x)
+    right = sum(1 for w in words if w["x0"] >= best_x)
+    if best_n > len(words) * 0.01 or min(left, right) < len(words) * 0.25:
+        return None
+    return best_x
+
+
+def _page_text(page) -> str:
+    x = column_gutter(page.extract_words(), page.width)
+    if x is None:
+        return page.extract_text() or ""
+    halves = (page.crop((0, 0, x, page.height)), page.crop((x, 0, page.width, page.height)))
+    return "\n".join(h.extract_text() or "" for h in halves)
 
 
 def html_text(data: bytes) -> tuple[str, int]:
@@ -134,7 +163,7 @@ def store(s: Session, paths: DataPaths, doc: m.CardDocument, data: bytes, conten
           names: list[str], *, http_status: int | None = None) -> StoreOutcome:
     """Store one fetched or manual document, unless its text is unchanged or it fails the
     checks (§7.2). `names` are the product name and aliases, plus the issuer's name for
-    program-level documents."""
+    program-level documents; empty skips the "names the card" check."""
     now = utcnow()
     kind = sniff_kind(data, content_type)
     if kind is None:
@@ -148,7 +177,7 @@ def store(s: Session, paths: DataPaths, doc: m.CardDocument, data: bytes, conten
     if prev is not None and prev.text_sha256 == t_sha:
         doc.last_checked_at = now
         return StoreOutcome("unchanged", prev.id)
-    named = mentions(text, names)
+    named = not names or mentions(text, names)  # no names: a file I chose myself (§7.6)
     if body_chars(text) < MIN_TEXT_CHARS or not named:
         why = "too little text" if named else "doesn't name the card"
         return _reject(s, doc, "thin_or_wrong_page", content_type, len(data), http_status, why,

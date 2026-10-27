@@ -56,6 +56,7 @@ user_agent = "fin-card-docs/0.1 (personal use)"
 # Review changes here like code.
 [cards.doc_domains]
 common = ["consumerfinance.gov"]
+amex = ["go.amex"]                  # .amex is American Express's own brand TLD (Membership Rewards terms)
 chase_prime_visa = ["amazon.com"]   # co-brand partners' card pages
 citi_costco = ["costco.com"]
 
