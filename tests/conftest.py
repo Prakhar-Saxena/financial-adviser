@@ -13,6 +13,12 @@ FIXTURES = TESTS / "fixtures"
 FAKE_BIN = TESTS / "fake_bin"
 
 
+@pytest.fixture(autouse=True)
+def _isolated_data_dir(tmp_path, monkeypatch) -> None:
+    """No test touches the real data dir (locks, ai-runs, card-docs, ...)."""
+    monkeypatch.setenv("FIN_DATA_DIR", str(tmp_path / "FinancialAdviserData"))
+
+
 @pytest.fixture
 def data_dir(tmp_path, monkeypatch) -> Path:
     d = tmp_path / "FinancialAdviserData"

@@ -9,11 +9,11 @@ FIN := $(UV) fin
 
 .DEFAULT_GOAL := help
 .PHONY: help serve open dev web weekly sync process review import rebuild backup doctor \
-        test lint check stop screenshots
+        test lint check stop screenshots cards cards-refresh card-research
 
 help: ## List the targets
 	@grep -hE '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | \
-	  awk 'BEGIN {FS = ":.*## "}; {printf "  make %-10s %s\n", $$1, $$2}'
+	  awk 'BEGIN {FS = ":.*## "}; {printf "  make %-14s %s\n", $$1, $$2}'
 
 # --- dashboard ---------------------------------------------------------------
 
@@ -62,6 +62,14 @@ backup: ## SQLite backup into backups/
 
 doctor: ## Setup and security checks
 	$(FIN) doctor
+
+cards: ## Card optimizer: what the knowledge base knows per card
+	$(FIN) cards status
+
+cards-refresh: ## Download and read card terms: make cards-refresh CARD=amex_gold (no CARD: all)
+	$(FIN) cards refresh $(if $(CARD),--card $(CARD),)
+
+card-research: cards-refresh ## Same as cards-refresh
 
 stop: ## Stop a dashboard left running in the background, if any
 	@pkill -f "fin serve" && echo "stopped" || echo "nothing running"

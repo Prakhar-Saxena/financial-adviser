@@ -64,7 +64,7 @@ def _not_yet(what: str, phase: int) -> None:
 @app.command()
 def init() -> None:
     """Create the data dir (700), DB and migrations; copy config templates; check gitignore."""
-    from fin.db import session_factory, upgrade
+    from fin.db import ensure_current, session_factory, upgrade
     from fin.db.seed import sync_reference
 
     paths = data_paths()
@@ -86,7 +86,13 @@ def init() -> None:
         cards_path.chmod(0o600)
         typer.echo("Copied config/cards.example.json -> config/cards.json. Fill in real values.")
 
-    upgrade(paths.db_file)
+    if paths.db_file.exists():
+        upgraded_from = ensure_current(paths.db_file, paths.backups)  # backs up first
+        if upgraded_from:
+            typer.echo(f"Database schema upgraded (was {upgraded_from}; "
+                       f"backup in {paths.backups}).")
+    else:
+        upgrade(paths.db_file)
     paths.db_file.chmod(0o600)
     with session_factory(paths.db_file)() as s:
         counts = sync_reference(s, load_cards(), load_taxonomy())
@@ -381,6 +387,10 @@ def sync_send(site: str, text: str) -> None:
 playbook_app = typer.Typer(help="Playbook proposals from driven syncs.")
 app.add_typer(playbook_app, name="playbook")
 
+from fin.cards.cli import cards_app  # noqa: E402
+
+app.add_typer(cards_app, name="cards")
+
 
 @playbook_app.command("accept")
 def playbook_accept(site: str) -> None:
@@ -484,6 +494,10 @@ def weekly(
     typer.echo("\n=== process ===")
     me = [sys.executable, "-m", "fin.cli"]
     sp.run([*me, "process", *(["--no-ai"] if no_ai else [])], check=False)
+    if not no_ai:
+        # Monthly card terms check (docs/SPEC-cards.md §7.7); its failure never fails weekly.
+        typer.echo("\n=== card terms ===")
+        sp.run([*me, "cards", "refresh", "--if-due", "--trigger", "weekly"], check=False)
     typer.echo("\n=== backup ===")
     sp.run([*me, "backup"], check=False)
     typer.echo("\nWeekly summary:")

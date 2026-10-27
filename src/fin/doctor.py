@@ -168,6 +168,43 @@ def check_config() -> list[Result]:
     return out
 
 
+def check_cards(paths: DataPaths) -> list[Result]:
+    """Card optimizer settings and storage (docs/SPEC-cards.md §15)."""
+    from fin.config import BARE_DOMAIN, load_reward_categories
+
+    try:
+        cs = load_settings().cards
+    except Exception as e:  # pydantic error
+        return [Result("FAIL", "Cards settings", str(e).splitlines()[0])]
+    domains = [d for ds in cs.doc_domains.values() for d in ds]
+    bad = [d for d in domains if not BARE_DOMAIN.fullmatch(d)]
+    out = [Result("FAIL" if bad else "PASS", "Cards settings",
+                  f"not bare domains: {bad}" if bad else
+                  f"[cards] valid; {len(domains)} extra doc domains, research={cs.research_model}, "
+                  f"extract={cs.extract_model}")]
+    try:
+        out.append(Result("PASS", "reward_categories.json",
+                          f"{len(load_reward_categories().ids)} reward categories"))
+    except Exception as e:
+        out.append(Result("FAIL", "reward_categories.json", str(e).splitlines()[0]))
+    try:
+        card_ids = [c.id for c in load_cards().cards]
+    except Exception:
+        card_ids = []  # reported by check_config
+    missing = [c for c in card_ids if not cs.product_aliases.get(c)]
+    out.append(Result("WARN" if missing else "PASS", "Card product aliases",
+                      f"none for {missing}; add them under [cards.product_aliases]" if missing
+                      else f"all {len(card_ids)} cards"))
+    docs = paths.card_docs
+    if docs.exists():
+        mode = stat.S_IMODE(docs.stat().st_mode)
+        out.append(Result("PASS" if mode == 0o700 else "FAIL", "card-docs mode",
+                          "700" if mode == 0o700 else f"{mode:o}; run `chmod 700 {docs}`"))
+    else:
+        out.append(Result("FAIL", "card-docs mode", f"{docs} missing; run `fin init`"))
+    return out
+
+
 def check_git_hygiene() -> list[Result]:
     gi = REPO_ROOT / ".gitignore"
     text = gi.read_text() if gi.exists() else ""
@@ -200,6 +237,19 @@ def check_extension_token(paths: DataPaths) -> list[Result]:
     return [Result("PASS", "Playwright extension token", "present, private")]
 
 
+def check_claude_leftovers(paths: DataPaths, projects: Path | None = None) -> Result:
+    """Claude Code folders left under ~/.claude/projects/ by `claude -p` runs in ai-runs/."""
+    from fin.ai.claude_cli import CLAUDE_PROJECTS, project_slug
+
+    projects = projects or CLAUDE_PROJECTS
+    prefix = project_slug(paths.ai_runs) + "-"
+    left = [d.name for d in projects.glob(prefix + "*")] if projects.is_dir() else []
+    if left:
+        return Result("WARN", "Claude run leftovers",
+                      f"{len(left)} folder(s) {projects}/{prefix}*; safe to delete")
+    return Result("PASS", "Claude run leftovers", "none under ~/.claude/projects")
+
+
 def run_all(paths: DataPaths) -> list[Result]:
     results = [check_filevault()]
     results += check_data_dir(paths)
@@ -207,6 +257,8 @@ def run_all(paths: DataPaths) -> list[Result]:
     results += check_node()
     results += [check_playwright_pin()]
     results += check_config()
+    results += check_cards(paths)
+    results.append(check_claude_leftovers(paths))
     results += check_git_hygiene()
     results += check_extension_token(paths)
     results.append(Result(

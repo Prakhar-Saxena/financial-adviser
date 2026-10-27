@@ -21,6 +21,8 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    func,
+    text,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -53,7 +55,10 @@ CATEGORY_SOURCES = ("rule", "ai", "user", "split")
 REVIEW_KINDS = (
     "unmatched_charge", "unmatched_order_charge", "unexpected_merchant", "statement_mismatch",
     "parse_failure", "low_confidence", "uncategorized", "unknown_person", "sync_gap",
+    # Card optimizer (docs/SPEC-cards.md §6): created by `fin cards refresh`, kept by rebuild.
+    "card_terms_pending", "card_terms_unverified", "card_source_problem",
 )
+CARD_REVIEW_KINDS = ("card_terms_pending", "card_terms_unverified", "card_source_problem")
 IMPORT_KINDS = ("transactions", "statement", "orders", "receipts", "emails")
 
 
@@ -421,3 +426,199 @@ class Email(Base):
     parsed_json: Mapped[str | None] = mapped_column(Text)
     raw_path: Mapped[str]
     linked_transaction_id: Mapped[int | None] = mapped_column(ForeignKey("transactions.id"))
+
+
+# ------------------------------------------------- card optimizer (SPEC-cards §6)
+# None of these tables may reference a table that `fin rebuild` deletes; they link to the
+# ledger by alias and descriptor strings instead.
+
+DOC_TYPES = (
+    "product_page", "rewards_terms", "program_terms", "pricing_terms", "cardmember_agreement",
+    "benefits_guide", "benefit_terms", "other",
+)
+CARD_FACT_KINDS = (
+    "valuation", "currency_pool", "enrolled", "activated", "membership", "anniversary_month",
+    "credit_used", "credit_alias", "setting",
+)
+
+
+class CardDocument(Base):
+    __tablename__ = "card_documents"
+    __table_args__ = (
+        UniqueConstraint("card_id", "url"),
+        _in("doc_type", DOC_TYPES),
+        _in("origin", ("discovered", "user_url", "manual_file")),
+        _in("fetch_mode", ("http", "browser")),
+        _in("status", ("active", "broken", "blocked", "needs_browser", "needs_domain",
+                       "retired")),
+    )
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    card_id: Mapped[str] = mapped_column(ForeignKey("cards.id"), index=True)
+    url: Mapped[str]
+    doc_type: Mapped[str]
+    title: Mapped[str | None]
+    origin: Mapped[str] = mapped_column(default="discovered")
+    fetch_mode: Mapped[str] = mapped_column(default="http")
+    status: Mapped[str] = mapped_column(default="active")
+    etag: Mapped[str | None]
+    last_modified: Mapped[str | None]
+    failures: Mapped[int] = mapped_column(default=0)
+    discovered_at: Mapped[str] = mapped_column(default=utcnow)
+    last_checked_at: Mapped[str | None]
+    last_changed_at: Mapped[str | None]
+    note: Mapped[str | None] = mapped_column(Text)
+
+
+class CardDiscovery(Base):
+    """One card_discover call. Its date decides when to look again (rediscover_days), even when
+    a call found nothing new."""
+
+    __tablename__ = "card_discoveries"
+    __table_args__ = (_in("status", ("ok", "failed", "limited")),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    card_id: Mapped[str] = mapped_column(ForeignKey("cards.id"), index=True)
+    reason: Mapped[str]
+    status: Mapped[str]
+    run_dir: Mapped[str | None]
+    n_returned: Mapped[int] = mapped_column(default=0)
+    n_added: Mapped[int] = mapped_column(default=0)
+    n_off_list: Mapped[int] = mapped_column(default=0)
+    not_found_json: Mapped[str] = mapped_column(Text, default="[]")
+    notes: Mapped[str | None] = mapped_column(Text)
+    error: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[str] = mapped_column(default=utcnow)
+
+
+class CardDocVersion(Base):
+    __tablename__ = "card_doc_versions"
+    __table_args__ = (_in("status", ("ok", "rejected")),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    document_id: Mapped[int] = mapped_column(ForeignKey("card_documents.id"), index=True)
+    fetched_at: Mapped[str] = mapped_column(default=utcnow)
+    http_status: Mapped[int | None]
+    content_type: Mapped[str | None]
+    bytes: Mapped[int | None]
+    sha256: Mapped[str | None] = mapped_column(String(64))
+    text_sha256: Mapped[str | None] = mapped_column(String(64))
+    file_path: Mapped[str | None]
+    text_path: Mapped[str | None]
+    n_pages: Mapped[int | None]
+    mentions_product: Mapped[bool | None]
+    status: Mapped[str] = mapped_column(default="ok")
+    reject_reason: Mapped[str | None]
+
+
+class CardExtraction(Base):
+    __tablename__ = "card_extractions"
+    __table_args__ = (
+        UniqueConstraint("card_id", "task", "input_key"),
+        _in("task", ("card_terms", "card_benefits")),
+        _in("status", ("ok", "partial", "failed", "limited")),
+    )
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    card_id: Mapped[str] = mapped_column(ForeignKey("cards.id"))
+    task: Mapped[str]
+    input_key: Mapped[str]
+    prompt_version: Mapped[str]
+    model: Mapped[str]
+    run_dir: Mapped[str | None]
+    status: Mapped[str]
+    output_json: Mapped[str | None] = mapped_column(Text)  # with verification results
+    pages_sent_json: Mapped[str | None] = mapped_column(Text)
+    n_items: Mapped[int] = mapped_column(default=0)
+    n_verified: Mapped[int] = mapped_column(default=0)
+    n_rejected: Mapped[int] = mapped_column(default=0)
+    created_at: Mapped[str] = mapped_column(default=utcnow)
+
+
+class CardProfileVersion(Base):
+    __tablename__ = "card_profiles"
+    __table_args__ = (
+        UniqueConstraint("card_id", "version"),
+        _in("status", ("pending", "active", "superseded", "rejected")),
+        # At most one active and one pending version per card.
+        Index("uq_card_profiles_active", "card_id", unique=True,
+              sqlite_where=text("status = 'active'")),
+        Index("uq_card_profiles_pending", "card_id", unique=True,
+              sqlite_where=text("status = 'pending'")),
+    )
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    card_id: Mapped[str] = mapped_column(ForeignKey("cards.id"))
+    version: Mapped[int]
+    status: Mapped[str]
+    profile_json: Mapped[str] = mapped_column(Text)
+    content_hash: Mapped[str] = mapped_column(String(64))
+    diff_json: Mapped[str | None] = mapped_column(Text)
+    material: Mapped[bool] = mapped_column(default=False)
+    extraction_ids_json: Mapped[str] = mapped_column(Text, default="[]")
+    created_at: Mapped[str] = mapped_column(default=utcnow)
+    decided_at: Mapped[str | None]
+
+
+class MerchantProfileRow(Base):
+    __tablename__ = "merchant_profiles"
+    __table_args__ = (
+        _in("source", ("seed", "kb", "ai", "ai_web", "user")),
+        CheckConstraint("confidence >= 0 AND confidence <= 1", name="confidence"),
+    )
+    key: Mapped[str] = mapped_column(String, primary_key=True)
+    display_name: Mapped[str]
+    reward_category: Mapped[str | None]
+    mcc_guess: Mapped[str | None]
+    acceptance_json: Mapped[str] = mapped_column(Text, default="{}")
+    notes: Mapped[str | None] = mapped_column(Text)
+    source: Mapped[str]
+    confidence: Mapped[float] = mapped_column(Float, default=1.0)
+    prompt_version: Mapped[str | None]
+    model: Mapped[str | None]
+    created_at: Mapped[str] = mapped_column(default=utcnow)
+    updated_at: Mapped[str] = mapped_column(default=utcnow)
+
+
+class MerchantAlias(Base):
+    __tablename__ = "merchant_aliases"
+    __table_args__ = (_in("kind", ("name", "query", "descriptor", "group")),)
+    alias_norm: Mapped[str] = mapped_column(String, primary_key=True)
+    profile_key: Mapped[str] = mapped_column(ForeignKey("merchant_profiles.key"), index=True)
+    kind: Mapped[str]
+    source: Mapped[str]
+    created_at: Mapped[str] = mapped_column(default=utcnow)
+
+
+class CardFact(Base):
+    """What I tell the app that documents can't (valuations, enrollments, memberships, ...)."""
+
+    __tablename__ = "card_facts"
+    __table_args__ = (
+        _in("kind", CARD_FACT_KINDS),
+        # SQLite's UNIQUE treats NULLs as distinct, so the key goes through COALESCE.
+        Index("uq_card_facts_key", "kind", func.coalesce(text("card_id"), ""), "ref",
+              func.coalesce(text("period"), ""), unique=True),
+    )
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    kind: Mapped[str]
+    card_id: Mapped[str | None] = mapped_column(ForeignKey("cards.id"))
+    ref: Mapped[str] = mapped_column(default="")
+    period: Mapped[str | None]
+    value: Mapped[str]
+    created_at: Mapped[str] = mapped_column(default=utcnow)
+
+
+class CardRefreshRun(Base):
+    __tablename__ = "card_refresh_runs"
+    __table_args__ = (
+        _in("trigger", ("cli", "weekly", "dashboard", "schedule")),
+        _in("status", ("running", "ok", "partial", "failed", "limited", "aborted")),
+    )
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    trigger: Mapped[str]
+    started_at: Mapped[str] = mapped_column(default=utcnow)
+    ended_at: Mapped[str | None]
+    status: Mapped[str] = mapped_column(default="running")
+    cards_json: Mapped[str] = mapped_column(Text, default="[]")
+    docs_checked: Mapped[int] = mapped_column(default=0)
+    docs_changed: Mapped[int] = mapped_column(default=0)
+    ai_calls: Mapped[int] = mapped_column(default=0)
+    profiles_pending: Mapped[int] = mapped_column(default=0)
+    profiles_published: Mapped[int] = mapped_column(default=0)
+    errors_json: Mapped[str] = mapped_column(Text, default="[]")

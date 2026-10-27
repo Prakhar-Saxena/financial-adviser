@@ -87,6 +87,59 @@ export type Statement = { id: number; card_id: string; period_start: string; per
 export type SourceStatus = { site: string; last_run: string | null; status: string | null;
                              files_imported: number; guard_blocks: number; open_gaps: number };
 
+// Card optimizer (docs/SPEC-cards.md §12).
+export type Evidence = { doc: string; page: number | null; quote: string; doc_version_id: number | null };
+export type EarnRule = {
+  rate: number; is_base: boolean; categories: string[]; merchants: string[]; merchant_names: string[];
+  channel: string; portal: string; geography: string; prepaid_only: boolean;
+  requirements: { kind: string; name: string }[]; valid_from: string | null; valid_to: string | null;
+  cap: { amount_cents: number; period: string; rate_after: number; shared_id: string | null } | null;
+  excluded_categories: string[]; exclusions: string[]; description: string; evidence: Evidence[];
+};
+export type CardCredit = {
+  name: string; amount_cents: number; period: string; merchant_names: string[]; categories: string[];
+  enrollment_required: boolean; posts_as: string; valid_from: string | null; valid_to: string | null;
+  description: string; evidence: Evidence[];
+};
+export type CardBenefit = {
+  kind: string; name: string; summary: string; limits: string; coverage: string | null; evidence: Evidence[];
+};
+export type CardProfile = {
+  card_id: string; currency: string; currency_name: string;
+  annual_fee_cents: { value: number; evidence: Evidence[] };
+  foreign_txn_fee_pct: { value: number; evidence: Evidence[] };
+  earn_rules: EarnRule[]; credits: CardCredit[]; benefits: CardBenefit[]; notes: string[];
+};
+export type DiffItem = { section: string; item: string; material: boolean; fields?: Record<string, [unknown, unknown]> };
+export type ProfileDiff = { added: DiffItem[]; removed: DiffItem[]; changed: DiffItem[];
+                            reworded: { section: string; item: string }[]; material: boolean };
+export type CardSummary = {
+  card_id: string; product: string; active_version: number | null; pending_version: number | null;
+  docs: Record<string, number>; last_checked: string | null; last_changed: string | null; stale: boolean;
+  open_items: number; currency: string | null; annual_fee_cents: number | null;
+};
+export type CardDoc = {
+  id: number; url: string; doc_type: string; title: string | null; origin: string; status: string;
+  note: string | null; last_checked_at: string | null; last_changed_at: string | null;
+  version_id: number | null; content_type: string | null;
+};
+export type CardDetail = {
+  card_id: string; product: string; issuer: string; network: string;
+  active: { version: number; decided_at: string | null; profile: CardProfile } | null;
+  pending: { version: number; created_at: string; first: boolean; profile: CardProfile; diff: ProfileDiff } | null;
+  valuation_cents: number | null;
+  documents: CardDoc[];
+  changelog: { version: number; status: string; material: boolean; created_at: string;
+               decided_at: string | null; summary: string; diff: ProfileDiff }[];
+  review: { id: number; kind: string; details: Record<string, unknown> }[];
+};
+export type RefreshStatus = {
+  run_id: number; status: string; card: string | null; step: string | null;
+  docs_checked: number; docs_changed: number; ai_calls: number;
+  profiles_pending: number; profiles_published: number;
+  cards: { card_id: string; outcome: string; error: string | null }[]; errors: string[];
+};
+
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const r = await fetch(path, {
     ...init,
@@ -122,11 +175,18 @@ export const api = {
   previewRule: (pattern: string) =>
     req<{ transactions: number; descriptions: [string, number][] }>(
       `/api/rules/preview?pattern=${encodeURIComponent(pattern)}`),
-  reprocess: () => req<{ rule_matched: number }>("/api/process", { method: "POST" }),
+  reprocess: () => req<{ rule_matched: number }>("/api/process", { method: "POST", body: "{}" }),
   resolveMany: (ids: number[], status: "resolved" | "ignored") =>
     req<{ updated: number }>("/api/review/resolve", { method: "POST", body: JSON.stringify({ ids, status }) }),
   reconciliation: () => req<Statement[]>("/api/reconciliation"),
   sources: () => req<SourceStatus[]>("/api/sources/status"),
+  cardProfiles: () => req<CardSummary[]>("/api/cards/profiles"),
+  cardProfile: (id: string) => req<CardDetail>(`/api/cards/profiles/${id}`),
+  decideCard: (id: string, version: number, decision: "accept" | "reject") =>
+    req(`/api/cards/profiles/${id}/${decision}`, { method: "POST", body: JSON.stringify({ version }) }),
+  refreshCards: (card_id: string | null) =>
+    req<{ run_id: number }>("/api/cards/refresh", { method: "POST", body: JSON.stringify({ card_id }) }),
+  refreshStatus: (run_id: number) => req<RefreshStatus>(`/api/cards/refresh/${run_id}`),
   resolve: (id: number, status: "resolved" | "ignored") =>
     req(`/api/review/${id}/resolve`, { method: "POST", body: JSON.stringify({ status }) }),
 };

@@ -4,11 +4,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { ChartPie, Moon, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
-import { NavLink, Route, Routes } from "react-router-dom";
+import { NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { api } from "@/api";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { cn, monthLabel } from "@/lib/utils";
+import { BestCard } from "@/pages/BestCard";
 import { Orders } from "@/pages/Orders";
 import { Overview } from "@/pages/Overview";
 import { Reconciliation } from "@/pages/Reconciliation";
@@ -33,6 +34,8 @@ export function App() {
   const { data: meta } = useQuery({ queryKey: ["meta"], queryFn: api.meta });
   const [month, setMonth] = useState<string>("");
   const { dark, toggle } = useTheme();
+  // Card terms don't depend on spending data, so Best card works before the first sync.
+  const onBestCard = useLocation().pathname === "/best-card";
   useEffect(() => {
     if (meta && !month && meta.months.length) setMonth(meta.months[meta.months.length - 1]);
   }, [meta, month]);
@@ -50,6 +53,7 @@ export function App() {
         </h1>
         <nav className="flex gap-1">
           <NavLink to="/" end className={link}>Overview</NavLink>
+          <NavLink to="/best-card" className={link}>Best card</NavLink>
           <NavLink to="/transactions" className={link}>Transactions</NavLink>
           <NavLink to="/orders" className={link}>Amazon &amp; Costco</NavLink>
           <NavLink to="/review" className={link}>Review</NavLink>
@@ -67,11 +71,14 @@ export function App() {
           </Button>
         </div>
       </header>
-      {!meta || !month ? (
+      {(!meta || !month) && onBestCard ? (
+        <BestCard />
+      ) : !meta || !month ? (
         <p className="text-sm text-muted">{meta && !meta.months.length ? "No data yet. Run fin sync, then fin process." : "Loading…"}</p>
       ) : (
         <Routes>
           <Route path="/" element={<Overview month={month} meta={meta} />} />
+          <Route path="/best-card" element={<BestCard />} />
           <Route path="/transactions" element={<Transactions month={month} meta={meta} />} />
           <Route path="/orders" element={<Orders month={month} meta={meta} />} />
           <Route path="/review" element={<Review meta={meta} />} />

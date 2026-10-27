@@ -1,0 +1,402 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "currency_name",
+    "currency_kind",
+    "annual_fee",
+    "foreign_transaction_fee",
+    "earn_rules",
+    "credits",
+    "notes"
+  ],
+  "properties": {
+    "currency_name": {
+      "type": "string",
+      "maxLength": 100
+    },
+    "currency_kind": {
+      "type": "string",
+      "enum": [
+        "points",
+        "miles",
+        "cash_back"
+      ]
+    },
+    "annual_fee": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "usd",
+        "evidence"
+      ],
+      "properties": {
+        "usd": {
+          "type": "number",
+          "minimum": 0
+        },
+        "evidence": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 3,
+          "items": {
+            "$ref": "#/$defs/evidence"
+          }
+        }
+      }
+    },
+    "foreign_transaction_fee": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "percent",
+        "evidence"
+      ],
+      "properties": {
+        "percent": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 10
+        },
+        "evidence": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 3,
+          "items": {
+            "$ref": "#/$defs/evidence"
+          }
+        }
+      }
+    },
+    "earn_rules": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 40,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "is_base",
+          "rate",
+          "rate_unit",
+          "categories",
+          "merchant_names",
+          "channel",
+          "portal",
+          "geography",
+          "prepaid_only",
+          "requirements",
+          "valid_from",
+          "valid_to",
+          "cap",
+          "excluded_categories",
+          "exclusions",
+          "description",
+          "evidence"
+        ],
+        "properties": {
+          "is_base": {
+            "type": "boolean"
+          },
+          "rate": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 25
+          },
+          "rate_unit": {
+            "type": "string",
+            "enum": [
+              "points",
+              "miles",
+              "percent"
+            ]
+          },
+          "categories": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "__REWARD_CATEGORY_IDS__"
+              ]
+            }
+          },
+          "merchant_names": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 100
+            }
+          },
+          "channel": {
+            "type": "string",
+            "enum": [
+              "any",
+              "direct",
+              "issuer_portal",
+              "online",
+              "in_store",
+              "in_app"
+            ]
+          },
+          "portal": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "geography": {
+            "type": "string",
+            "enum": [
+              "any",
+              "us",
+              "outside_us"
+            ]
+          },
+          "prepaid_only": {
+            "type": "boolean"
+          },
+          "requirements": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "name"
+              ],
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "activation",
+                    "enrollment",
+                    "membership"
+                  ]
+                },
+                "name": {
+                  "type": "string",
+                  "maxLength": 100
+                }
+              }
+            }
+          },
+          "valid_from": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "valid_to": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "cap": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "amount_usd",
+                  "period",
+                  "rate_after",
+                  "shared_with"
+                ],
+                "properties": {
+                  "amount_usd": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "period": {
+                    "type": "string",
+                    "enum": [
+                      "month",
+                      "quarter",
+                      "calendar_year",
+                      "cardmember_year",
+                      "statement"
+                    ]
+                  },
+                  "rate_after": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 25
+                  },
+                  "shared_with": {
+                    "type": "string",
+                    "maxLength": 200
+                  }
+                }
+              }
+            ]
+          },
+          "excluded_categories": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "__REWARD_CATEGORY_IDS__"
+              ]
+            }
+          },
+          "exclusions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "evidence": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 3,
+            "items": {
+              "$ref": "#/$defs/evidence"
+            }
+          }
+        }
+      }
+    },
+    "credits": {
+      "type": "array",
+      "maxItems": 30,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "amount_usd",
+          "period",
+          "merchant_names",
+          "categories",
+          "enrollment_required",
+          "posts_as",
+          "valid_from",
+          "valid_to",
+          "description",
+          "evidence"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "amount_usd": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "period": {
+            "type": "string",
+            "enum": [
+              "month",
+              "quarter",
+              "half_year",
+              "calendar_year",
+              "cardmember_year",
+              "multi_year",
+              "one_time"
+            ]
+          },
+          "merchant_names": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 100
+            }
+          },
+          "categories": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "__REWARD_CATEGORY_IDS__"
+              ]
+            }
+          },
+          "enrollment_required": {
+            "type": "boolean"
+          },
+          "posts_as": {
+            "type": "string",
+            "enum": [
+              "statement_credit",
+              "in_app_balance",
+              "other"
+            ]
+          },
+          "valid_from": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "valid_to": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "evidence": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 3,
+            "items": {
+              "$ref": "#/$defs/evidence"
+            }
+          }
+        }
+      }
+    },
+    "notes": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "type": "string",
+        "maxLength": 400
+      }
+    }
+  },
+  "$defs": {
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "doc",
+        "page",
+        "quote"
+      ],
+      "properties": {
+        "doc": {
+          "type": "string",
+          "pattern": "^D[0-9]+$"
+        },
+        "page": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "quote": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 300
+        }
+      }
+    }
+  }
+}

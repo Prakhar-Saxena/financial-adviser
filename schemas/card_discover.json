@@ -1,0 +1,79 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "documents",
+    "not_found",
+    "notes"
+  ],
+  "properties": {
+    "documents": {
+      "type": "array",
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "url",
+          "doc_type",
+          "title",
+          "why",
+          "confidence"
+        ],
+        "properties": {
+          "url": {
+            "type": "string",
+            "pattern": "^https://",
+            "maxLength": 2000
+          },
+          "doc_type": {
+            "type": "string",
+            "enum": [
+              "product_page",
+              "rewards_terms",
+              "program_terms",
+              "pricing_terms",
+              "cardmember_agreement",
+              "benefits_guide",
+              "benefit_terms",
+              "other"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "why": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        }
+      }
+    },
+    "not_found": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "product_page",
+          "rewards_terms",
+          "program_terms",
+          "pricing_terms",
+          "cardmember_agreement",
+          "benefits_guide",
+          "benefit_terms",
+          "other"
+        ]
+      }
+    },
+    "notes": {
+      "type": "string",
+      "maxLength": 1500
+    }
+  }
+}

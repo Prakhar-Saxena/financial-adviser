@@ -3,12 +3,14 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { api, type Meta, type ReviewItem } from "@/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
 import { money } from "@/lib/utils";
+import { problemText } from "@/pages/BestCard";
 import { TxnDetailPanel } from "@/pages/Transactions";
 
 const KIND_TITLES: Record<string, string> = {
@@ -21,6 +23,9 @@ const KIND_TITLES: Record<string, string> = {
   statement_mismatch: "Statement doesn't match the ledger",
   parse_failure: "Files that need a look",
   sync_gap: "Sync gaps",
+  card_terms_pending: "Card terms: waiting for approval",
+  card_terms_unverified: "Card terms: didn't check out",
+  card_source_problem: "Card terms: document problems",
 };
 
 export function Review({ meta }: { meta: Meta }) {
@@ -111,6 +116,15 @@ function ReviewRow({ item, meta, onResolve }: {
           </>
         ) : item.order ? (
           <span className="text-ink">Order {item.order.external_id} · {item.order.order_date} · {money(item.order.total_cents)}</span>
+        ) : item.kind.startsWith("card_") ? (
+          <>
+            <Link to="/best-card" className="text-ink underline-offset-2 hover:underline">{item.ref_id}</Link>
+            <span className="text-xs text-ink-2">
+              {item.kind === "card_terms_pending"
+                ? `v${item.details.version} ${item.details.first ? "(first terms)" : `(${item.details.summary})`}: accept or reject in Best card → Card terms`
+                : problemText(item.details)}
+            </span>
+          </>
         ) : (
           <span className="text-ink">{item.ref_table} {item.ref_id}</span>
         )}

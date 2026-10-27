@@ -23,6 +23,8 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 CONFIG_DIR = REPO_ROOT / "config"
 DEFAULT_DATA_DIR = "~/FinancialAdviserData"
 EXACT_VERSION = re.compile(r"^\d+\.\d+\.\d+$")
+BARE_DOMAIN = re.compile(r"[a-z0-9-]+(\.[a-z0-9-]+)+")
+SLUG = r"^[a-z][a-z0-9_]*$"
 
 
 class _Strict(BaseModel):
@@ -50,7 +52,7 @@ class Site(_Strict):
     @classmethod
     def _bare_domains(cls, v: list[str]) -> list[str]:
         for d in v:
-            if not re.fullmatch(r"[a-z0-9-]+(\.[a-z0-9-]+)+", d):
+            if not BARE_DOMAIN.fullmatch(d):
                 raise ValueError(f"allowed_domains entry must be a bare domain: {d!r}")
         return v
 
@@ -202,12 +204,73 @@ class ServerSettings(_Strict):
     web_dev_port: int = 5173
 
 
+class CardsSettings(_Strict):
+    """Card optimizer (docs/SPEC-cards.md §15)."""
+
+    refresh_days: int = Field(default=30, ge=1, le=365)
+    rediscover_days: int = Field(default=120, ge=1, le=730)
+    research_model: str = "sonnet"
+    extract_model: str = "sonnet"
+    merchant_model: Literal["haiku"] = "haiku"
+    discover_max_turns: int = Field(default=30, ge=3, le=60)
+    discover_max_searches: int = Field(default=20, ge=1, le=50)
+    timeout_seconds: int = Field(default=900, ge=30, le=3600)
+    max_doc_mb: int = Field(default=25, ge=1, le=100)
+    max_extract_chars: int = Field(default=240_000, ge=10_000, le=1_000_000)
+    min_request_interval_s: float = Field(default=3, ge=1, le=60)
+    auto_publish: bool = False
+    default_amount_cents: int = Field(default=10_000, gt=0)
+    count_unused_credits: bool = True
+    tips_months: int = Field(default=3, ge=1, le=24)
+    user_agent: str = Field(default="fin-card-docs/0.1 (personal use)", min_length=5)
+    doc_domains: dict[str, list[str]] = {"common": ["consumerfinance.gov"]}
+    product_aliases: dict[str, list[str]] = {}
+    valuations: dict[str, float] = {}
+    currency: dict[str, str] = {}
+
+    @field_validator("doc_domains")
+    @classmethod
+    def _bare_domains(cls, v: dict[str, list[str]]) -> dict[str, list[str]]:
+        for key, domains in v.items():
+            if not re.fullmatch(SLUG, key):
+                raise ValueError(f"doc_domains key must be a card or issuer id: {key!r}")
+            for d in domains:
+                if not BARE_DOMAIN.fullmatch(d):
+                    raise ValueError(f"doc_domains.{key}: not a bare domain: {d!r}")
+        return v
+
+    @field_validator("valuations")
+    @classmethod
+    def _cents(cls, v: dict[str, float]) -> dict[str, float]:
+        for cur, cents in v.items():
+            if not re.fullmatch(SLUG, cur) or not 0 < cents <= 10:
+                raise ValueError(f"valuations.{cur} must be a currency id and 0-10 cents")
+        return v
+
+    @field_validator("user_agent")
+    @classmethod
+    def _honest_ua(cls, v: str) -> str:
+        if "mozilla" in v.lower():
+            raise ValueError("user_agent must identify this tool, not imitate a browser")
+        return v
+
+    def domains_for(self, card: Card, issuer: Site) -> list[str]:
+        """The allowlist for one card's documents (§15), deduplicated, in order."""
+        out: list[str] = []
+        for d in (issuer.allowed_domains + self.doc_domains.get("common", [])
+                  + self.doc_domains.get(issuer.id, []) + self.doc_domains.get(card.id, [])):
+            if d not in out:
+                out.append(d)
+        return out
+
+
 class Settings(_Strict):
     general: GeneralSettings = GeneralSettings()
     sync: SyncSettings = SyncSettings()
     ai: AISettings = AISettings()
     match: MatchSettings = MatchSettings()
     server: ServerSettings = ServerSettings()
+    cards: CardsSettings = CardsSettings()
 
 
 # --------------------------------------------------------------- data paths
@@ -228,6 +291,8 @@ class DataPaths:
         self.debug = root / "debug"
         self.logs = root / "logs"
         self.backups = root / "backups"
+        self.card_docs = root / "card-docs"
+        self.locks = root / "locks"
 
     @property
     def all_dirs(self) -> list[Path]:
@@ -235,6 +300,8 @@ class DataPaths:
             self.root, self.db_file.parent, self.inbox, self.raw, self.raw / "sync-logs",
             self.browser_profiles, self.sync_sessions, self.ai_runs, self.secrets,
             self.debug, self.logs, self.backups,
+            self.card_docs, self.card_docs / "files", self.card_docs / "text",
+            self.card_docs / "manual", self.locks,
         ]
 
     def run_dir(self, site: str, date: str) -> Path:
@@ -315,3 +382,41 @@ class Taxonomy(_Strict):
 def load_taxonomy(path: Path | None = None) -> Taxonomy:
     path = path or CONFIG_DIR / "categories.json"
     return Taxonomy.model_validate(json.loads(path.read_text()))
+
+
+# ---------------------------------------------------- reward_categories.json
+
+
+class RewardCategory(_Strict):
+    id: str = Field(pattern=SLUG)
+    name: str
+    description: str
+    mcc_hints: list[str] = []
+
+
+class RewardCategories(_Strict):
+    """How card networks code merchants (docs/SPEC-cards.md §4), not what was bought."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, populate_by_name=True)
+
+    version: int
+    notes: list[str] = Field(default=[], alias="_notes")
+    categories: list[RewardCategory]
+
+    @model_validator(mode="after")
+    def _check(self) -> RewardCategories:
+        ids = self.ids
+        if len(set(ids)) != len(ids):
+            raise ValueError("duplicate reward category ids")
+        if "other" not in ids:
+            raise ValueError("reward categories must include 'other'")
+        return self
+
+    @property
+    def ids(self) -> list[str]:
+        return [c.id for c in self.categories]
+
+
+def load_reward_categories(path: Path | None = None) -> RewardCategories:
+    path = path or CONFIG_DIR / "reward_categories.json"
+    return RewardCategories.model_validate(json.loads(path.read_text()))

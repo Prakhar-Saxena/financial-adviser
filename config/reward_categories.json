@@ -1,0 +1,274 @@
+{
+  "version": 1,
+  "_notes": [
+    "Reward categories (docs/SPEC-cards.md \u00a74): how the card network codes the merchant (its MCC), not what was bought.",
+    "MCCs are hints only; issuers define their categories in their own terms. Ids feed the __REWARD_CATEGORY_IDS__ schema placeholder."
+  ],
+  "categories": [
+    {
+      "id": "dining",
+      "name": "Dining",
+      "description": "Restaurants, bars, cafes and fast food, as the card network codes them.",
+      "mcc_hints": [
+        "5812",
+        "5813",
+        "5814"
+      ]
+    },
+    {
+      "id": "food_delivery",
+      "name": "Food delivery",
+      "description": "Food delivery apps and services (for example, delivery from restaurants through an app).",
+      "mcc_hints": []
+    },
+    {
+      "id": "supermarkets",
+      "name": "Supermarkets",
+      "description": "Merchants coded as grocery stores and supermarkets. Issuers often exclude superstores, warehouse clubs and discount stores.",
+      "mcc_hints": [
+        "5411"
+      ]
+    },
+    {
+      "id": "wholesale_clubs",
+      "name": "Wholesale clubs",
+      "description": "Warehouse and wholesale clubs (membership warehouses).",
+      "mcc_hints": [
+        "5300"
+      ]
+    },
+    {
+      "id": "discount_stores",
+      "name": "Discount stores",
+      "description": "Discount stores and superstores that are not coded as supermarkets.",
+      "mcc_hints": [
+        "5310"
+      ]
+    },
+    {
+      "id": "department_stores",
+      "name": "Department stores",
+      "description": "Department stores.",
+      "mcc_hints": [
+        "5311"
+      ]
+    },
+    {
+      "id": "drugstores",
+      "name": "Drugstores",
+      "description": "Drugstores and pharmacies.",
+      "mcc_hints": [
+        "5912"
+      ]
+    },
+    {
+      "id": "gas_stations",
+      "name": "Gas stations",
+      "description": "Gas stations and automated fuel dispensers.",
+      "mcc_hints": [
+        "5541",
+        "5542"
+      ]
+    },
+    {
+      "id": "ev_charging",
+      "name": "EV charging",
+      "description": "Electric vehicle charging stations.",
+      "mcc_hints": [
+        "5552"
+      ]
+    },
+    {
+      "id": "airlines",
+      "name": "Airlines",
+      "description": "Airline tickets and fees bought from the airline.",
+      "mcc_hints": [
+        "4511"
+      ]
+    },
+    {
+      "id": "hotels",
+      "name": "Hotels",
+      "description": "Hotels, motels and resorts.",
+      "mcc_hints": [
+        "7011"
+      ]
+    },
+    {
+      "id": "car_rental",
+      "name": "Car rental",
+      "description": "Car rental agencies.",
+      "mcc_hints": [
+        "7512"
+      ]
+    },
+    {
+      "id": "travel_agencies",
+      "name": "Travel agencies",
+      "description": "Travel agencies, online travel sites and tour operators, including issuers' travel portals.",
+      "mcc_hints": [
+        "4722"
+      ]
+    },
+    {
+      "id": "cruises",
+      "name": "Cruises",
+      "description": "Cruise lines and steamships.",
+      "mcc_hints": [
+        "4411"
+      ]
+    },
+    {
+      "id": "transit",
+      "name": "Transit",
+      "description": "Local and commuter transit, trains, ferries and buses.",
+      "mcc_hints": [
+        "4111",
+        "4112",
+        "4131"
+      ]
+    },
+    {
+      "id": "rideshare_taxi",
+      "name": "Rideshare and taxi",
+      "description": "Rideshare services, taxis and limousines.",
+      "mcc_hints": [
+        "4121"
+      ]
+    },
+    {
+      "id": "parking_tolls",
+      "name": "Parking and tolls",
+      "description": "Parking lots and garages, tolls and bridge fees.",
+      "mcc_hints": [
+        "7523",
+        "4784"
+      ]
+    },
+    {
+      "id": "streaming_tv",
+      "name": "Streaming and TV",
+      "description": "Streaming services and cable or satellite TV.",
+      "mcc_hints": [
+        "4899"
+      ]
+    },
+    {
+      "id": "digital_goods",
+      "name": "Digital goods",
+      "description": "Digital goods and media: apps, games, music and e-books.",
+      "mcc_hints": [
+        "5815",
+        "5816",
+        "5817",
+        "5818"
+      ]
+    },
+    {
+      "id": "entertainment",
+      "name": "Entertainment",
+      "description": "Movie theaters, live events, sports and amusement venues.",
+      "mcc_hints": [
+        "7832",
+        "7922",
+        "7941",
+        "7996"
+      ]
+    },
+    {
+      "id": "telecom",
+      "name": "Telecom",
+      "description": "Phone, wireless and internet providers.",
+      "mcc_hints": [
+        "4812",
+        "4814"
+      ]
+    },
+    {
+      "id": "utilities",
+      "name": "Utilities",
+      "description": "Electric, gas, water and sanitation utilities.",
+      "mcc_hints": [
+        "4900"
+      ]
+    },
+    {
+      "id": "home_improvement",
+      "name": "Home improvement",
+      "description": "Home improvement and hardware stores.",
+      "mcc_hints": [
+        "5200"
+      ]
+    },
+    {
+      "id": "electronics",
+      "name": "Electronics",
+      "description": "Electronics stores.",
+      "mcc_hints": [
+        "5732"
+      ]
+    },
+    {
+      "id": "apparel",
+      "name": "Apparel",
+      "description": "Clothing, shoe and accessory stores.",
+      "mcc_hints": []
+    },
+    {
+      "id": "fitness",
+      "name": "Fitness",
+      "description": "Gyms, fitness clubs and athletic clubs.",
+      "mcc_hints": [
+        "7997"
+      ]
+    },
+    {
+      "id": "insurance",
+      "name": "Insurance",
+      "description": "Insurance premiums.",
+      "mcc_hints": [
+        "6300"
+      ]
+    },
+    {
+      "id": "medical",
+      "name": "Medical",
+      "description": "Doctors, dentists, hospitals and other medical services.",
+      "mcc_hints": []
+    },
+    {
+      "id": "education",
+      "name": "Education",
+      "description": "Schools, colleges and tuition.",
+      "mcc_hints": []
+    },
+    {
+      "id": "rent_housing",
+      "name": "Rent and housing",
+      "description": "Rent, mortgage and other housing payments.",
+      "mcc_hints": []
+    },
+    {
+      "id": "taxes_government",
+      "name": "Taxes and government",
+      "description": "Tax payments, government fees and services.",
+      "mcc_hints": [
+        "9311"
+      ]
+    },
+    {
+      "id": "charity",
+      "name": "Charity",
+      "description": "Charitable and nonprofit organizations.",
+      "mcc_hints": [
+        "8398"
+      ]
+    },
+    {
+      "id": "other",
+      "name": "Other",
+      "description": "Anything not in another reward category.",
+      "mcc_hints": []
+    }
+  ]
+}
