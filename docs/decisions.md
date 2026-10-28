@@ -612,3 +612,46 @@ Dated record of what was discovered and decided. Newest at the bottom of each da
 - Calls this round: 12 (retext) + 6 (terms prompt) + 3 (Chase fixes) = 21.
 - For C2's engine: a rule naming merchants applies only to those merchants, even when it also lists a category
   (Lyft 2% lists rideshare_taxi; Costco 5% gas lists gas_stations; Prime 5% lists "other").
+
+## 2026-10-27 (Card optimizer, Phase C2)
+
+### Built
+- `config/merchant_profiles.yaml`: ~60 seed merchants, including every SPEC §10 group (`amazon`, `whole_foods`,
+  `costco_warehouse`, `costco_gas`, `costco_online`) and generic profiles for the seed rules' merchant names
+  ("Gas station", "Pharmacy", ...). Loaded when the file changes (hash in `card_facts` kind `setting`); a profile
+  I corrected (source `user`) and my own aliases are never overwritten.
+- **Costco acceptance (sourced):** U.S. Costco warehouses take "All Visa Cards" (plus debit/ATM, cash, checks,
+  EBT, Shop Cards) and no other credit network. Sources: Costco customer service, Payment Info
+  (https://customerservice.costco.com/app/answers/list/p/2163/categoryRecordID/RN_PRODUCT_2163) and Member
+  Privileges and Conditions (https://www.costco.com/f/-/member-privileges-conditions), checked 2026-10-27.
+  Seeds: warehouse and gas visa yes, amex/mastercard/discover no; costco.com visa yes, others unknown.
+- `fin.cards.merchants` (resolution: alias → seed rules → close matches and whole-word containment as
+  suggestions only; the Claude lookup, haiku `--effort low`, only the query sent; corrections),
+  `fin.cards.engine` (pure), `fin.cards.best` (facts + engine), `fin cards best`, `fin cards merchant`,
+  `make best Q=…`, API (`/best`, `/merchants`, `/merchants/lookup`, `PATCH /merchants/{key}`, `/settings`), the
+  Find a card view (`?q=` pre-fills it) and the valuations/facts form under Card terms. README updated.
+- Tests: 24 golden scenarios on four fictional cards (to the cent), engine details, resolution, lookup once,
+  corrections through refresh + rebuild, a known merchant < 200 ms with no `claude` call, API rules.
+
+### Engine choices the spec left open
+- **Merchant-named rules.** A rule whose merchant names resolve to real merchant profiles applies only to those
+  merchants (or the same brand: "Costco" covers `costco_gas`), and only within its categories unless the
+  category is the model's filler `other`. Names that are booking channels (matching /travel|the edit/:
+  "Chase Travel", "AmexTravel.com") and `kb` placeholders never limit a rule. So Lyft 2% skips Uber, Costco's
+  5% gas skips the warehouse (2%) and other gas (4%), Prime's 5% is Amazon/Whole Foods only.
+- **Portal rules** come back only as alternatives ("Book through Chase Travel: 8x"). A portal rule listing only
+  `travel_agencies` covers every travel category.
+- **Food delivery counts as dining** unless a rule excludes it: issuers write "dining, including takeout and
+  delivery", and the extraction filed Sapphire's under `dining` only.
+- **Credits count in the ranking only when their use this period is known.** Use is tracked from Phase C3;
+  until then a credit is shown on its own line ("if not used yet") but not added. Counting every credit as
+  unused made Sapphire win every Uber ride by $100 and Platinum count its (fees-only) airline credit on tickets.
+  `count_unused_credits` still decides whether a known-unused credit counts.
+- **Break-even** is shown only when the tie point is ≤ 2.5¢; above that it isn't a useful hint.
+- **Currency:** plain "points" from Chase, Amex or Citi means Ultimate Rewards, Membership Rewards or ThankYou
+  (each issuer has one program). Sapphire Reserve's v4 had become `chase_points`; v5 (pending) fixes it.
+- Acceptance "unknown" adds a caveat for Amex and Discover only, as the spec says.
+- Facts: `valuation` (ref currency), `currency_pool` (card), `membership`/`enrolled`/`activated` (card, ref =
+  normalized requirement or credit name, value yes/no), `anniversary_month` (card), `setting`
+  `count_unused_credits`.
+- `fin process` history step (descriptor aliases, batched lookups) is Phase C3, with missed rewards.

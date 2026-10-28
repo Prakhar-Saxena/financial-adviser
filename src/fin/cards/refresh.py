@@ -433,6 +433,9 @@ def refresh(s: Session, paths: DataPaths, settings: Settings, cards: CardsConfig
             raise KeyError(f"unknown card ids: {sorted(unknown)}")
     with refresh_lock(paths):
         abort_stale_runs(s)
+        from fin.cards.merchants import sync_seeds
+
+        sync_seeds(s)  # so merchant names in new terms map onto the seed profiles
         if run is None:
             run = start_run(s, trigger, [c.id for c in wanted])
         fetcher = Fetcher(settings.cards, transport, sleep=sleep)

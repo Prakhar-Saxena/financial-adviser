@@ -1,8 +1,8 @@
 // Copyright (C) 2026 Prakhar Saxena
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-// The "Best card" tab (docs/SPEC-cards.md §13). Phase C1 builds the Card terms view; Find a card
-// and Missed rewards arrive in Phases C2 and C3.
+// The "Best card" tab (docs/SPEC-cards.md §13): Find a card (C2) and Card terms (C1). Missed
+// rewards arrives in Phase C3.
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight, RefreshCw } from "lucide-react";
@@ -11,6 +11,8 @@ import {
   api, type CardDetail, type CardDoc, type CardProfile, type CardSummary, type DiffItem,
   type EarnRule, type Evidence, type ProfileDiff,
 } from "@/api";
+import { FindCard } from "@/components/cards/FindCard";
+import { SettingsForm } from "@/components/cards/SettingsForm";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,13 +20,13 @@ import { cn, money } from "@/lib/utils";
 
 type View = "find" | "missed" | "terms";
 const VIEWS: { id: View; label: string; phase?: string }[] = [
-  { id: "find", label: "Find a card", phase: "C2" },
+  { id: "find", label: "Find a card" },
   { id: "missed", label: "Missed rewards", phase: "C3" },
   { id: "terms", label: "Card terms" },
 ];
 
 export function BestCard() {
-  const [view, setView] = useState<View>("terms");
+  const [view, setView] = useState<View>("find");
   return (
     <div className="space-y-4">
       <div role="tablist" aria-label="Best card views" className="inline-flex rounded-lg border border-line bg-surface p-0.5">
@@ -38,6 +40,7 @@ export function BestCard() {
           </button>
         ))}
       </div>
+      {view === "find" && <FindCard />}
       {view === "terms" && <CardTerms />}
     </div>
   );
@@ -57,6 +60,7 @@ function CardTerms() {
         </p>
       )}
       {cards.map((c) => <CardPanel key={c.card_id} summary={c} />)}
+      <SettingsForm />
     </div>
   );
 }

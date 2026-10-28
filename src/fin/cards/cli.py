@@ -297,3 +297,98 @@ def add_doc(
             raise typer.Exit(2) from None
         typer.echo(f"{file.name}: {outcome}" + (f" ({d.note})" if d.note else "")
                    + f". `fin cards refresh --card {card}` reads it.")
+
+
+def _money(cents: float) -> str:
+    return f"${cents / 100:,.2f}"
+
+
+@cards_app.command()
+def best(
+    query: str,
+    amount: Annotated[float | None, typer.Option(help="Dollars (default $100)")] = None,
+    online: Annotated[bool, typer.Option("--online")] = False,
+    in_store: Annotated[bool, typer.Option("--in-store")] = False,
+    in_app: Annotated[bool, typer.Option("--in-app")] = False,
+    abroad: Annotated[bool, typer.Option("--abroad", help="Paying outside the U.S.")] = False,
+    lookup: Annotated[bool, typer.Option(
+        "--lookup", help="Ask Claude (haiku) once if the merchant is new")] = False,
+    web: Annotated[bool, typer.Option("--web", help="Let that lookup search the web")] = False,
+) -> None:
+    """Which card to use: my cards ranked by what I'd get back here (§9)."""
+    from fin.cards.best import best as rank_best
+    from fin.cards.merchants import lookup as ask_claude
+
+    settings, cards = load_settings(), load_cards()
+    channel = "online" if online else "in_store" if in_store else "in_app" if in_app else None
+    cents = round(amount * 100) if amount else None
+    with _session() as s:
+        out = rank_best(s, settings, cards, query, amount_cents=cents, channel=channel,
+                        abroad=abroad, low_confidence=settings.ai.low_confidence)
+        if out["needs_lookup"]:
+            if not (lookup or web):
+                typer.echo(f"I don't know {query!r} yet.")
+                for x in out["suggestions"]:
+                    typer.echo(f"  Did you mean: {x['display_name']} ({x['alias']})?")
+                typer.echo("Add --lookup to ask Claude once (haiku; only the name is sent).")
+                raise typer.Exit(1)
+            res = ask_claude(s, data_paths(settings), settings, query, web=web)
+            if res.not_a_merchant:
+                typer.echo("That doesn't look like a merchant.")
+                raise typer.Exit(1)
+            out = rank_best(s, settings, cards, query, amount_cents=cents, channel=channel,
+                            abroad=abroad, merchant_key=res.merchant.key,
+                            low_confidence=settings.ai.low_confidence)
+    mer = out["merchant"]
+    unsure = "  (not sure about this one)" if mer["unsure"] else ""
+    typer.echo(f"{mer['display_name']} · {mer['reward_category'].replace('_', ' ')} · "
+               f"from {mer['source']}{unsure}")
+    typer.echo(f"On {_money(out['amount_cents'])}"
+               + (" outside the U.S." if abroad else "") + ":\n")
+    for r in out["results"]:
+        rule = r["rule"]["text"] if r["rule"] else "no rule"
+        typer.echo(f"  {r['rank']}. {r['product']:<40} {_money(r['total_cents']):>8}  "
+                   f"{r['cents_per_dollar']:.1f}¢/$  {rule}")
+        if r["credit"]:
+            typer.echo(f"       {r['credit']['text']}")
+        for c in r["caveats"]:
+            typer.echo(f"       · {c}")
+        for a in r["alternatives"]:
+            typer.echo(f"       alt: {a['text']} = {_money(a['cents'])}")
+    for x in out["not_accepted"]:
+        typer.echo(f"  not accepted here: {x['product']} ({x['network']})")
+    if out["break_even"]:
+        typer.echo(f"\n{out['break_even']}")
+    asks = [w for w, on in (("--online/--in-store", out["asks_channel"] and not channel),
+                            ("--abroad", out["asks_abroad"] and not abroad)) if on]
+    if asks:
+        typer.echo(f"(The answer can change with {' or '.join(asks)}.)")
+
+
+@cards_app.command()
+def merchant(
+    query: str,
+    category: Annotated[str | None, typer.Option(help="Correct the reward category")] = None,
+    accepts: Annotated[list[str] | None, typer.Option(
+        help="Correct acceptance, e.g. --accepts amex=no")] = None,
+) -> None:
+    """Show a merchant profile, or correct it (my corrections are never overwritten)."""
+    from fin.cards.merchants import correct, resolve, sync_seeds
+
+    with _session() as s:
+        sync_seeds(s)
+        res = resolve(s, query)
+        if res.merchant is None:
+            typer.echo(f"No profile for {query!r}. `fin cards best {query!r} --lookup` makes one.")
+            raise typer.Exit(1)
+        mer = res.merchant
+        if category or accepts:
+            acc = dict(a.split("=", 1) for a in accepts or [])
+            try:
+                mer = correct(s, mer.key, category=category, acceptance=acc, alias=query)
+            except ValueError as e:
+                typer.echo(str(e))
+                raise typer.Exit(2) from None
+            typer.echo("Saved (source: user).")
+        s.commit()
+        typer.echo(json.dumps(mer.as_dict(), indent=2))

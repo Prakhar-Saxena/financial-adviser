@@ -29,6 +29,8 @@ from fin.db.models import utcnow
 
 CURRENCY_NAMES = (("membership rewards", "amex_mr"), ("ultimate rewards", "chase_ur"),
                   ("thankyou", "citi_typ"), ("thank you", "citi_typ"))
+# Each of these issuers has one points program, so plain "points" means it.
+ISSUER_POINTS = {"amex": "amex_mr", "chase": "chase_ur", "citi": "citi_typ"}
 RULE_MATERIAL = ("rate", "cap")
 CREDIT_MATERIAL = ("amount_cents", "period")
 
@@ -49,6 +51,8 @@ def currency_id(card: Card, terms: dict[str, Any], settings: Settings) -> str:
             return cid
     if terms.get("currency_kind") == "cash_back":
         return "cash_back"
+    if terms.get("currency_kind") == "points" and card.issuer in ISSUER_POINTS:
+        return ISSUER_POINTS[card.issuer]  # documents often just say "points"
     return re.sub(r"[^a-z0-9]+", "_", f"{card.issuer}_{terms.get('currency_kind', 'points')}")
 
 
