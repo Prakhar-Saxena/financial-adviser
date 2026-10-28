@@ -19,7 +19,7 @@ export type Meta = {
   months: string[];
   category_rank: string[];
   people: { id: string; name: string }[];
-  cards: { id: string; name: string; issuer: string }[];
+  cards: { id: string; name: string; issuer: string; network: string; art: string | null }[];
   categories: { id: string; name: string; parent_id: string | null }[];
 };
 export type Txn = {

@@ -10,6 +10,7 @@ import {
   api, type CardAnswer, type CardDetail, type CardDoc, type CardProfile, type CardSummary, type DiffItem,
   type EarnRule, type Evidence, type ProfileDiff,
 } from "@/api";
+import { CardArt } from "@/components/cards/CardArt";
 import { FindCard } from "@/components/cards/FindCard";
 import { MissedRewards } from "@/components/cards/MissedRewards";
 import { SettingsForm } from "@/components/cards/SettingsForm";
@@ -110,6 +111,7 @@ function CardPanel({ summary }: { summary: CardSummary }) {
       <CardHeader>
         <button className="flex items-center gap-2 text-left" onClick={() => setOpen(!open)} aria-expanded={open}>
           {open ? <ChevronDown className="h-4 w-4 text-muted" /> : <ChevronRight className="h-4 w-4 text-muted" />}
+          <CardArt cardId={summary.card_id} product={summary.product} size="md" />
           <CardTitle>{summary.product}</CardTitle>
         </button>
         <div className="flex flex-wrap items-center gap-2">

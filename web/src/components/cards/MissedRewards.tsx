@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
+import { CardArt } from "@/components/cards/CardArt";
 import { OfferText } from "@/components/cards/FindCard";
 import { money } from "@/lib/utils";
 
@@ -60,7 +61,7 @@ function Tips() {
                         <td className="py-1.5 pr-3 text-right tabular">{r.purchases}</td>
                         <td className="py-1.5 pr-3 text-right tabular">{money(r.spend_cents)}</td>
                         <td className="py-1.5 pr-3 text-ink-2">{r.cards_used.map((c) => `${c.product}${r.cards_used.length > 1 ? ` (${c.purchases})` : ""}`).join(", ")}</td>
-                        <td className="py-1.5 pr-3">{r.better_product}</td>
+                        <td className="py-1.5 pr-3"><span className="flex items-center gap-2"><CardArt cardId={r.better_card_id} product={r.better_product} />{r.better_product}</span></td>
                         <td className="py-1.5 text-right tabular font-medium">{money(r.difference_cents)}</td>
                       </tr>
                     ))}
@@ -101,8 +102,9 @@ function Offers() {
           <ul className="divide-y divide-line">
             {data.at_my_merchants.map((r) => (
               <li key={`${r.card_id}-${r.merchant_key}-${r.text}`} className="py-1.5">
-                <div><span className="font-medium">{r.merchant}</span> <span className="text-ink-2">· {r.product}</span>
-                  <span className="ml-2 text-xs text-muted">{r.purchases} purchase{r.purchases > 1 ? "s" : ""}, typically {money(r.typical_cents)}</span></div>
+                <div className="flex flex-wrap items-center gap-x-2"><span className="font-medium">{r.merchant}</span>
+                  <span className="flex items-center gap-1.5 text-ink-2"><CardArt cardId={r.card_id} product={r.product} />{r.product}</span>
+                  <span className="text-xs text-muted">{r.purchases} purchase{r.purchases > 1 ? "s" : ""}, typically {money(r.typical_cents)}</span></div>
                 <OfferText o={r} />
               </li>
             ))}
@@ -133,7 +135,7 @@ function RewardsCheckCard() {
               {data.statements.map((r) => (
                 <tr key={r.statement_id} className="align-top"
                     title={`Statement: ${r.stated_lines.filter((x) => x.value).map((x) => `${x.text} ${amt(x.value, r.kind)}`).join("; ")}\nPredicted: ${r.predicted_lines.map((x) => `${x.text} ${amt(x.value, r.kind)}`).join("; ")}`}>
-                  <td className="py-1.5 pr-3">{r.product}</td>
+                  <td className="py-1.5 pr-3"><span className="flex items-center gap-2"><CardArt cardId={r.card_id} product={r.product} />{r.product}</span></td>
                   <td className="py-1.5 pr-3 text-ink-2">{r.period_start} to {r.period_end}</td>
                   <td className="py-1.5 pr-3 text-right tabular">{amt(r.stated, r.kind)}</td>
                   <td className="py-1.5 pr-3 text-right tabular">{amt(r.predicted, r.kind)}</td>
@@ -173,7 +175,7 @@ function Credits() {
       requirements: [{ ref: c.enroll_ref, kind: "enrollment", value: c.value }] }] }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["credits"] }),
   });
-  const byCard = data.reduce<Record<string, CreditUse[]>>((acc, c) => { (acc[c.product] ??= []).push(c); return acc; }, {});
+  const byCard = data.reduce<Record<string, CreditUse[]>>((acc, c) => { (acc[c.card_id] ??= []).push(c); return acc; }, {});
   if (!data.length) return null;
   return (
     <Card>
@@ -182,50 +184,73 @@ function Credits() {
         <p className="text-xs text-muted">
           Matched to the credits on your statements. In-app credits (Uber Cash, DoorDash) don't post, so mark them by hand.
         </p>
-        {Object.entries(byCard).map(([product, rows]) => (
-          <section key={product} className="space-y-2">
-            <h3 className="font-medium">{product}{rows[0].as_of && !rows[0].fresh && <span className="ml-2 text-xs font-normal text-critical">data as of {rows[0].as_of}</span>}</h3>
-            {rows.map((c) => {
-              const pct = c.known ? Math.min(100, (c.used_cents / c.amount_cents) * 100) : 0;
-              return (
-                <div key={c.identity} className="grid grid-cols-1 items-center gap-2 sm:grid-cols-[minmax(0,16rem)_1fr_auto]">
-                  <div>{c.name} <span className="text-xs text-muted">{c.period_key}</span></div>
-                  <div className="flex items-center gap-2">
-                    <div className="h-2 flex-1 overflow-hidden rounded-full bg-surface-2" role="img"
-                         aria-label={c.known ? `${money(c.used_cents)} of ${money(c.amount_cents)} used` : "use unknown"}>
-                      <div className="h-full bg-series-1" style={{ width: `${pct}%` }} />
-                    </div>
-                    <span className="w-40 text-right text-xs tabular">
-                      {c.known ? `${money(c.used_cents)} of ${money(c.amount_cents)}` : `? of ${money(c.amount_cents)}`}
-                    </span>
-                    <span className="w-20 text-xs text-muted">{c.days_left} days left</span>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    {c.enrollment_required && (
-                      <Select value={c.enrolled === null ? "" : c.enrolled ? "yes" : "no"} aria-label="Enrolled"
-                              onChange={(e) => enroll.mutate({ ...c, value: e.target.value || null })}>
-                        <option value="">enrolled?</option>
-                        <option value="yes">enrolled</option>
-                        <option value="no">not enrolled</option>
-                      </Select>
-                    )}
-                    {c.how === "manual" ? (
-                      <Button size="sm" variant="ghost" onClick={() => mark.mutate({ card_id: c.card_id, identity: c.identity, period_key: c.period_key, clear: true })}>Undo mark</Button>
-                    ) : (
-                      <>
-                        <Button size="sm" variant="ghost" onClick={() => mark.mutate({ card_id: c.card_id, identity: c.identity, period_key: c.period_key, used: "full" })}>Used</Button>
-                        <Button size="sm" variant="ghost" onClick={() => mark.mutate({ card_id: c.card_id, identity: c.identity, period_key: c.period_key, used: "none" })}>Unused</Button>
-                      </>
-                    )}
-                    {c.how === "manual" && <Badge>marked by you</Badge>}
-                  </div>
+        {Object.values(byCard).map((rows) => {
+          const total = rows.reduce((n, c) => n + c.amount_cents, 0);
+          const used = rows.reduce((n, c) => n + (c.known ? c.used_cents : 0), 0);
+          const unknown = rows.some((c) => !c.known);
+          return (
+            <section key={rows[0].card_id} className="overflow-hidden rounded-lg border border-line">
+              <header className="flex flex-wrap items-center gap-3 border-b border-line bg-surface-2 px-3 py-2.5">
+                <CardArt cardId={rows[0].card_id} product={rows[0].product} size="md" />
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-medium">{rows[0].product}</h3>
+                  <p className="text-xs text-ink-2">
+                    {rows.length} credit{rows.length > 1 ? "s" : ""} ·{" "}
+                    <span className="tabular">{unknown ? "at least " : ""}{money(used)} of {money(total)} used</span>
+                    {rows[0].as_of && !rows[0].fresh && <span className="ml-2 text-critical">data as of {rows[0].as_of}</span>}
+                  </p>
                 </div>
-              );
-            })}
-          </section>
-        ))}
+              </header>
+              <div className="divide-y divide-line">
+                {rows.map((c) => <CreditRow key={c.identity} c={c} mark={mark.mutate} enroll={enroll.mutate} />)}
+              </div>
+            </section>
+          );
+        })}
       </CardContent>
     </Card>
+  );
+}
+
+function CreditRow({ c, mark, enroll }: {
+  c: CreditUse;
+  mark: (body: Parameters<typeof api.markCredit>[0]) => void;
+  enroll: (c: CreditUse & { value: string | null }) => void;
+}) {
+  const pct = c.known ? Math.min(100, (c.used_cents / c.amount_cents) * 100) : 0;
+  return (
+    <div className="grid grid-cols-1 items-center gap-2 px-3 py-2 sm:grid-cols-[minmax(0,16rem)_1fr_auto]">
+      <div>{c.name} <span className="text-xs text-muted">{c.period_key}</span></div>
+      <div className="flex items-center gap-2">
+        <div className="h-2 flex-1 overflow-hidden rounded-full bg-surface-2" role="img"
+             aria-label={c.known ? `${money(c.used_cents)} of ${money(c.amount_cents)} used` : "use unknown"}>
+          <div className="h-full bg-series-1" style={{ width: `${pct}%` }} />
+        </div>
+        <span className="w-40 text-right text-xs tabular">
+          {c.known ? `${money(c.used_cents)} of ${money(c.amount_cents)}` : `? of ${money(c.amount_cents)}`}
+        </span>
+        <span className="w-20 text-xs text-muted">{c.days_left} days left</span>
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5">
+        {c.enrollment_required && (
+          <Select value={c.enrolled === null ? "" : c.enrolled ? "yes" : "no"} aria-label="Enrolled"
+                  onChange={(e) => enroll({ ...c, value: e.target.value || null })}>
+            <option value="">enrolled?</option>
+            <option value="yes">enrolled</option>
+            <option value="no">not enrolled</option>
+          </Select>
+        )}
+        {c.how === "manual" ? (
+          <Button size="sm" variant="ghost" onClick={() => mark({ card_id: c.card_id, identity: c.identity, period_key: c.period_key, clear: true })}>Undo mark</Button>
+        ) : (
+          <>
+            <Button size="sm" variant="ghost" onClick={() => mark({ card_id: c.card_id, identity: c.identity, period_key: c.period_key, used: "full" })}>Used</Button>
+            <Button size="sm" variant="ghost" onClick={() => mark({ card_id: c.card_id, identity: c.identity, period_key: c.period_key, used: "none" })}>Unused</Button>
+          </>
+        )}
+        {c.how === "manual" && <Badge>marked by you</Badge>}
+      </div>
+    </div>
   );
 }
 
@@ -240,7 +265,11 @@ function Cheatsheet() {
           {rows.map((r) => (
             <tr key={r.key}>
               <td className="py-1 pr-3">{r.label}</td>
-              <td className="py-1 pr-3 font-medium">{r.product ?? "-"}</td>
+              <td className="py-1 pr-3 font-medium">
+                {r.product && r.card_id
+                  ? <span className="flex items-center gap-2"><CardArt cardId={r.card_id} product={r.product} />{r.product}</span>
+                  : "-"}
+              </td>
               <td className="py-1 pr-3 text-right tabular">{r.cents_per_dollar.toFixed(1)}¢/$</td>
               <td className="py-1 text-xs text-ink-2">{r.rule}{r.runner_up ? ` · next: ${r.runner_up} ${r.runner_up_cents_per_dollar?.toFixed(1)}¢` : ""}</td>
             </tr>

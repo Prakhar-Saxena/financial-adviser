@@ -392,6 +392,18 @@ def cards_router(session: Callable[[], Iterator[Session]], settings: Settings,
                 "profiles_published": run.profiles_published,
                 "cards": json.loads(run.cards_json), "errors": json.loads(run.errors_json)}
 
+    @router.get("/art/{card_id}")
+    def card_art(card_id: str):
+        from fin.cards.art import TYPES, stored
+
+        have = stored(paths, card_id) if card_id in {c.id for c in cards.cards} else None
+        if have is None:
+            raise HTTPException(404, "no picture for this card")
+        pic = have[0]
+        return FileResponse(pic, media_type=TYPES[pic.suffix.lstrip(".")], headers={
+            **NOSNIFF, "Cache-Control": "private, max-age=86400",
+            "Content-Security-Policy": "default-src 'none'"})
+
     @router.get("/documents/{version_id}")
     def document(version_id: int, s: Session = Depends(db)):
         v = s.get(m.CardDocVersion, version_id)

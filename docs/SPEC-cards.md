@@ -109,6 +109,7 @@ Add these to `docs/SPEC.md` and `CLAUDE.md` as worded here.
     files/<sha256[:2]>/<sha256>.pdf|.html   immutable document versions
     text/<text_sha256>.txt                  extracted text with [[page N]] (PDF) or [[section N]] (HTML) markers
     manual/<card_id>/                       drop zone for documents I download myself (§7.6)
+    art/<card_id>.png|.jpg|.webp, .json     the card's official picture and where it came from (§7.8)
   locks/claude.lock                         one claude -p call at a time, across processes (§11)
   locks/cards-refresh.lock                  one refresh at a time (CLI or dashboard)
   ai-runs/<timestamp>_<task>/               as today: input.json, output.json, meta.json per call
@@ -270,6 +271,13 @@ For each extracted item:
 - The dashboard shows when terms are stale and has a Refresh now button (§13).
 - Optional (Phase C5): a monthly launchd job.
 
+### 7.8 Card pictures (`fin cards art`)
+
+- The dashboard shows each card's official picture. It comes from the `<img>` tags of the card's own stored HTML documents: HTTPS, PNG/JPEG/WebP (never SVG), on the card's allowlist. The best one names the product (alt text, else file name) with the fewest other words; a sibling product's name (business, a co-brand) or a "no annual fee" banner counts against it.
+- Downloaded through the §7.2 fetcher (allowlist on every hop, robots.txt, no cookies, honest user agent). Kept only if its bytes are a PNG, JPEG or WebP and card-shaped (width/height 1.3–1.9, at least 120 px wide); otherwise the next one is tried, three at most. `[cards.art]` in settings overrides the choice with a URL, still on the allowlist.
+- Stored as `card-docs/art/<card_id>.<ext>` plus a `.json` note (URL, alt, page, sha256). The API serves it at `/api/cards/art/<card_id>`; the browser never loads anything from an issuer's site. No picture: the dashboard draws one.
+- `fin cards art [--card ID] [--list] [--force]`. No AI. A picture already stored from the same URL isn't downloaded again.
+
 ## 8. Merchant resolution
 
 First match wins:
@@ -402,6 +410,7 @@ The Review page gets a "Card terms" group for the three new review kinds, linkin
 | `fin cards sources [--card ID]`, `fin cards add-source CARD URL --type T`, `fin cards add-doc CARD FILE --type T [--url URL]` | Documents (§7.6) |
 | `fin cards merchant QUERY [--category C] [--accepts amex=no]` | Shows or corrects a merchant profile |
 | `fin cards schedule install\|remove` (Phase C5) | The monthly launchd job |
+| `fin cards art [--card ID] [--list] [--force]` | Official card pictures for the dashboard (§7.8) |
 
 Make targets: `make cards` (status), `make cards-refresh`, `make best Q="whole foods"`.
 
