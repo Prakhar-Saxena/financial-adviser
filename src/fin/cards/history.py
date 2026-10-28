@@ -317,11 +317,11 @@ def credit_used_map(uses: list[CreditUse]) -> dict[tuple[str, str], int]:
 
 
 def earn_only(facts: engine.Facts) -> engine.Facts:
-    """The same facts with no credit counted: the look back and the cheat sheet compare earn
-    rates, not this period's unused credits."""
+    """The same facts with no credit or offer counted: the look back and the cheat sheet
+    compare earn rates, not this period's unused credits or this month's offers."""
     from dataclasses import replace
 
-    return replace(facts, credit_used={})
+    return replace(facts, credit_used={}, offers={})
 
 
 def tips(s: Session, settings: Settings, cards: CardsConfig, profiles: dict[str, CardProfile],

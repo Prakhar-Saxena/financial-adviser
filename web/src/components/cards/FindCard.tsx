@@ -7,7 +7,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { api, type BestAnswer, type BestEvidence, type BestResult, type MerchantInfo } from "@/api";
+import { api, type BestAnswer, type BestEvidence, type BestResult, type MerchantInfo, type OfferLine } from "@/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -213,6 +213,7 @@ function Answer({ answer }: { answer: BestAnswer }) {
                     <td className="space-y-1 py-1.5 text-ink-2">
                       <div>{r.rule?.text}</div>
                       {r.credit && <div className="text-xs">{r.credit.text}</div>}
+                      {r.offer && <OfferText o={r.offer} />}
                       {r.alternatives.map((a) => <div key={a.text} className="text-xs">{a.text} = {money(a.cents)}</div>)}
                       <Caveats items={r.caveats} />
                     </td>
@@ -266,6 +267,7 @@ function Winner({ r, amount }: { r: BestResult; amount: number }) {
             <Quote ev={r.credit.evidence} />
           </div>
         )}
+        {r.offer && <OfferText o={r.offer} />}
         {r.alternatives.map((a) => (
           <div key={a.text} className="text-sm text-ink-2">Or: {a.text} = {money(a.cents)}</div>
         ))}
@@ -324,5 +326,16 @@ function Freshness({ kb }: { kb: BestAnswer["kb"] }) {
       {kb.stale.length > 0 && ` Stale: ${kb.stale.join(", ")}. Refresh them under Card terms.`}
       {kb.without_terms.length > 0 && ` No terms yet: ${kb.without_terms.join(", ")}.`}
     </p>
+  );
+}
+
+// A card-linked offer on its own line (Phase C4). It counts in the total only when added.
+export function OfferText({ o }: { o: OfferLine }) {
+  return (
+    <div className="text-sm">
+      <span className={o.counted ? "" : "text-ink-2"}>{o.text}</span>
+      {o.value_cents > 0 && <span className="ml-1 tabular">{o.counted ? "+" : "worth "}{money(o.value_cents)}</span>}
+      {o.notes.length > 0 && <span className="ml-1 text-xs text-muted">({o.notes.join("; ")})</span>}
+    </div>
   );
 }

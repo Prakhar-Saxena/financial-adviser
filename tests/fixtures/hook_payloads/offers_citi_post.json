@@ -1,0 +1,13 @@
+{
+ "session_id": "fictional",
+ "cwd": "{SESSION_CWD}",
+ "hook_event_name": "PostToolUse",
+ "tool_name": "mcp__playwright__browser_snapshot",
+ "tool_input": {},
+ "tool_response": [
+  {
+   "type": "text",
+   "text": "### Page\n- Page URL: https://online.citi.com/US/ag/offers\n- Page Title: Offers\n### Snapshot\n```yaml\n- main [ref=e1]:\n  - heading \"Citi Merchant Offers\" [level=1] [ref=e2]\n  - list [ref=e3]:\n    - listitem [ref=e4]:\n      - paragraph [ref=e5]: Sample Coffee 5% back\n      - button \"Enroll\" [ref=e6] [cursor=pointer]\n    - listitem [ref=e7]:\n      - paragraph [ref=e8]: Sample Books\n      - checkbox \"Enroll in Sample Books offer\" [ref=e9]\n  - button \"Load more offers\" [ref=e20] [cursor=pointer]\n```\n"
+  }
+ ]
+}

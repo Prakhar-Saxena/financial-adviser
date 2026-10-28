@@ -136,15 +136,20 @@ def sync(
         help="Run from a script (trusted mode; messages via `fin sync-send`)")] = False,
     hold: Annotated[bool, typer.Option(
         help="Driven only: open the site, report sign-in, then wait for 'continue'")] = False,
+    offers: Annotated[bool | None, typer.Option(
+        "--offers/--no-offers",
+        help="Also save each card's offers page, read-only (default: the offers_sites setting)",
+    )] = None,
 ) -> None:
     """One browsing session for one site (§9.1), then import. You log in; Claude drives Chrome."""
     if driven and site in READY_SITES:
-        raise typer.Exit(sync_driven(site, since=since, hold=hold))
+        raise typer.Exit(sync_driven(site, since=since, hold=hold, offers=offers))
     if site == "selftest":
         _sync_selftest(trusted=trusted, keep_transcript=keep_transcript)
         return
     if site in READY_SITES:
-        code = sync_site(site, trusted=trusted, since=since, keep_transcript=keep_transcript)
+        code = sync_site(site, trusted=trusted, since=since, keep_transcript=keep_transcript,
+                         offers=offers)
         raise typer.Exit(code)
     if site in BROWSING_SITES or site == "gmail":
         _not_yet(f"`fin sync {site}`", SITE_PHASE[site])
@@ -223,7 +228,7 @@ class SitePlan:
 
 def plan_site(
     site_id: str, *, trusted: bool = False, since: str | None = None,
-    keep_transcript: bool = False, interactive: bool = True,
+    keep_transcript: bool = False, interactive: bool = True, offers: bool | None = None,
 ) -> SitePlan | None:
     """Work out what to collect and write the session's control files. None = cancelled."""
     from datetime import date
@@ -248,7 +253,8 @@ def plan_site(
             if not typer.confirm("Run again anyway?", default=False):
                 return None
         run_params, since_date, until_date = params.run_params(
-            s, cards, settings, site_id, today, date.fromisoformat(since) if since else None
+            s, cards, settings, site_id, today, date.fromisoformat(since) if since else None,
+            offers,
         )
     plan = launcher.plan_session(
         paths, settings, site, trusted=trusted, keep_transcript=keep_transcript,
@@ -261,12 +267,13 @@ def plan_site(
 
 def sync_site(
     site_id: str, *, trusted: bool = False, since: str | None = None,
-    keep_transcript: bool = False,
+    keep_transcript: bool = False, offers: bool | None = None,
 ) -> int:
     """Run one site's browsing session, then validate, record and import. Returns exit code."""
     from fin.sync import runs
 
-    sp = plan_site(site_id, trusted=trusted, since=since, keep_transcript=keep_transcript)
+    sp = plan_site(site_id, trusted=trusted, since=since, keep_transcript=keep_transcript,
+                   offers=offers)
     if sp is None:
         return 0
     _, code = _run_session(sp.plan, sp.settings, sp.method, sp.moved, [
@@ -281,10 +288,11 @@ def sync_site(
     return finish_site(sp, code, review_playbook=True)
 
 
-def sync_driven(site_id: str, *, since: str | None = None, hold: bool = False) -> int:
+def sync_driven(site_id: str, *, since: str | None = None, hold: bool = False,
+                offers: bool | None = None) -> int:
     from fin.sync.driver import DRIVEN_HOLD, DRIVEN_START, Driver
 
-    sp = plan_site(site_id, trusted=True, since=since, interactive=False)
+    sp = plan_site(site_id, trusted=True, since=since, interactive=False, offers=offers)
     typer.echo(f"Driven {site_id} session (trusted mode; the guard checks every action).")
     if sp.plan.browser == "extension":
         typer.echo("Uses your own Chrome via the Playwright extension: approve the connection "
@@ -613,6 +621,15 @@ def process(no_ai: Annotated[bool, typer.Option("--no-ai", help="Cache only, no 
     cm = r.card_merchants
     typer.echo(f"Card merchants: {cm.resolved} of {cm.descriptors} descriptors known "
                f"({cm.calls} calls).")
+    co_ = r.card_offers
+    if co_.snapshots:
+        typer.echo(f"Card offers: {co_.snapshots} offers pages read, {co_.verified} of "
+                   f"{co_.found} offers verified ({co_.calls} calls).")
+    for problem in co_.failed:
+        typer.echo(f"  offers page failed: {problem}")
+    if r.statement_rewards:
+        typer.echo(f"Statement rewards summaries read: {r.statement_rewards} "
+                   "(see `fin cards rewards-check`).")
     if r.ai_paused:
         typer.echo("AI paused: subscription limit reached. Rerun `fin process` later.")
     mm = r.match

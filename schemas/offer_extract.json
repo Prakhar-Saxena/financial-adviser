@@ -1,0 +1,36 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["offers"],
+  "properties": {
+    "offers": {
+      "type": "array",
+      "maxItems": 300,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["merchant", "reward", "min_spend_usd", "expires_text", "added", "channel",
+                     "quote"],
+        "properties": {
+          "merchant": {"type": "string", "minLength": 1, "maxLength": 200},
+          "reward": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind", "value"],
+            "properties": {
+              "kind": {"type": "string",
+                       "enum": ["cash", "percent", "points", "points_per_dollar"]},
+              "value": {"type": "number", "exclusiveMinimum": 0, "maximum": 1000000},
+              "max": {"type": ["number", "null"], "exclusiveMinimum": 0, "maximum": 10000000}
+            }
+          },
+          "min_spend_usd": {"type": ["number", "null"], "minimum": 0, "maximum": 1000000},
+          "expires_text": {"type": ["string", "null"], "maxLength": 100},
+          "added": {"type": ["boolean", "null"]},
+          "channel": {"type": ["string", "null"], "enum": ["online", "in_store", null]},
+          "quote": {"type": "string", "minLength": 1, "maxLength": 1000}
+        }
+      }
+    }
+  }
+}

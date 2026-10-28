@@ -59,7 +59,7 @@ REVIEW_KINDS = (
     "card_terms_pending", "card_terms_unverified", "card_source_problem",
 )
 CARD_REVIEW_KINDS = ("card_terms_pending", "card_terms_unverified", "card_source_problem")
-IMPORT_KINDS = ("transactions", "statement", "orders", "receipts", "emails")
+IMPORT_KINDS = ("transactions", "statement", "orders", "receipts", "emails", "offers")
 
 
 # ------------------------------------------------------------- reference
@@ -207,6 +207,9 @@ class Statement(Base):
     math_ok: Mapped[bool] = mapped_column(default=False)
     ledger_status: Mapped[str | None]
     ledger_delta_cents: Mapped[int | None]
+    # The statement's own rewards summary (SPEC-cards Phase C5), read once by `fin process`:
+    # {"kind": "points"|"cash", "earned": int, "lines": [...]}, or {} when it has none.
+    rewards_json: Mapped[str | None] = mapped_column(Text)
 
 
 class StatementLine(Base):
@@ -622,3 +625,48 @@ class CardRefreshRun(Base):
     profiles_pending: Mapped[int] = mapped_column(default=0)
     profiles_published: Mapped[int] = mapped_column(default=0)
     errors_json: Mapped[str] = mapped_column(Text, default="[]")
+
+
+# Card-linked offers (docs/SPEC-cards.md Phase C4). Kept by `fin rebuild`; linked to `imports`
+# (also kept), never to a table rebuild deletes.
+OFFER_REWARD_KINDS = ("cash", "percent", "points", "points_per_dollar")
+
+
+class CardOfferSnapshot(Base):
+    """One saved offers page for one card, from a browsing run (manifest kind `offers`)."""
+
+    __tablename__ = "card_offer_snapshots"
+    __table_args__ = (_in("status", ("new", "extracted", "failed", "limited")),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    import_id: Mapped[int] = mapped_column(ForeignKey("imports.id"), unique=True)
+    card_id: Mapped[str] = mapped_column(ForeignKey("cards.id"), index=True)
+    captured_on: Mapped[str]
+    text_sha256: Mapped[str] = mapped_column(String(64))
+    status: Mapped[str] = mapped_column(default="new")
+    run_dir: Mapped[str | None]
+    n_found: Mapped[int] = mapped_column(default=0)
+    n_verified: Mapped[int] = mapped_column(default=0)
+    error: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[str] = mapped_column(default=utcnow)
+
+
+class CardOffer(Base):
+    """One offer read from a snapshot. Only `verified` offers reach the engine."""
+
+    __tablename__ = "card_offers"
+    __table_args__ = (_in("reward_kind", OFFER_REWARD_KINDS),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    snapshot_id: Mapped[int] = mapped_column(ForeignKey("card_offer_snapshots.id"), index=True)
+    card_id: Mapped[str] = mapped_column(ForeignKey("cards.id"))
+    merchant_name: Mapped[str]
+    merchant_norm: Mapped[str] = mapped_column(index=True)
+    reward_kind: Mapped[str]
+    reward_value: Mapped[float]  # cents, percent, points, or points per dollar
+    max_value: Mapped[float | None]  # cents for cash/percent, points for the points kinds
+    min_spend_cents: Mapped[int | None]
+    expires_on: Mapped[str | None]
+    added: Mapped[bool | None]
+    channel: Mapped[str | None]
+    quote: Mapped[str] = mapped_column(Text)
+    verified: Mapped[bool] = mapped_column(default=False)
+    reject_reason: Mapped[str | None]

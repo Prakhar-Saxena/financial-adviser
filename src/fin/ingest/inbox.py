@@ -43,7 +43,7 @@ Parser = Callable[[Session, Path, dict[str, Any], m.Import], ParseOutcome]
 KIND_TO_IMPORT_KIND = {
     "transactions": "transactions", "statement": "statement", "order_invoice": "orders",
     "order_details": "orders", "payment_transactions": "orders", "receipt": "receipts",
-    "receipt_transcript": "receipts",
+    "receipt_transcript": "receipts", "offers": "offers",
 }
 PARSERS: dict[tuple[str, str], Parser] = {}
 

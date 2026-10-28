@@ -150,6 +150,8 @@ def guard_config(plan: SessionPlan, login_hosts: list[str]) -> dict[str, Any]:
         "allowed_domains": list(plan.site.allowed_domains),
         "login_hosts": login_hosts,
         "log_path": str(plan.guard_log.resolve()),
+        # The page's Add / Enroll controls the guard has seen (outside the run folder).
+        "state_path": str((plan.control_dir / "guard_state.json").resolve()),
         # Real payloads become guard test fixtures; only for the example.com selftest.
         "record_payloads_dir": (
             str((plan.control_dir / "payloads").resolve()) if plan.site.id == "selftest" else None
@@ -224,7 +226,7 @@ def output_formats(plan: SessionPlan) -> str:
         "`run_report.json` (example; `gaps` may be empty, the last two keys are optional):\n"
         "```json\n" + json.dumps(report, indent=2) + "\n```\n\n"
         "Kinds: transactions, statement, order_invoice, order_details, payment_transactions, "
-        "receipt, receipt_transcript (selftest uses selftest).\n\n"
+        "receipt, receipt_transcript, offers (selftest uses selftest).\n\n"
         "Full JSON Schema (`$defs/manifest` and `$defs/run_report`):\n```json\n" + schema + "```\n"
         + receipt
     )

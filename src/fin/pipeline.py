@@ -15,6 +15,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from fin.cards.history import HistoryResult, resolve_history
+from fin.cards.offers import OffersResult, extract_offers
+from fin.cards.rewards import fill_statement_rewards
 from fin.categorize.ai import AIResult, Runner, categorize_items, categorize_transactions
 from fin.categorize.rules import apply_overrides, apply_rules, load_seed_rules
 from fin.config import CardsConfig, DataPaths, Settings, Taxonomy
@@ -34,6 +36,8 @@ class ProcessResult:
     ai_merchants: AIResult = field(default_factory=AIResult)
     ai_items: AIResult = field(default_factory=AIResult)
     card_merchants: HistoryResult = field(default_factory=HistoryResult)
+    card_offers: OffersResult = field(default_factory=OffersResult)
+    statement_rewards: int = 0
     match: MatchResult = field(default_factory=MatchResult)
     costco: CostcoResult = field(default_factory=CostcoResult)
     ledger: dict[str, int] = field(default_factory=dict)
@@ -44,7 +48,8 @@ class ProcessResult:
 
     @property
     def ai_paused(self) -> str | None:
-        return self.ai_merchants.paused or self.ai_items.paused or self.card_merchants.paused
+        return (self.ai_merchants.paused or self.ai_items.paused or self.card_merchants.paused
+                or self.card_offers.paused)
 
 
 def process(
@@ -69,6 +74,11 @@ def process(
     # Card optimizer (SPEC-cards §8 History): a merchant profile for every purchase descriptor.
     res.card_merchants = resolve_history(s, paths, settings, use_ai=use_ai and not res.ai_paused,
                                          runner=runner)
+    # Phase C4: read the offers pages the sync saved (one haiku call per new page).
+    res.card_offers = extract_offers(s, paths, settings, cards,
+                                     use_ai=use_ai and not res.ai_paused, runner=runner)
+    # Phase C5: each new statement's own rewards summary, for the rewards check.
+    res.statement_rewards = fill_statement_rewards(s, cards)
 
     res.match = match_amazon(s, cards, settings, reviews, today)
     res.costco = match_costco(s, cards, settings, reviews, today)

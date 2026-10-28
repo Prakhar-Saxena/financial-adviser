@@ -13,7 +13,7 @@
     "kind": {
       "enum": [
         "transactions", "statement", "order_invoice", "order_details",
-        "receipt", "receipt_transcript", "payment_transactions", "selftest"
+        "receipt", "receipt_transcript", "payment_transactions", "offers", "selftest"
       ]
     },
     "card_id": {"anyOf": [{"type": "string", "pattern": "^[a-z][a-z0-9_]*$"}, {"type": "null"}]},

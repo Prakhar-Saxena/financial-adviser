@@ -1,0 +1,13 @@
+{
+ "session_id": "fictional",
+ "cwd": "{SESSION_CWD}",
+ "hook_event_name": "PostToolUse",
+ "tool_name": "mcp__playwright__browser_snapshot",
+ "tool_input": {},
+ "tool_response": [
+  {
+   "type": "text",
+   "text": "### Page\n- Page URL: https://global.americanexpress.com/offers/eligible\n- Page Title: Offers\n### Snapshot\n```yaml\n- generic [ref=e1]:\n  - heading \"Amex Offers\" [level=1] [ref=e2]\n  - tablist [ref=e3]:\n    - tab \"All Offers\" [selected] [ref=e4]\n    - tab \"Added to Card\" [ref=e5]\n  - generic [ref=e10]:\n    - img \"Sample Coffee logo\" [ref=e11]\n    - paragraph [ref=e12]: Sample Coffee\n    - paragraph [ref=e13]: Spend $20 or more, earn $5 back\n    - button \"Add to Card\" [ref=e14] [cursor=pointer]:\n      - img [ref=e15]\n  - generic [ref=e20]:\n    - paragraph [ref=e21]: Sample Books\n    - button \"Added to Card\" [ref=e22]\n  - button \"View All\" [ref=e30] [cursor=pointer]\n```\n"
+  }
+ ]
+}

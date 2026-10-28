@@ -109,6 +109,10 @@ uv run python scripts/ai_spike.py --sizes 3,50   # §14.3 spike on fake records
 uv run python scripts/make_cards_example.py      # regenerate cards.example.json
 uv run fin cards status       # card optimizer knowledge base (docs/SPEC-cards.md)
 uv run fin cards refresh --card ID   # one card: discover, download, extract (real claude -p)
+uv run fin cards offers       # card-linked offers read from synced offers pages (Phase C4)
+uv run fin cards rewards-check   # statements' rewards summaries vs the engine (Phase C5)
+uv run fin cards ask CARD "question"   # plain-words answer with checked quotes (real claude -p)
+uv run fin cards schedule install|status|run-now|uninstall   # USER installs: monthly launchd job
 uv run python scripts/cards_spike.py discover CARD   # C0 spike: one card, real claude -p
 ```
 New migration: edit `src/fin/db/models.py`, then autogenerate with `alembic.command.revision(fin.db.alembic_config(path), autogenerate=True)`.

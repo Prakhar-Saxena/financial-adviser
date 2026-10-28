@@ -15,6 +15,9 @@ trusted_sites = ["chase", "amazon"]   # two clean runs each, 0 guard blocks (202
 # sync uses your own Chrome through the Playwright extension (you approve each connection).
 site_browser = { costco = "extension" }
 playwright_mcp_version = "0.0.83"   # exact version; upgrade deliberately (docs/decisions.md)
+# Sites whose sync also saves each card's offers page, read-only (Best card, Phase C4), e.g.
+# ["amex", "chase", "citi"]. `fin sync <site> --offers` does it for one run.
+offers_sites = []
 
 [ai]
 classify_model = "haiku"    # never another model for classification

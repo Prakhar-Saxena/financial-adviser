@@ -41,7 +41,8 @@ WRITE_TOOLS = {"Write"}
 WRITE_SUFFIXES = {".json", ".md"}
 # Files browser tools may save via their `filename` argument, inside the run folder.
 SAVE_SUFFIXES = {".pdf", ".png", ".jpeg", ".jpg", ".md", ".yml", ".yaml", ".txt", ".json"}
-RESERVED_NAMES = {"guard.log", "guard_config.json", "mcp.json", "settings.json", "prompt.md"}
+RESERVED_NAMES = {"guard.log", "guard_config.json", "guard_state.json", "mcp.json",
+                  "settings.json", "prompt.md"}
 
 # Clicks / selections / typing targets that could move money or change the account.
 DENY_ACTIONS = re.compile(
@@ -77,6 +78,27 @@ LOGIN_FIELDS = re.compile(
     re.IGNORECASE | re.VERBOSE,
 )
 PAGE_URL = re.compile(r"Page URL:\s*(\S+)")
+
+# Controls whose own name on the page says they add, enroll, activate, remove an offer, pay or
+# redeem (Amex "Add to Card", Chase "Add offer", Citi "Enroll"). The guard remembers their refs
+# from every snapshot it sees, so a click on one is blocked however the agent describes it.
+PAGE_DENY = re.compile(
+    r"""
+    \benroll | \bunenroll | \bactivate | \bopt\s*-?\s*in\b
+    | \badd(ed)?\b[\w\s'’-]{0,40}\boffers?\b | \badd(ed)?\s+to\s+(card|account|wallet)\b
+    | \bsave(d)?\s+(this\s+)?offers?\b | \bremove\b[\w\s'’-]{0,40}\boffers?\b
+    | ^\s*(\+|add|added)\s*$
+    | \bmake\s+(a\s+)?payments?\b | \bpay\s+(now|bill|balance|card)\b | \bredeem\b
+    | \btransfer\s+points\b
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+# `- button "Add to Card" [ref=e45] [cursor=pointer]` or `- button [ref=e45]: Add to Card`
+SNAPSHOT_LINE = re.compile(
+    r'^(\s*)- ([a-z]+)(?: "((?:[^"\\]|\\.)*)")?[^\[\n]*((?:\[[^\]]*\]\s*)*)(.*)$')
+REF = re.compile(r"\[ref=([^\]]+)\]")
+CONTROL_ROLES = {"button", "link", "checkbox", "switch", "radio", "option", "tab", "menuitem",
+                 "menuitemcheckbox", "menuitemradio"}
 
 
 # ----------------------------------------------------------------- helpers
@@ -121,6 +143,99 @@ def collect_text(node) -> str:
     if isinstance(node, list):
         return "\n".join(collect_text(v) for v in node)
     return ""
+
+
+# ------------------------------------------------------------ page controls
+
+
+def snapshot_controls(text: str) -> dict[str, str]:
+    """ref -> the control's name, from an accessibility snapshot. A control with no quoted name
+    takes its inline text or its children's text. Children of a denied control (an icon inside
+    an "Add to Card" button) carry the parent's name, so clicking them is blocked too."""
+    lines = text.splitlines()
+    parsed = []
+    for line in lines:
+        m = SNAPSHOT_LINE.match(line)
+        if not m:
+            parsed.append(None)
+            continue
+        indent, role, name, attrs, rest = m.groups()
+        ref = REF.search(attrs or "")
+        inline = rest.split(":", 1)[1].strip() if rest.strip().startswith(":") else ""
+        parsed.append((len(indent), role, (name or "").replace('\\"', '"'), inline,
+                       ref.group(1) if ref else None))
+    out: dict[str, str] = {}
+    for i, item in enumerate(parsed):
+        if item is None or item[4] is None:
+            continue
+        depth, role, name, inline, ref = item
+        label_text = name or inline
+        if not label_text and role in CONTROL_ROLES:  # gather a few children's text
+            kids = []
+            for nxt in parsed[i + 1:i + 6]:
+                if nxt is None or nxt[0] <= depth:
+                    break
+                kids.append(nxt[2] or nxt[3])
+            label_text = " ".join(k for k in kids if k)
+        out[ref] = label_text
+    # Children inherit a denied control's name.
+    for i, item in enumerate(parsed):
+        if (item is None or item[4] is None or item[1] not in CONTROL_ROLES
+                or not PAGE_DENY.search(out.get(item[4], ""))):
+            continue
+        for nxt in parsed[i + 1:]:
+            if nxt is None:
+                continue
+            if nxt[0] <= item[0]:
+                break
+            if nxt[4] and not PAGE_DENY.search(out.get(nxt[4], "")):
+                out[nxt[4]] = out[item[4]]
+    return out
+
+
+def state_path(cfg: dict) -> Path:
+    return Path(cfg.get("state_path") or Path(cfg["log_path"]).with_name("guard_state.json"))
+
+
+def load_state(cfg: dict) -> dict:
+    try:
+        return json.loads(state_path(cfg).read_text())
+    except (OSError, json.JSONDecodeError):
+        return {"url": None, "denied": {}}
+
+
+def remember_controls(cfg: dict, text: str) -> None:
+    """Update the page's denied refs from a tool response. A new page starts a new list."""
+    urls = PAGE_URL.findall(text)
+    controls = snapshot_controls(text) if "[ref=" in text else {}
+    if not urls and not controls:
+        return
+    state = load_state(cfg)
+    if urls and urls[-1] != state.get("url"):
+        state = {"url": urls[-1], "denied": {}}
+    for ref, name in controls.items():
+        if PAGE_DENY.search(name):
+            state["denied"][ref] = label(name)
+        else:
+            state["denied"].pop(ref, None)
+    try:
+        path = state_path(cfg)
+        path.write_text(json.dumps(state))
+        path.chmod(0o600)
+    except OSError:
+        pass
+
+
+def denied_ref(args: dict, cfg: dict) -> str | None:
+    """The page's own label for a clicked ref, when that label is on the deny list."""
+    denied = load_state(cfg).get("denied", {})
+    refs = [args.get("ref"), args.get("target")]
+    refs += [f.get("ref") or f.get("target") for f in args.get("fields") or []
+             if isinstance(f, dict)]
+    for r in refs:
+        if isinstance(r, str) and r in denied:
+            return denied[r]
+    return None
 
 
 # ---------------------------------------------------------------- decisions
@@ -178,6 +293,15 @@ def pre_tool(payload: dict, cfg: dict) -> tuple[str, str, str]:
             return "deny", f"{target.name} is reserved.", target.name
         lbl = lbl or target.name
 
+    if short in ("browser_click", "browser_select_option", "browser_type", "browser_fill_form"):
+        page_label = denied_ref(args, cfg)
+        if page_label is not None:
+            return "deny", (
+                f"On the page this control is labelled '{page_label}': it adds, enrolls, "
+                "activates or pays. This session is read-only. Don't click it; if the task "
+                "needs it, stop and tell the user."
+            ), page_label
+
     if short in ("browser_click", "browser_select_option", "browser_hover", "browser_type"):
         element = args.get("element")
         if not isinstance(element, str) or not element.strip():
@@ -234,6 +358,7 @@ def post_tool(payload: dict, cfg: dict) -> tuple[str, str, str]:
     if not tool.startswith(PW):
         return "allow", "", ""
     text = collect_text(payload.get("tool_response"))
+    remember_controls(cfg, text)
     urls = PAGE_URL.findall(text)
     if not urls:
         return "allow", "", ""
