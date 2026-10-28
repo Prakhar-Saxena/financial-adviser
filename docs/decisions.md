@@ -805,3 +805,23 @@ Dated record of what was discovered and decided. Newest at the bottom of each da
   launchd sees the login. Claude's attempt to install it was refused by the permission check
   (a persistent job is the user's call).
 
+## Card pictures (2026-10-28)
+
+- The user asked for the issuers' official card pictures on the Best card tab instead of the
+  drawn ones. Same rules as documents (SPEC §2.3): Python downloads them from the card's
+  allowlisted domains with no cookies; the dashboard only loads them from the local API.
+- Source: the `<img>` tags in each card's stored pages, scored by how well alt text or file name
+  names the product (SPEC-cards §7.8). Checked by magic bytes (PNG/JPEG/WebP; SVG refused: it
+  can carry script) and by shape from the file header, so a lifestyle photo whose file name
+  names the card is skipped. No imaging library added.
+- Amex product pages use `aexp-static.com`, which is not allowlisted; not added. Amex's
+  cardmember agreements page on americanexpress.com has the same pictures.
+- First real run: 6 of 6 cards, 10 requests. Each one looked at by eye: right card every time.
+  Prime Visa's only clean-named picture has a "no annual fee" banner; the other candidate was a
+  photo, refused by the shape check. `[cards.art]` can override.
+- The drawn pictures (`CardArt.tsx`) stay as the fallback for a card without one.
+- Tried and undone at the user's request (2026-10-28): cropping Prime Visa out of Chase's
+  two-card picture, a card-shaped frame with crop boxes for every picture, and
+  `fin cards art --file` for a picture saved by hand. The user preferred the first version,
+  Prime Visa's ribbon included. A Google Images thumbnail (`gstatic.com`) the user suggested was
+  not downloaded: not the issuer, not allowlisted.

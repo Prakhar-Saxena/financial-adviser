@@ -591,6 +591,39 @@ def offers() -> None:
             typer.echo(f"  {r['merchant']:<24} {r['product']:<36} {r['text']}{notes}")
 
 
+@cards_app.command()
+def art(
+    card: Annotated[str | None, typer.Option(help="One card id")] = None,
+    show: Annotated[bool, typer.Option(
+        "--list", help="Only list the pictures found; download nothing")] = False,
+    force: Annotated[bool, typer.Option(
+        help="Download again even when the picture is unchanged")] = False,
+) -> None:
+    """Download each card's official picture from its stored issuer pages (for the dashboard)."""
+    from fin.cards.art import candidates, fetch_art
+    from fin.cards.fetch import Fetcher
+
+    settings, cards = load_settings(), load_cards()
+    paths = data_paths(settings)
+    chosen = [_card(card)] if card else cards.cards
+    fetcher = Fetcher(settings.cards)
+    with _session() as s:
+        for c in chosen:
+            if show:
+                domains = settings.cards.domains_for(c, cards.site(c.issuer))
+                found = candidates(s, c, settings, domains)
+                typer.echo(f"{c.id}: {len(found)} found"
+                           + (" (overridden in [cards.art])" if c.id in settings.cards.art else ""))
+                for f in found[:5]:
+                    typer.echo(f"  {f.score:>4}  {f.url}" + (f"  [{f.alt}]" if f.alt else ""))
+                continue
+            r = fetch_art(s, paths, settings, cards, c, fetcher, force=force)
+            detail = f"  ({r.detail})" if r.detail else ""
+            typer.echo(f"{c.id:<28} {r.outcome:<12} {r.url or ''}{detail}")
+    if not show:
+        typer.echo(f"{fetcher.requests} requests.")
+
+
 @cards_app.command("rewards-check")
 def rewards_check_cmd(months: Annotated[int, typer.Option(min=1, max=24)] = 6) -> None:
     """What each statement says you earned against what the engine predicts."""

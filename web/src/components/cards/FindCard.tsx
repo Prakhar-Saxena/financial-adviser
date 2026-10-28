@@ -8,6 +8,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { api, type BestAnswer, type BestEvidence, type BestResult, type MerchantInfo, type OfferLine } from "@/api";
+import { CardArt } from "@/components/cards/CardArt";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -207,7 +208,7 @@ function Answer({ answer }: { answer: BestAnswer }) {
                 {rest.map((r) => (
                   <tr key={r.card_id} className="align-top">
                     <td className="py-1.5 pr-3 tabular text-muted">{r.rank}</td>
-                    <td className="py-1.5 pr-3">{r.product}</td>
+                    <td className="py-1.5 pr-3"><span className="flex items-center gap-2"><CardArt cardId={r.card_id} product={r.product} />{r.product}</span></td>
                     <td className="py-1.5 pr-3 text-right tabular">{money(r.total_cents)}</td>
                     <td className="py-1.5 pr-3 text-right tabular">{r.cents_per_dollar.toFixed(1)}</td>
                     <td className="space-y-1 py-1.5 text-ink-2">
@@ -250,7 +251,9 @@ function Answer({ answer }: { answer: BestAnswer }) {
 function Winner({ r, amount }: { r: BestResult; amount: number }) {
   return (
     <Card className="border-series-1">
-      <CardContent className="space-y-2 pt-4">
+      <CardContent className="flex flex-wrap items-start gap-4 pt-4">
+        <CardArt cardId={r.card_id} product={r.product} size="lg" />
+        <div className="min-w-0 flex-1 space-y-2">
         <div className="text-xs uppercase tracking-wide text-muted">Use</div>
         <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
           <h2 className="text-xl font-semibold">{r.product}</h2>
@@ -272,6 +275,7 @@ function Winner({ r, amount }: { r: BestResult; amount: number }) {
           <div key={a.text} className="text-sm text-ink-2">Or: {a.text} = {money(a.cents)}</div>
         ))}
         <Caveats items={r.caveats} />
+        </div>
       </CardContent>
     </Card>
   );

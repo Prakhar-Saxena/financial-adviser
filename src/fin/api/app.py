@@ -108,6 +108,9 @@ def create_app(db_file: Path | None = None, web_dist: Path | None = WEB_DIST) ->
     @app.get("/api/meta")
     def meta(s: Session = Depends(db)):
         from fin.api.spending import parent, spending_lines
+        from fin.cards.art import art_versions
+
+        art = art_versions(paths)  # `paths` is set below, before the app serves anything
 
         # Parent categories by all-time spend: the dashboard gives the top ones fixed colours,
         # so a category keeps its colour across months and chart types.
@@ -120,7 +123,8 @@ def create_app(db_file: Path | None = None, web_dist: Path | None = WEB_DIST) ->
             "category_rank": [k for k, v in sorted(totals.items(), key=lambda kv: -kv[1])
                               if v > 0 and k != "uncategorized"],
             "people": [{"id": p.id, "name": p.display_name} for p in cards.people],
-            "cards": [{"id": c.id, "name": c.product, "issuer": c.issuer} for c in cards.cards],
+            "cards": [{"id": c.id, "name": c.product, "issuer": c.issuer, "network": c.network,
+                       "art": art.get(c.id)} for c in cards.cards],
             "categories": [{"id": c.id, "name": c.name, "parent_id": c.parent_id}
                            for c in taxonomy.categories],
         }

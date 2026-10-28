@@ -79,3 +79,6 @@ citi_typ = 1.0
 
 [cards.currency]              # optional: override the currency a card earns, for example
 # chase_freedom_unlimited = "chase_ur"   # if I move Freedom Unlimited points to the Sapphire Reserve
+
+[cards.art]                   # optional: the official card picture's URL, when `fin cards art` picks
+# amex_gold = "https://www.americanexpress.com/..."   # the wrong one (must be on the card's allowlist)

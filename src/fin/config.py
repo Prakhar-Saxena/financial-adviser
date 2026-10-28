@@ -229,6 +229,15 @@ class CardsSettings(_Strict):
     product_aliases: dict[str, list[str]] = {}
     valuations: dict[str, float] = {}
     currency: dict[str, str] = {}
+    art: dict[str, str] = {}
+
+    @field_validator("art")
+    @classmethod
+    def _art_urls(cls, v: dict[str, str]) -> dict[str, str]:
+        for card, url in v.items():
+            if not re.fullmatch(SLUG, card) or not url.startswith("https://"):
+                raise ValueError(f"art.{card} must be a card id and an https:// URL")
+        return v
 
     @field_validator("doc_domains")
     @classmethod
