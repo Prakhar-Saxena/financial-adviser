@@ -112,7 +112,15 @@ merchants:
   - {key: netflix, name: Netflix, category: streaming_tv, mcc: "4899", aliases: [netflix]}
   - {key: spotify, name: Spotify, category: streaming_tv, mcc: "5815", aliases: [spotify]}
   - {key: streaming, name: Streaming service, category: streaming_tv, mcc: "4899",
-     aliases: [streaming, hulu, disney plus, disney, max, hbo]}
+     aliases: [streaming, max, hbo]}
+  - {key: disney_plus, name: Disney+, category: streaming_tv, mcc: "4899",
+     aliases: [disney plus, disney]}
+  - {key: hulu, name: Hulu, category: streaming_tv, mcc: "4899", aliases: [hulu]}
+  - {key: peacock, name: Peacock, category: streaming_tv, mcc: "4899", aliases: [peacock]}
+  # Memberships named like the store: card credits name them "Walmart+", "CLEAR+", which match
+  # on "<name> plus", never on the store.
+  - {key: walmart_plus, name: Walmart+, category: other, aliases: [walmart plus]}
+  - {key: clear_plus, name: CLEAR+, category: other, aliases: [clear plus, clearme]}
   - {key: phone_bill, name: Phone bill, category: telecom, mcc: "4814",
      aliases: [phone bill, verizon, at and t, att, t mobile, tmobile]}
   - {key: internet_bill, name: Internet or cable bill, category: utilities, mcc: "4899",

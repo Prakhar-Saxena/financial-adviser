@@ -115,6 +115,38 @@ def test_missed_rewards_reproduce_by_hand(env):
     assert out["total_difference_cents"] >= 140
 
 
+def test_purchase_a_credit_pays_back_is_not_a_miss(env):
+    from fin.cards.models import Credit
+
+    setup(env)
+    with env.S() as s:
+        row = s.scalar(select(m.CardProfileVersion).where(
+            m.CardProfileVersion.card_id == "example_travel"))
+        travel = CardProfile.model_validate_json(row.profile_json)
+        grocery = Credit(name="Grocery credit", amount_cents=10_000, period="month",
+                         merchants=["kroger"], evidence=EV)
+        in_app = grocery.model_copy(update={"name": "Kroger Cash", "posts_as": "in_app_balance"})
+        small = grocery.model_copy(update={"amount_cents": 1_000})
+        travel_wide = grocery.model_copy(update={"merchants": [], "categories": ["supermarkets"]})
+        resolve_history(s, env.paths, env.settings)
+        f = load_facts(s, env.settings, env.cards)
+        # Still the 100¢ miss from above: an in-app balance, a credit smaller than the $50, a
+        # credit for a whole category.
+        for c in (in_app, small, travel_wide):
+            row.profile_json = travel.model_copy(update={"credits": [c]}).model_dump_json()
+            s.commit()
+            got = tips(s, env.settings, env.cards, active_profiles(s), f, 3)["merchants"]
+            assert next(r for r in got if r["key"] == "kroger")["difference_cents"] == 100
+        row.profile_json = travel.model_copy(update={"credits": [grocery]}).model_dump_json()
+        s.commit()
+        rows = {r["key"]: r for r in tips(s, env.settings, env.cards, active_profiles(s), f,
+                                         3)["merchants"]}
+    # The $50 on the Travel Card earns its credit back there: kept, so no difference.
+    kroger = rows["kroger"]
+    assert kroger["difference_cents"] == 0 and kroger["text"] is None
+    assert kroger["kept_for_credit"] == ["Grocery credit"]
+
+
 def test_cap_use_counts_matching_purchases_on_that_card(env):
     setup(env)
     with env.S() as s:
