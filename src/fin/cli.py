@@ -610,6 +610,9 @@ def process(no_ai: Annotated[bool, typer.Option("--no-ai", help="Cache only, no 
                f"cached, {r.ai_merchants.classified} new ({r.ai_merchants.calls} calls). "
                f"AI items: {r.ai_items.cached} cached, {r.ai_items.classified} new "
                f"({r.ai_items.calls} calls).")
+    cm = r.card_merchants
+    typer.echo(f"Card merchants: {cm.resolved} of {cm.descriptors} descriptors known "
+               f"({cm.calls} calls).")
     if r.ai_paused:
         typer.echo("AI paused: subscription limit reached. Rerun `fin process` later.")
     mm = r.match

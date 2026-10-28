@@ -144,6 +144,10 @@ All `make` targets run in the foreground. Other commands:
   - `status`, `sources`, `add-source` and `add-doc` show and manage the documents. A page an issuer
     blocks can be saved by hand into `card-docs/manual/<card>/`.
   - `merchant QUERY --category C --accepts amex=no` corrects a merchant. Your corrections are kept.
+  - `tips [--months 3]` shows where another card would have earned more on your purchases;
+    `credits` shows statement credits used this period; `cheatsheet` lists the best card per
+    category. `fin process` matches your merchants for these, sending only cleaned descriptors
+    to Claude, once per merchant.
 
 **Costco.** Costco's account pages don't load in a separate automated Chrome profile, so its sync
 connects to your own Chrome through the Playwright Extension:
@@ -155,7 +159,9 @@ connects to your own Chrome through the Playwright Extension:
 ## Dashboard
 
 - **Best card:** type where you're paying to see your cards ranked by cents back, with the rule,
-  its conditions and a link to the exact clause in the card's terms. **Card terms** shows what the
+  its conditions and a link to the exact clause in the card's terms. **Missed rewards** shows
+  what a different card would have earned on your last months of purchases, each statement
+  credit's use this period, and a cheat sheet. **Card terms** shows what the
   app knows about each card, with Accept / Reject for new terms, and your point valuations.
 - **Overview:** spending by category, person, card and merchant, plus the 3-month trend. Each
   chart switches between bars, donut, treemap and table views (the choice is remembered).

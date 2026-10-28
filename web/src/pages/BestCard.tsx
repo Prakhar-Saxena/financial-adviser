@@ -1,8 +1,7 @@
 // Copyright (C) 2026 Prakhar Saxena
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-// The "Best card" tab (docs/SPEC-cards.md §13): Find a card (C2) and Card terms (C1). Missed
-// rewards arrives in Phase C3.
+// The "Best card" tab (docs/SPEC-cards.md §13): Find a card, Missed rewards and Card terms.
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight, RefreshCw } from "lucide-react";
@@ -12,6 +11,7 @@ import {
   type EarnRule, type Evidence, type ProfileDiff,
 } from "@/api";
 import { FindCard } from "@/components/cards/FindCard";
+import { MissedRewards } from "@/components/cards/MissedRewards";
 import { SettingsForm } from "@/components/cards/SettingsForm";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,12 +21,15 @@ import { cn, money } from "@/lib/utils";
 type View = "find" | "missed" | "terms";
 const VIEWS: { id: View; label: string; phase?: string }[] = [
   { id: "find", label: "Find a card" },
-  { id: "missed", label: "Missed rewards", phase: "C3" },
+  { id: "missed", label: "Missed rewards" },
   { id: "terms", label: "Card terms" },
 ];
 
 export function BestCard() {
-  const [view, setView] = useState<View>("find");
+  const [view, setView] = useState<View>(() => {
+    const v = new URLSearchParams(window.location.search).get("view");
+    return v === "missed" || v === "terms" ? v : "find";
+  });
   return (
     <div className="space-y-4">
       <div role="tablist" aria-label="Best card views" className="inline-flex rounded-lg border border-line bg-surface p-0.5">
@@ -41,6 +44,7 @@ export function BestCard() {
         ))}
       </div>
       {view === "find" && <FindCard />}
+      {view === "missed" && <MissedRewards />}
       {view === "terms" && <CardTerms />}
     </div>
   );

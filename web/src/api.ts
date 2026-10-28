@@ -174,6 +174,31 @@ export type CardSettings = {
            requirements: { ref: string; kind: string; label: string; for: string; value: string | null }[] }[];
 };
 
+export type TipRow = {
+  merchant: string; key: string; category: string; unsure: boolean; purchases: number;
+  spend_cents: number; cards_used: { card_id: string; product: string; purchases: number }[];
+  better_card_id: string; better_product: string; earned_cents: number; possible_cents: number;
+  difference_cents: number; text: string | null;
+  examples: { transaction_id: number; date: string; amount_cents: number; card_id: string;
+              used_cents: number; best_card_id: string; best_cents: number }[];
+};
+export type Tips = {
+  months: number; since: string; until: string; estimate: string; top: TipRow[]; unsure: TipRow[];
+  total_difference_cents: number; unknown_descriptors: number; unknown_purchases: number;
+};
+export type CreditUse = {
+  card_id: string; product: string; name: string; identity: string; amount_cents: number;
+  period: string; period_key: string; start: string; end: string; days_left: number;
+  used_cents: number; known: boolean; how: string; matched_transactions: number;
+  enrollment_required: boolean; enrolled: boolean | null; enroll_ref: string; posts_as: string;
+  approximate: boolean;
+  as_of: string | null; fresh: boolean;
+};
+export type CheatRow = { label: string; key: string; card_id: string | null; product: string | null;
+                         cents_per_dollar: number; rule: string | null; caveats: string[];
+                         runner_up: string | null; runner_up_cents_per_dollar: number | null };
+export type Cheatsheet = { amount_cents: number; categories: CheatRow[]; merchants: CheatRow[] };
+
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const r = await fetch(path, {
     ...init,
@@ -236,6 +261,12 @@ export const api = {
   cardSettings: () => req<CardSettings>("/api/cards/settings"),
   putCardSettings: (body: unknown) =>
     req<CardSettings>("/api/cards/settings", { method: "PUT", body: JSON.stringify(body) }),
+  tips: (months: number) => req<Tips>(`/api/cards/tips?months=${months}`),
+  credits: () => req<CreditUse[]>("/api/cards/credits"),
+  markCredit: (body: { card_id: string; identity: string; period_key?: string; used?: string | null;
+                       alias?: string; clear?: boolean }) =>
+    req<CreditUse[]>("/api/cards/credits", { method: "PUT", body: JSON.stringify(body) }),
+  cheatsheet: () => req<Cheatsheet>("/api/cards/cheatsheet"),
   resolve: (id: number, status: "resolved" | "ignored") =>
     req(`/api/review/${id}/resolve`, { method: "POST", body: JSON.stringify({ status }) }),
 };

@@ -35,6 +35,15 @@ class FakeAI:
     def __call__(self, task, payload, run_dir):
         self.calls.append((task.name, len(payload["records"])))
         recs = payload["records"]
+        if task.name == "merchant_profile":  # the card optimizer's history step
+            return FakeResult({"results": [
+                {"key": r["key"], "is_merchant": True, "match_key": None, "confidence": 0.9,
+                 "new": {"key": "m_" + str(abs(hash(r["key"])) % 10**8),
+                         "display_name": r["query"].title(), "reward_category": "other",
+                         "mcc_guess": None, "notes": "",
+                         "acceptance": {n: "unknown" for n in
+                                        ("amex", "visa", "mastercard", "discover")}}}
+                for r in recs]})
         if task.name == "item_categorize":
             return FakeResult({"results": [
                 {"key": r["key"], "clean_title": r["title"][:20], "category_id":
