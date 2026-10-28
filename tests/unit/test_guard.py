@@ -306,3 +306,64 @@ def test_generic_download_is_renamed_and_agent_told(env):
     run_guard(cfg_path, p)
     assert sorted(x.name for x in run.glob("activity*")) == ["activity-1.csv", "activity-2.csv"]
     assert (run / "activity-1.csv").read_text() == "first"
+
+
+# ------------------------------------------------- offers pages (SPEC-cards Phase C4)
+# Fictional offers pages with each issuer's own control names. The guard remembers which refs
+# the page labels Add / Enroll, so a click on one is blocked however the agent describes it.
+
+OFFER_PAGES = {
+    "amex": ("americanexpress.com", ["e14", "e15", "e22", "e5"], ["e30", "e4", "e12"]),
+    "chase": ("chase.com", ["e13", "e14", "e20", "e32"], ["e40", "e10", "e11"]),
+    "citi": ("citi.com", ["e6", "e9"], ["e20", "e5"]),
+}
+
+
+def offers_cfg(env, site):
+    cfg, cfg_path, cwd, run = env
+    cfg = {**cfg, "site": site, "allowed_domains": [OFFER_PAGES[site][0]]}
+    cfg_path.write_text(json.dumps(cfg))
+    return cfg, cfg_path, cwd, run
+
+
+@pytest.mark.parametrize("site", sorted(OFFER_PAGES))
+def test_offer_page_add_and_enroll_stay_blocked(env, site):
+    cfg, _, cwd, run = offers_cfg(env, site)
+    assert decide(recorded(f"offers_{site}_post.json", cwd, run), cfg) == "allow"
+    blocked, allowed = OFFER_PAGES[site][1:]
+    for ref in blocked:  # described innocently: the page's own label decides
+        for tool in ("browser_click", "browser_select_option"):
+            assert decide(pw(tool, cwd, element="Sample offer tile", ref=ref), cfg) == "deny"
+        assert decide(pw("browser_click", cwd, element="Sample offer tile", target=ref),
+                      cfg) == "deny"
+    for ref in allowed:
+        assert decide(pw("browser_click", cwd, element="Offers list", ref=ref), cfg) == "allow"
+    form = pw("browser_fill_form", cwd, fields=[{"element": "Sample", "ref": blocked[0],
+                                                 "type": "checkbox", "value": "true"}])
+    assert decide(form, cfg) == "deny"
+
+
+def test_offer_refs_reset_on_a_new_page(env):
+    cfg, _, cwd, run = offers_cfg(env, "amex")
+    decide(recorded("offers_amex_post.json", cwd, run), cfg)
+    assert decide(pw("browser_click", cwd, element="tile", ref="e14"), cfg) == "deny"
+    p = pw("browser_navigate", cwd, event="PostToolUse", url="https://global.americanexpress.com/x")
+    p["tool_response"] = [{"type": "text", "text": "- Page URL: https://global.americanexpress.com/"
+                                                   "activity\n- button \"Download\" [ref=e14]"}]
+    decide(p, cfg)
+    assert decide(pw("browser_click", cwd, element="Download", ref="e14"), cfg) == "allow"
+
+
+def test_offer_block_survives_between_hook_processes(env):
+    cfg, cfg_path, cwd, run = offers_cfg(env, "citi")
+    run_guard(cfg_path, recorded("offers_citi_post.json", cwd, run))
+    proc = run_guard(cfg_path, pw("browser_click", cwd, element="Sample Coffee", ref="e6"))
+    out = json.loads(proc.stdout)["hookSpecificOutput"]
+    assert out["permissionDecision"] == "deny" and "Enroll" in out["permissionDecisionReason"]
+
+
+def test_guard_state_is_reserved(env):
+    cfg, _, cwd, run = env
+    p = {"hook_event_name": "PreToolUse", "tool_name": "Write", "cwd": str(cwd),
+         "tool_input": {"file_path": str(run / "guard_state.json"), "content": "{}"}}
+    assert decide(p, cfg) == "deny"

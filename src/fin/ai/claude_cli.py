@@ -45,7 +45,8 @@ LIMIT_PATTERN = re.compile(
 STDIN_PROMPT = "Process the records on stdin exactly as the system prompt describes."
 DISCOVER_PROMPT = "Find the documents for the card on stdin, as the system prompt describes."
 # Tasks bound to the haiku model (SPEC §14.1, SPEC-cards §3).
-HAIKU_ONLY = ("merchant_categorize", "item_categorize", "merchant_profile", "merchant_profile_web")
+HAIKU_ONLY = ("merchant_categorize", "item_categorize", "merchant_profile", "merchant_profile_web",
+              "offer_extract")
 
 
 class AIError(RuntimeError):

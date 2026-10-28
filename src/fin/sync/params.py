@@ -40,7 +40,7 @@ def _start(latest: str | None, today: date, settings: Settings) -> tuple[date, b
 
 def issuer_params(
     s: Session, cards: CardsConfig, settings: Settings, issuer: str, today: date,
-    since: date | None = None,
+    since: date | None = None, offers: bool | None = None,
 ) -> dict[str, Any]:
     out = []
     for card in cards.cards_for_issuer(issuer):
@@ -73,7 +73,8 @@ def issuer_params(
             "statements_wanted": wanted,
             "statements_already_imported": imported,
         })
-    return {"cards": out}
+    collect = issuer in settings.sync.offers_sites if offers is None else offers
+    return {"cards": out, "collect_offers": collect}
 
 
 def source_params(
@@ -114,13 +115,13 @@ def source_params(
 
 def run_params(
     s: Session, cards: CardsConfig, settings: Settings, site: str, today: date,
-    since: date | None = None,
+    since: date | None = None, offers: bool | None = None,
 ) -> tuple[dict[str, Any], str, str]:
     """Return (params for the prompt, since_date, until_date)."""
     if site in ITEM_SOURCES:
         p = source_params(s, settings, site, today, since)
         return p, p["orders_from"], p["orders_to"]
-    p = issuer_params(s, cards, settings, site, today, since)
+    p = issuer_params(s, cards, settings, site, today, since, offers)
     froms = [c["transactions_from"] for c in p["cards"]]
     return p, min(froms), today.isoformat()
 

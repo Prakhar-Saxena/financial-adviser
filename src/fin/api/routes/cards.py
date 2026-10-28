@@ -30,10 +30,18 @@ from fin.db import models as m
 NOSNIFF = {"X-Content-Type-Options": "nosniff"}
 
 
+QUESTION_WAIT = 60  # seconds to wait for another Claude call to finish
+
+
 def require_json(request: Request) -> None:
     ctype = request.headers.get("content-type", "").split(";")[0].strip().lower()
     if ctype != "application/json":
         raise HTTPException(415, "Content-Type must be application/json")
+
+
+class QuestionIn(BaseModel):
+    card_id: str
+    question: str
 
 
 class Decide(BaseModel):
@@ -252,6 +260,26 @@ def cards_router(session: Callable[[], Iterator[Session]], settings: Settings,
         return {"not_a_merchant": res.not_a_merchant,
                 "merchant": res.merchant.as_dict() if res.merchant else None}
 
+    @router.post("/question", dependencies=[Depends(require_json)])
+    def question(body: QuestionIn, s: Session = Depends(db)):
+        from fin.ai import claude_cli as cc
+        from fin.cards.question import QuestionError, ask
+
+        try:
+            card = cards.card(body.card_id)
+        except KeyError:
+            raise HTTPException(404, "unknown card") from None
+        try:
+            return ask(s, paths, settings, card, body.question, lock_wait=QUESTION_WAIT)
+        except QuestionError as e:
+            raise HTTPException(422, str(e)) from None
+        except cc.AIBusyError:
+            raise HTTPException(409, "Claude is busy with another task; try again soon") from None
+        except cc.UsageLimitError:
+            raise HTTPException(429, "AI paused: subscription limit reached. Try later.") from None
+        except cc.AIError as e:
+            raise HTTPException(502, f"the question failed: {e}"[:300]) from None
+
     @router.get("/merchants")
     def merchants(q: str = "", s: Session = Depends(db)):
         from fin.cards.merchants import autocomplete
@@ -334,6 +362,22 @@ def cards_router(session: Callable[[], Iterator[Session]], settings: Settings,
         profiles, facts = _inputs(s)
         return sheet(s, cards, profiles, facts,
                      amount_cents or settings.cards.default_amount_cents)
+
+    @router.get("/rewards-check")
+    def rewards_check(months: int = 6, s: Session = Depends(db)):
+        from fin.cards.rewards import rewards_check as check
+
+        if not 1 <= months <= 24:
+            raise HTTPException(422, "months is 1-24")
+        profiles, facts = _inputs(s)
+        return check(s, cards, profiles, facts, months)
+
+    @router.get("/offers")
+    def offers(s: Session = Depends(db)):
+        from fin.cards.offers import offers_summary
+
+        profiles, facts = _inputs(s)
+        return offers_summary(s, cards, {k: p.currency for k, p in profiles.items()}, facts)
 
     @router.get("/refresh/{run_id}")
     def refresh_status(run_id: int, s: Session = Depends(db)):

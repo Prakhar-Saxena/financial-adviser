@@ -161,8 +161,13 @@ connects to your own Chrome through the Playwright Extension:
 - **Best card:** type where you're paying to see your cards ranked by cents back, with the rule,
   its conditions and a link to the exact clause in the card's terms. **Missed rewards** shows
   what a different card would have earned on your last months of purchases, each statement
-  credit's use this period, and a cheat sheet. **Card terms** shows what the
-  app knows about each card, with Accept / Reject for new terms, and your point valuations.
+  credit's use this period, card-linked offers (Amex, Chase and Citi offers) at places you
+  shop, and a cheat sheet. Offers are read-only: turn them on with `offers_sites` in
+  `config/settings.toml` (or `fin sync amex --offers`); add any you want in the issuer's app
+  yourself. A **rewards check** compares each statement's rewards summary (Chase, Citi) with
+  what the app predicts, to catch wrong terms or merchant categories. **Card terms** shows what the
+  app knows about each card, with Accept / Reject for new terms, your point valuations, and
+  **Ask about this card** (plain-words answers that quote the card's documents).
 - **Overview:** spending by category, person, card and merchant, plus the 3-month trend. Each
   chart switches between bars, donut, treemap and table views (the choice is remembered).
 - **Transactions:** filters, item splits, and category or person corrections.

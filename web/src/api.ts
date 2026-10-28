@@ -145,14 +145,19 @@ export type MerchantInfo = {
   acceptance: Record<string, string>; source: string; confidence: number;
   mcc_guess: string | null; notes: string | null; unsure?: boolean;
 };
+export type OfferLine = {
+  name: string; merchant: string; text: string; notes: string[]; value_cents: number;
+  counted: boolean; added: boolean | null; expires_on: string | null; captured_on: string;
+};
 export type BestEvidence = { quote: string; page: number | null; doc_version_id: number | null } | null;
 export type BestResult = {
   card_id: string; product: string; rank: number; currency: string; valuation_cents: number;
-  total_cents: number; rule_cents: number; credit_cents: number; fee_cents: number;
-  cents_per_dollar: number; units: number;
+  total_cents: number; rule_cents: number; credit_cents: number; offer_cents: number;
+  fee_cents: number; cents_per_dollar: number; units: number;
   rule: { rate: number; rate_text: string; text: string; is_base: boolean; evidence: BestEvidence } | null;
   caveats: string[];
   credit: { name: string; text: string; counted: boolean; needs_enrollment: boolean; evidence: BestEvidence } | null;
+  offer: OfferLine | null;
   benefits: { kind: string; name: string; limits: string; coverage: string | null; evidence: BestEvidence }[];
   alternatives: { text: string; cents: number; caveats: string[]; evidence: BestEvidence }[];
 };
@@ -197,6 +202,27 @@ export type CreditUse = {
 export type CheatRow = { label: string; key: string; card_id: string | null; product: string | null;
                          cents_per_dollar: number; rule: string | null; caveats: string[];
                          runner_up: string | null; runner_up_cents_per_dollar: number | null };
+export type OffersSummary = {
+  cards: { card_id: string; product: string; captured_on: string; status: string; found: number;
+           verified: number; current: number; added: number; stale: boolean }[];
+  at_my_merchants: (OfferLine & { card_id: string; product: string; merchant_key: string;
+                                  purchases: number; typical_cents: number; amount_cents: number })[];
+};
+export type RewardsCheck = {
+  months: number; since: string; note: string; without_summary: string[];
+  statements: { card_id: string; product: string; statement_id: number; period_start: string;
+                period_end: string; kind: "points" | "cash"; stated: number; predicted: number;
+                difference: number; flagged: boolean; purchases: number; refunds: number;
+                unknown_merchants: number;
+                stated_lines: { text: string; value: number }[];
+                predicted_lines: { text: string; value: number }[] }[];
+};
+export type CardAnswer = {
+  card_id: string; question: string; answer: string; found: boolean; cached: boolean;
+  status: "verified" | "partial" | "unverified"; warnings: string[];
+  citations: { quote: string; page: number | null; ok: boolean; doc_title: string;
+               doc_version_id: number | null }[];
+};
 export type Cheatsheet = { amount_cents: number; categories: CheatRow[]; merchants: CheatRow[] };
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
@@ -267,6 +293,10 @@ export const api = {
                        alias?: string; clear?: boolean }) =>
     req<CreditUse[]>("/api/cards/credits", { method: "PUT", body: JSON.stringify(body) }),
   cheatsheet: () => req<Cheatsheet>("/api/cards/cheatsheet"),
+  offers: () => req<OffersSummary>("/api/cards/offers"),
+  askCard: (card_id: string, question: string) =>
+    req<CardAnswer>("/api/cards/question", { method: "POST", body: JSON.stringify({ card_id, question }) }),
+  rewardsCheck: (months: number) => req<RewardsCheck>(`/api/cards/rewards-check?months=${months}`),
   resolve: (id: number, status: "resolved" | "ignored") =>
     req(`/api/review/${id}/resolve`, { method: "POST", body: JSON.stringify({ status }) }),
 };

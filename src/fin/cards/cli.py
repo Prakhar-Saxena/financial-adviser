@@ -81,6 +81,8 @@ def refresh(
     if card:
         _card(card)
     quiet = trigger == "weekly"
+    if trigger == "schedule":
+        _schedule_auth_check()
 
     def progress(card_id: str, step: str) -> None:
         if not quiet:
@@ -114,6 +116,105 @@ def refresh(
         typer.echo(res.message)
     if res.status in ("failed", "limited"):
         raise typer.Exit(1)
+
+
+def _schedule_auth_check() -> None:
+    """A launchd run: say whether `claude` sees the subscription login, and record a failure
+    so `fin cards schedule status` shows it."""
+    import json
+    from datetime import UTC, datetime
+
+    from fin.ai import claude_cli as cc
+    from fin.db import models as m
+
+    stamp = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    try:
+        method = cc.require_subscription_auth()
+    except cc.AIError as e:
+        typer.echo(f"{stamp} Subscription login: NOT available ({e})")
+        with _session() as s:
+            s.add(m.CardRefreshRun(trigger="schedule", status="failed", ended_at=stamp,
+                                   errors_json=json.dumps([{"error": f"auth: {e}"[:300]}])))
+            s.commit()
+        raise typer.Exit(1) from None
+    typer.echo(f"{stamp} Subscription login: {method}")
+
+
+schedule_app = typer.Typer(no_args_is_help=True,
+                           help="A monthly launchd job: `fin cards refresh --if-due`.")
+cards_app.add_typer(schedule_app, name="schedule")
+
+
+@schedule_app.command("install")
+def schedule_install() -> None:
+    """Install the job (runs on the 1st of each month at 9:30)."""
+    from fin.cards import schedule
+
+    try:
+        target = schedule.install(data_paths(load_settings()))
+    except RuntimeError as e:
+        typer.echo(str(e))
+        raise typer.Exit(1) from None
+    typer.echo(f"Installed {target}.\nRuns `fin cards refresh --if-due` on day {schedule.DAY} "
+               f"at {schedule.HOUR}:{schedule.MINUTE:02d}. Try it now with "
+               "`fin cards schedule run-now`, then `fin cards schedule status`.")
+
+
+@schedule_app.command("uninstall")
+def schedule_uninstall() -> None:
+    """Remove the job."""
+    from fin.cards import schedule
+
+    typer.echo("Removed." if schedule.uninstall() else "Not installed.")
+
+
+@schedule_app.command("run-now")
+def schedule_run_now() -> None:
+    """Start the job through launchd now, to check it sees your Claude login."""
+    from fin.cards import schedule
+
+    if not schedule.loaded():
+        typer.echo("Not installed: `fin cards schedule install` first.")
+        raise typer.Exit(1)
+    try:
+        schedule.run_now()
+    except RuntimeError as e:
+        typer.echo(str(e))
+        raise typer.Exit(1) from None
+    typer.echo("Started. In a minute, run `fin cards schedule status`.")
+
+
+@schedule_app.command("status")
+def schedule_status() -> None:
+    """Is the job installed and loaded; the last scheduled run; the log's last lines."""
+    import json
+
+    from sqlalchemy import select
+
+    from fin.cards import schedule
+    from fin.db import models as m
+
+    paths = data_paths(load_settings())
+    target = schedule.plist_path()
+    typer.echo(f"Job: {'installed' if target.exists() else 'not installed'}"
+               f"{', loaded' if schedule.loaded() else ''} ({target})")
+    with _session() as s:
+        run = s.scalar(select(m.CardRefreshRun).where(m.CardRefreshRun.trigger == "schedule")
+                       .order_by(m.CardRefreshRun.id.desc()).limit(1))
+        if run is None:
+            typer.echo("No scheduled run yet.")
+        else:
+            errors = json.loads(run.errors_json or "[]")
+            typer.echo(f"Last scheduled run: {run.started_at}, {run.status}, "
+                       f"{run.ai_calls} AI calls" + (f"; {errors[0]}" if errors else ""))
+    tail = schedule.log_tail(paths)
+    logins = [x for x in tail if "Subscription login" in x]
+    if logins:
+        typer.echo(logins[-1])
+    if tail:
+        typer.echo(f"Log ({schedule.log_path(paths)}), last lines:")
+        for line in tail[-8:]:
+            typer.echo(f"  {line}")
 
 
 def _show_pending(s: Session, card_id: str):
@@ -465,3 +566,88 @@ def cheatsheet(amount: Annotated[float | None, typer.Option(help="Dollars")] = N
         for r in rows:
             typer.echo(f"  {r['label']:<28} {r['product'] or '-':<40} "
                        f"{r['cents_per_dollar']:.2f}¢/$  {r['rule'] or ''}")
+
+
+@cards_app.command()
+def offers() -> None:
+    """Card-linked offers read from the offers pages your sync saved (read-only)."""
+    from fin.cards.offers import offers_summary
+
+    with _session() as s:
+        _, cards, profiles, facts = _history_inputs(s)
+        out = offers_summary(s, cards, {k: p.currency for k, p in profiles.items()}, facts)
+    if not out["cards"]:
+        typer.echo("No offers pages yet. Sync with `fin sync amex --offers` (or chase, citi), "
+                   "then `fin process`.")
+        return
+    for c in out["cards"]:
+        typer.echo(f"{c['product']:<40} page of {c['captured_on']}"
+                   f"{' (old)' if c['stale'] else ''}: {c['current']} current offers "
+                   f"({c['added']} added); {c['verified']} of {c['found']} verified")
+    if out["at_my_merchants"]:
+        typer.echo("\nAt places you shop:")
+        for r in out["at_my_merchants"]:
+            notes = f" ({'; '.join(r['notes'])})" if r["notes"] else ""
+            typer.echo(f"  {r['merchant']:<24} {r['product']:<36} {r['text']}{notes}")
+
+
+@cards_app.command("rewards-check")
+def rewards_check_cmd(months: Annotated[int, typer.Option(min=1, max=24)] = 6) -> None:
+    """What each statement says you earned against what the engine predicts."""
+    from fin.cards.rewards import rewards_check
+
+    with _session() as s:
+        _, cards, profiles, facts = _history_inputs(s)
+        out = rewards_check(s, cards, profiles, facts, months)
+    typer.echo(out["note"])
+    for r in out["statements"]:
+        def amt(v: int, kind: str = r["kind"]) -> str:
+            return f"{v:,} points" if kind == "points" else f"${v / 100:,.2f}"
+
+        flag = "  <- large gap" if r["flagged"] else ""
+        typer.echo(f"\n{r['product']} {r['period_start']} to {r['period_end']}: statement "
+                   f"{amt(r['stated'])}, predicted {amt(r['predicted'])} "
+                   f"({'+' if r['difference'] >= 0 else '-'}{amt(abs(r['difference']))}){flag}")
+        if r["flagged"]:
+            typer.echo("  statement: " + "; ".join(f"{x['text']} {amt(x['value'])}"
+                                                   for x in r["stated_lines"] if x["value"]))
+            typer.echo("  predicted: " + "; ".join(f"{x['text']} {amt(x['value'])}"
+                                                   for x in r["predicted_lines"]))
+        if r["unknown_merchants"]:
+            n = r["unknown_merchants"]
+            typer.echo(f"  {n} purchase{'s' if n > 1 else ''} at merchants not known yet "
+                       "(counted at the base rate)")
+    if out["without_summary"]:
+        typer.echo(f"\nNo rewards summary on statements: {', '.join(out['without_summary'])}")
+
+
+@cards_app.command()
+def ask(card: Annotated[str, typer.Argument(help="Card id")],
+        question: Annotated[str, typer.Argument(help="Your question, in quotes")]) -> None:
+    """Ask about a card's terms in plain words. Answers cite quotes that code checks."""
+    from fin.ai import claude_cli as cc
+    from fin.cards.question import QuestionError
+    from fin.cards.question import ask as ask_card
+
+    c = _card(card)
+    settings = load_settings()
+    with _session() as s:
+        try:
+            out = ask_card(s, data_paths(settings), settings, c, question)
+        except QuestionError as e:
+            typer.echo(str(e))
+            raise typer.Exit(2) from None
+        except cc.AIError as e:
+            typer.echo(f"The question failed: {e}")
+            raise typer.Exit(1) from None
+    label = {"verified": "checked against the documents",
+             "partial": "partly checked against the documents",
+             "unverified": "NOT checked: its quotes weren't found in the documents"}[out["status"]]
+    typer.echo(f"{out['answer']}\n\n({label}{', cached' if out['cached'] else ''})")
+    for c_ in out["citations"]:
+        mark = "ok" if c_["ok"] else "not found"
+        page = f", p. {c_['page']}" if c_["page"] else ""
+        typer.echo(f"  [{mark}] {c_['doc_title']}{page}: \"{c_['quote']}\"")
+    for w in out["warnings"]:
+        typer.echo(f"  ! {w}")
+

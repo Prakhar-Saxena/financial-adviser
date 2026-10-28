@@ -711,3 +711,97 @@ Dated record of what was discovered and decided. Newest at the bottom of each da
   cover Max.
 - Acceptance 1, checked by Opus on real data: all 10 top rows reproduce by hand from the accepted profiles and
   valuations (e.g. Costco warehouse $258.27: Costco Citi 2% = $5.17, Freedom Unlimited 1.5x at 1.75¢ = $6.78).
+
+## Card optimizer C4: card-linked offers, read-only (2026-10-27)
+
+- **Collected by the sync, only when asked.** `[sync].offers_sites` (default empty) or
+  `fin sync <site> --offers` adds `collect_offers: true` to the run parameters; the Amex, Chase and
+  Citi site files then save each card's offers list with `browser_snapshot` (`filename`
+  `offers_<card_id>.md`), or `browser_pdf_save` if the snapshot is cut short. New manifest kind
+  `offers` (imports kind `offers`, migration 0007).
+- **The guard blocks Add / Enroll by the page's own label.** The old check matched only the
+  agent's own `element` description. Now every PostToolUse response that carries a snapshot
+  updates `guard_state.json` (in the control folder, outside the run folder, and a reserved
+  name): the refs whose accessible name says enroll, activate, add … offer, add to card, a bare
+  "+" / "Add" / "Added", remove … offer, pay or redeem. Children of such a control (an icon
+  inside the button) inherit the label. A click, select or form fill on one of those refs is
+  denied however it's described. The list resets when the page URL changes. Narrower than
+  `DENY_ACTIONS` on purpose, so a dialog's "Cancel" still works when described as "Close". An
+  "Added" filter tab is blocked too (it looks the same); the site files say so.
+- **`offer_extract`: haiku, no tools, one call per offers page,** cached on the scrubbed text.
+  Before sending, code drops snapshot noise (refs, URLs), and replaces card endings ("ending
+  1234", "••1234", and every ending in cards.json) with `[ending]`, and full names, aliases and
+  first names with `[name]`. Surnames alone aren't scrubbed: they collide with brands, and pages
+  greet by first name.
+- **Verification (code).** The quote must be on the page; the merchant name and every number
+  (reward, minimum, maximum) must be in the quote. Expiry: the model copies the page's words;
+  code parses the date ("11/30/26", "Nov 30, 2026", Chase's "7 days left" from the capture
+  date). "Added" counts only if the quote shows the page's own word for it (added, enrolled,
+  activated); else it becomes unknown. Rejected offers are stored with the reason and never
+  reach the engine.
+- **Engine.** An offer matches a merchant through an alias or the same name, and an online-only
+  offer doesn't match an in-store search. It's its own line ("Amex Offer: $10 back on $50 or
+  more, not added yet. Add it in the Amex app before you pay."); only offers the page shows as
+  added count in the total. Points offers use the card's (pooled) valuation. Missed rewards and
+  the cheat sheet leave offers out (one-time, not an earn rate). Current offers = the latest
+  read page per card, unexpired; a page older than 21 days is marked "as of".
+- **Missed rewards view:** "Card offers at places you shop", from the last 90 days' merchants,
+  valued at the typical purchase there.
+- `fin rebuild` keeps snapshots and offers (linked to `imports`, which rebuild keeps); the
+  parser is idempotent per import.
+- Acceptance: offers appear for a fixture page (tests); guard tests on fictional recorded pages
+  with each issuer's control names prove Add / Enroll stay blocked, including across hook
+  processes; **the extra sync usage is recorded at the user's first `--offers` run** (pending).
+
+## Card optimizer C5: extras (2026-10-27)
+
+### Rewards check
+- **What statements show.** Chase: a points box between "Previous points balance" and "Total
+  points available" ("+ 5% back on Amazon.com purchases 2,604", "3x on dining 0", "+ Extra 3%
+  Back with Amazon Prime Card Bonus 361"). It's in a two-column layout, so it's read with the
+  card-docs column splitter (`fin.cards.docs.pdf_text`); redemption lines are left out. Citi
+  Costco: "Earned this period +$47.15" and one line per category. Amex: only the shared
+  Membership Rewards balance, so there's nothing per period to compare.
+- `statements.rewards_json` (migration 0008), filled once per statement by `fin process`
+  (rebuild recreates statements; the next process reads them again).
+- **Prediction** uses the transactions linked to the statement (they add up to its purchases
+  exactly), else its dates. A date window was off by whole purchases at period edges (Costco
+  ±$7.7 in consecutive months). A "credit" at a known merchant is a refund and takes points
+  back (Chase did: 3,606 = ($3,051.41 − $647.82) × 1.5); a statement credit matches no merchant
+  and is left out. Earn rates only: no caps used, credits or offers. Unknown merchants count at
+  the base rate and are counted.
+- A gap is "large" at ≥ 10% and ≥ 200 units (points, or cents).
+- **Real data, 13 statements:** Costco to the cent (3); Prime Visa and Sapphire within 1 point
+  (rounding), except Prime Oct: a promotional "Extra 3% Back" bonus of 361 points that isn't in
+  the terms (flagged, correctly); Freedom Unlimited within 8–163 points, the gaps being
+  dining/drugstore "addl" points at merchants the app doesn't know yet or files elsewhere.
+
+### `card_question`
+- `extract_model` (sonnet), no tools, the extraction argv. Input: the question and the card's
+  terms and benefits documents (refs D1..), or, over 80,000 characters, the pages that best
+  match the question's words (plus a few synonyms: "insurance" → coverage, "abroad" → foreign).
+- Code checks every quote against the full documents (page corrected when the quote is
+  elsewhere) and every number in the answer against the checked quotes (years 1900–2100
+  ignored). Status: verified / partial / unverified, shown with the answer.
+- Cached in `ai_cache` on the normalized question, the prompt version, the model and the
+  documents' text hashes: asking again makes no call; a document change asks again.
+- Privacy: the question goes to Claude as typed (the UI says so). Nothing else of mine.
+- `DocText.locate` fix: it returned the first page whose ±1 window held the quote (page 2 for a
+  quote on page 3). Now the page that holds it, else where it starts when it runs over.
+- Real run: "Does the Sapphire Reserve cover rental car damage abroad; is it primary?", 1
+  call, ~6 s: four quotes from the Guide to Benefits, all found; "31 days" in the answer had
+  no quote, so the answer showed as partly checked.
+
+### Schedule
+- `fin cards schedule install` writes `~/Library/LaunchAgents/local.financial-adviser.cards-refresh.plist`
+  (mode 600) and bootstraps it in `gui/<uid>`: day 1 at 9:30, `uv run --project <repo> fin
+  cards refresh --if-due --trigger schedule`, PATH = the dirs of uv, claude and node + system
+  dirs, HOME; no other environment (never an API key). Output to `logs/cards-schedule.log`.
+- A `schedule` run first checks the subscription login and prints "Subscription login:
+  <method>"; a failure is recorded as a failed `schedule` refresh run. `fin cards schedule
+  status` shows the job, the last scheduled run and the log's last lines; `run-now` kickstarts
+  it through launchd.
+- **Pending (user):** install, `run-now`, then `status`, to confirm `claude -p` started by
+  launchd sees the login. Claude's attempt to install it was refused by the permission check
+  (a persistent job is the user's call).
+

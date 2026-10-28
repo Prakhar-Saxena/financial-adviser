@@ -1,0 +1,13 @@
+{
+ "session_id": "fictional",
+ "cwd": "{SESSION_CWD}",
+ "hook_event_name": "PostToolUse",
+ "tool_name": "mcp__playwright__browser_snapshot",
+ "tool_input": {},
+ "tool_response": [
+  {
+   "type": "text",
+   "text": "### Page\n- Page URL: https://secure.chase.com/web/auth/dashboard#/dashboard/offers\n- Page Title: Offers\n### Snapshot\n```yaml\n- main [ref=e1]:\n  - heading \"Chase Offers\" [level=2] [ref=e2]\n  - generic [ref=e10] [cursor=pointer]:\n    - paragraph [ref=e11]: Sample Coffee\n    - paragraph [ref=e12]: 10% cash back\n    - button [ref=e13] [cursor=pointer]:\n      - img \"add\" [ref=e14]\n  - button \"Add Sample Books offer to card\" [ref=e20] [cursor=pointer]\n  - generic [ref=e30]:\n    - paragraph [ref=e31]: Sample Shoes\n    - img \"Added\" [ref=e32]\n  - link \"See all offers\" [ref=e40] [cursor=pointer]:\n    - /url: /offers/all\n```\n"
+  }
+ ]
+}

@@ -66,6 +66,9 @@ def load_facts(s: Session, settings: Settings, cards: CardsConfig,
         today = now.date()
         f.cap_used = {(u.card_id, u.key): u.used_cents for u in cap_use(s, profiles, f, today)}
         f.credit_used = credit_used_map(credit_use(s, profiles, cards, f, today))
+    from fin.cards.offers import current_offers
+
+    f.offers = current_offers(s, {c.id: c.issuer for c in cards.cards}, now.date())
     return f
 
 

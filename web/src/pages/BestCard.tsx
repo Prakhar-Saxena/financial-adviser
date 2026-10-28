@@ -7,7 +7,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import {
-  api, type CardDetail, type CardDoc, type CardProfile, type CardSummary, type DiffItem,
+  api, type CardAnswer, type CardDetail, type CardDoc, type CardProfile, type CardSummary, type DiffItem,
   type EarnRule, type Evidence, type ProfileDiff,
 } from "@/api";
 import { FindCard } from "@/components/cards/FindCard";
@@ -172,6 +172,7 @@ function CardBody({ detail }: { detail: CardDetail }) {
         </section>
       )}
       {shown && <ProfileView p={shown} valuation={detail.valuation_cents} docs={docs} />}
+      {shown && <AskCard cardId={detail.card_id} />}
       {detail.review.length > 0 && <Problems items={detail.review} />}
       <Documents docs={detail.documents} />
       {detail.changelog.length > 0 && (
@@ -187,6 +188,54 @@ function CardBody({ detail }: { detail: CardDetail }) {
         </section>
       )}
     </CardContent>
+  );
+}
+
+// ------------------------------------------------------------------ ask (Phase C5)
+
+const ANSWER_STATUS: Record<CardAnswer["status"], string> = {
+  verified: "Checked: every quote is in the documents",
+  partial: "Partly checked: see the notes below",
+  unverified: "Not checked: its quotes weren't found in the documents. Don't rely on it.",
+};
+
+function AskCard({ cardId }: { cardId: string }) {
+  const [q, setQ] = useState("");
+  const ask = useMutation({ mutationFn: (question: string) => api.askCard(cardId, question) });
+  const a = ask.data;
+  return (
+    <section className="space-y-2">
+      <h3 className="text-sm font-medium">Ask about this card</h3>
+      <form className="flex flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); if (q.trim()) ask.mutate(q); }}>
+        <input value={q} onChange={(e) => setQ(e.target.value)} maxLength={500}
+               placeholder="Does it cover rental car damage abroad?" aria-label="Question"
+               className="min-w-0 flex-1 rounded-md border border-line bg-surface px-3 py-1.5 text-sm" />
+        <Button size="sm" type="submit" disabled={ask.isPending || !q.trim()}>{ask.isPending ? "Asking…" : "Ask"}</Button>
+      </form>
+      <p className="text-xs text-muted">Your question and this card's public documents go to Claude. Answers quote the documents; code checks each quote.</p>
+      {ask.error && <p className="text-sm text-critical">{String(ask.error.message).replace(/^\d+ /, "")}</p>}
+      {a && (
+        <div className="space-y-2 rounded-lg border border-line p-3 text-sm">
+          <p>{a.answer}</p>
+          <p className={cn("text-xs", a.status === "verified" ? "text-ink-2" : "text-critical")}>
+            {ANSWER_STATUS[a.status]}{a.cached ? " · answered before" : ""}
+          </p>
+          <ul className="space-y-1.5">
+            {a.citations.map((c, i) => (
+              <li key={i} className={cn("text-xs", !c.ok && "line-through opacity-60")}>
+                “{c.quote}” <span className="text-muted">
+                  {c.doc_version_id
+                    ? <a className="underline" target="_blank" rel="noreferrer"
+                         href={`/api/cards/documents/${c.doc_version_id}${c.page ? `#page=${c.page}` : ""}`}>{c.doc_title}{c.page ? `, p. ${c.page}` : ""}</a>
+                    : c.doc_title}
+                </span>
+              </li>
+            ))}
+          </ul>
+          {a.warnings.map((w) => <p key={w} className="text-xs text-ink-2">{w}</p>)}
+        </div>
+      )}
+    </section>
   );
 }
 

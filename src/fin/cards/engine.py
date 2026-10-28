@@ -63,6 +63,24 @@ class Options:
     on: date = field(default_factory=date.today)
 
 
+@dataclass(frozen=True)
+class Offer:
+    """A card-linked offer read from the issuer's offers page (Phase C4)."""
+
+    issuer: str
+    merchant_name: str
+    merchant_norm: str
+    reward_kind: str  # cash | percent | points | points_per_dollar
+    reward_value: float  # cents, percent, points, or points per dollar
+    max_value: float | None = None  # cents (cash, percent) or points
+    min_spend_cents: int | None = None
+    expires_on: str | None = None
+    added: bool | None = None
+    channel: str | None = None  # online | in_store | None (either)
+    captured_on: str = ""
+    stale: bool = False
+
+
 @dataclass
 class Facts:
     """What I've told the app (SPEC-cards §6 card_facts) plus settings."""
@@ -77,6 +95,7 @@ class Facts:
     # its use is known (Phase C3 tracks it); otherwise it's shown on its own line.
     credit_used: dict[tuple[str, str], int] = field(default_factory=dict)
     names: dict[str, tuple[str, str]] = field(default_factory=dict)  # alias -> (key, source)
+    offers: dict[str, list[Offer]] = field(default_factory=dict)  # card id -> current offers
 
     def valuation(self, currency: str) -> float:
         return self.valuations.get(currency, 1.0)
@@ -226,6 +245,81 @@ def credit_fits(c: Credit, merchant: Merchant, opts: Options, facts: Facts) -> b
     return covers(c.categories, merchant.category)
 
 
+OFFER_NAMES = {"amex": "Amex Offer", "chase": "Chase Offer", "citi": "Citi Merchant Offer"}
+ISSUER_APP = {"amex": "the Amex app", "chase": "the Chase app", "citi": "the Citi app"}
+
+
+def offer_fits(o: Offer, merchant: Merchant, facts: Facts,
+               channel: str | None = None) -> bool:
+    """The offer's merchant is this merchant: through an alias, or the same name."""
+    if channel in ("online", "in_store") and o.channel in ("online", "in_store") \
+            and channel != o.channel:
+        return False
+    hit = facts.names.get(o.merchant_norm)
+    if hit is not None:
+        return hit[0] == merchant.key
+    return o.merchant_norm in (normalize_name(merchant.display_name),
+                               merchant.key.replace("_", " "))
+
+
+def offer_value(o: Offer, amount: int, valuation: float) -> float:
+    """Cents back on this amount (0 below the minimum spend)."""
+    if o.min_spend_cents and amount < o.min_spend_cents:
+        return 0.0
+    if o.reward_kind == "cash":
+        return o.reward_value
+    if o.reward_kind == "percent":
+        v = amount * o.reward_value / 100
+        return min(v, o.max_value) if o.max_value is not None else v
+    if o.reward_kind == "points":
+        return o.reward_value * valuation
+    pts = amount / 100 * o.reward_value
+    if o.max_value is not None:
+        pts = min(pts, o.max_value)
+    return pts * valuation
+
+
+def _dollars(cents: float) -> str:
+    return f"${cents / 100:,.0f}" if cents % 100 == 0 else f"${cents / 100:,.2f}"
+
+
+def offer_line(o: Offer, amount: int, valuation: float) -> dict[str, Any]:
+    """The offer on its own line, in the dashboard's words. It counts only when added."""
+    minimum = f" on {_dollars(o.min_spend_cents)} or more" if o.min_spend_cents else ""
+    if o.reward_kind == "cash":
+        what = f"{_dollars(o.reward_value)} back{minimum}"
+    elif o.reward_kind == "percent":
+        cap = f", up to {_dollars(o.max_value)}" if o.max_value is not None else ""
+        what = f"{o.reward_value:g}% back{minimum}{cap}"
+    elif o.reward_kind == "points":
+        what = f"{o.reward_value:,.0f} points{minimum}"
+    else:
+        cap = f", up to {o.max_value:,.0f} points" if o.max_value is not None else ""
+        what = f"+{o.reward_value:g} points per dollar{minimum}{cap}"
+    value = offer_value(o, amount, valuation)
+    app = ISSUER_APP.get(o.issuer, "the issuer's app")
+    if o.added:
+        status = "added"
+    elif o.added is False:
+        status = f"not added yet. Add it in {app} before you pay"
+    else:
+        status = f"check that it's added in {app} before you pay"
+    text = f"{OFFER_NAMES.get(o.issuer, 'Card offer')}: {what}, {status}."
+    notes = []
+    if o.min_spend_cents and amount < o.min_spend_cents:
+        notes.append(f"spend {_dollars(o.min_spend_cents)} or more to get it")
+    if o.channel in CHANNEL_WORDS:
+        notes.append(f"{CHANNEL_WORDS[o.channel]} only")
+    if o.expires_on:
+        notes.append(f"ends {o.expires_on}")
+    if o.stale:
+        notes.append(f"offers as of {o.captured_on}")
+    return {"name": OFFER_NAMES.get(o.issuer, "Card offer"), "merchant": o.merchant_name,
+            "text": text, "notes": notes, "value_cents": round(value),
+            "counted": bool(o.added) and value > 0, "added": o.added,
+            "expires_on": o.expires_on, "captured_on": o.captured_on}
+
+
 def evidence(item: Any) -> dict[str, Any] | None:
     if not item.evidence:
         return None
@@ -241,11 +335,13 @@ class CardResult:
     total_cents: float = 0
     rule_cents: float = 0
     credit_cents: float = 0
+    offer_cents: float = 0
     fee_cents: float = 0
     units: float = 0
     rule: EarnRule | None = None
     caveats: list[str] = field(default_factory=list)
     credit: dict[str, Any] | None = None
+    offer: dict[str, Any] | None = None
     benefits: list[dict[str, Any]] = field(default_factory=list)
     alternatives: list[dict[str, Any]] = field(default_factory=list)
     ftf_pct: float = 0
@@ -257,14 +353,16 @@ class CardResult:
             "card_id": self.card.id, "product": self.card.product, "rank": self.rank,
             "currency": self.currency, "valuation_cents": self.valuation,
             "total_cents": round(self.total_cents), "rule_cents": round(self.rule_cents),
-            "credit_cents": round(self.credit_cents), "fee_cents": round(self.fee_cents),
+            "credit_cents": round(self.credit_cents), "offer_cents": round(self.offer_cents),
+            "fee_cents": round(self.fee_cents),
             "cents_per_dollar": round(self.rule_cents / amount * 100, 2) if amount else 0,
             "units": round(self.units, 2),
             "rule": None if r is None else {
                 "rate": r.rate, "rate_text": rate_text(r.rate, self.currency),
                 "text": f"{rate_text(r.rate, self.currency)} on {scope_text(r)}",
                 "is_base": r.is_base, "evidence": evidence(r)},
-            "caveats": self.caveats, "credit": self.credit, "benefits": self.benefits,
+            "caveats": self.caveats, "credit": self.credit, "offer": self.offer,
+            "benefits": self.benefits,
             "alternatives": self.alternatives,
         }
 
@@ -313,6 +411,12 @@ def evaluate(card: Card, profile: CardProfile, merchant: Merchant, opts: Options
             if counted:
                 res.credit_cents = value
             break
+    lines = [offer_line(o, amount, v) for o in facts.offers.get(card.id, ())
+             if offer_fits(o, merchant, facts, opts.channel)]
+    if lines:
+        res.offer = max(lines, key=lambda x: (x["counted"], x["value_cents"]))
+        if res.offer["counted"]:
+            res.offer_cents = res.offer["value_cents"]
     kinds = PROTECTIONS.get(merchant.category, ())
     res.benefits = [_benefit(b) for b in profile.benefits if b.kind in kinds]
     for rule in profile.earn_rules:
@@ -327,7 +431,7 @@ def evaluate(card: Card, profile: CardProfile, merchant: Merchant, opts: Options
                 "text": f"Book through {where}: {rate_text(rule.rate, currency)}",
                 "cents": round(units * v - res.fee_cents), "caveats": fit.caveats + notes,
                 "evidence": evidence(rule)})
-    res.total_cents = res.rule_cents + res.credit_cents - res.fee_cents
+    res.total_cents = res.rule_cents + res.credit_cents + res.offer_cents - res.fee_cents
     return res
 
 
@@ -407,7 +511,7 @@ def break_even(results: list[CardResult], names: dict[str, str]) -> str | None:
         # Points beat cash back: say how low the winner's points may go before cash wins.
         if _cash(a.currency) or a.units <= 0:
             return None
-        tie = (b.total_cents - (a.credit_cents - a.fee_cents)) / a.units
+        tie = (b.total_cents - (a.total_cents - a.rule_cents)) / a.units
         if not 0 < tie < a.valuation:
             return None
         cur = names.get(a.currency, a.currency.replace("_", " "))
@@ -415,7 +519,7 @@ def break_even(results: list[CardResult], names: dict[str, str]) -> str | None:
                 f"(now {a.valuation:g}¢); below that, {b.card.product}.")
     if b.units <= 0:
         return None
-    tie = (a.total_cents - (b.credit_cents - b.fee_cents)) / b.units
+    tie = (a.total_cents - (b.total_cents - b.rule_cents)) / b.units
     if tie <= 0 or tie > BREAK_EVEN_MAX:
         return None
     cur = names.get(b.currency, b.currency.replace("_", " "))

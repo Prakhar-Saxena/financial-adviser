@@ -11,13 +11,16 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
+import { OfferText } from "@/components/cards/FindCard";
 import { money } from "@/lib/utils";
 
 export function MissedRewards() {
   return (
     <div className="space-y-4">
       <Tips />
+      <Offers />
       <Credits />
+      <RewardsCheckCard />
       <Cheatsheet />
     </div>
   );
@@ -75,6 +78,83 @@ function Tips() {
               <p className="text-xs text-muted">{data.unknown_purchases} purchases at {data.unknown_descriptors} merchants aren't known yet; the next fin process looks them up.</p>
             )}
           </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function Offers() {
+  const { data } = useQuery({ queryKey: ["offers"], queryFn: api.offers });
+  if (!data || data.cards.length === 0) return null;
+  return (
+    <Card>
+      <CardHeader><CardTitle>Card offers at places you shop</CardTitle></CardHeader>
+      <CardContent className="space-y-3 text-sm">
+        <p className="text-xs text-muted">
+          Read from the offers pages your sync saved ({data.cards.map((c) => `${c.product} ${c.captured_on}${c.stale ? ", old" : ""}`).join(" · ")}).
+          Nothing here adds an offer: add it in the issuer's app before you pay.
+        </p>
+        {data.at_my_merchants.length === 0 ? (
+          <p className="text-ink-2">No current offers at merchants you bought from in the last 90 days.</p>
+        ) : (
+          <ul className="divide-y divide-line">
+            {data.at_my_merchants.map((r) => (
+              <li key={`${r.card_id}-${r.merchant_key}-${r.text}`} className="py-1.5">
+                <div><span className="font-medium">{r.merchant}</span> <span className="text-ink-2">· {r.product}</span>
+                  <span className="ml-2 text-xs text-muted">{r.purchases} purchase{r.purchases > 1 ? "s" : ""}, typically {money(r.typical_cents)}</span></div>
+                <OfferText o={r} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function RewardsCheckCard() {
+  const { data } = useQuery({ queryKey: ["rewards-check"], queryFn: () => api.rewardsCheck(6) });
+  if (!data || data.statements.length === 0) return null;
+  const amt = (v: number, kind: string) => (kind === "points" ? `${v.toLocaleString()} pts` : money(v));
+  return (
+    <Card>
+      <CardHeader><CardTitle>Rewards check against your statements</CardTitle></CardHeader>
+      <CardContent className="space-y-3 text-sm">
+        <p className="text-xs text-muted">{data.note} A large gap means the terms or a merchant's category may be off.</p>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="text-left text-xs text-muted">
+              <tr><th className="py-1 pr-3 font-normal">Card</th><th className="pr-3 font-normal">Period</th>
+                  <th className="pr-3 text-right font-normal">Statement</th><th className="pr-3 text-right font-normal">Predicted</th>
+                  <th className="text-right font-normal">Gap</th></tr>
+            </thead>
+            <tbody className="divide-y divide-line">
+              {data.statements.map((r) => (
+                <tr key={r.statement_id} className="align-top"
+                    title={`Statement: ${r.stated_lines.filter((x) => x.value).map((x) => `${x.text} ${amt(x.value, r.kind)}`).join("; ")}\nPredicted: ${r.predicted_lines.map((x) => `${x.text} ${amt(x.value, r.kind)}`).join("; ")}`}>
+                  <td className="py-1.5 pr-3">{r.product}</td>
+                  <td className="py-1.5 pr-3 text-ink-2">{r.period_start} to {r.period_end}</td>
+                  <td className="py-1.5 pr-3 text-right tabular">{amt(r.stated, r.kind)}</td>
+                  <td className="py-1.5 pr-3 text-right tabular">{amt(r.predicted, r.kind)}</td>
+                  <td className={`py-1.5 text-right tabular ${r.flagged ? "font-medium text-critical" : "text-ink-2"}`}>
+                    {r.difference >= 0 ? "+" : "−"}{amt(Math.abs(r.difference), r.kind)}
+                    {r.unknown_merchants > 0 && <div className="text-xs font-normal text-muted">{r.unknown_merchants} unknown merchant{r.unknown_merchants > 1 ? "s" : ""}</div>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {data.statements.filter((r) => r.flagged).map((r) => (
+          <div key={r.statement_id} className="text-xs text-ink-2">
+            <span className="font-medium text-ink">{r.product}, {r.period_end}:</span>{" "}
+            statement says {r.stated_lines.filter((x) => x.value).map((x) => `${x.text} ${amt(x.value, r.kind)}`).join("; ")};
+            predicted {r.predicted_lines.map((x) => `${x.text} ${amt(x.value, r.kind)}`).join("; ")}.
+          </div>
+        ))}
+        {data.without_summary.length > 0 && (
+          <p className="text-xs text-muted">No rewards summary on statements: {data.without_summary.join(", ")}.</p>
         )}
       </CardContent>
     </Card>

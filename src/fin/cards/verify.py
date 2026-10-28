@@ -74,10 +74,22 @@ class DocText:
         return any(q in normalize(window, keep_hyphens=k) for k in (False, True))
 
     def locate(self, quote: str) -> int | None:
-        """The first page or section holding the quote (or straddling into the next)."""
-        for n in sorted(self.pages):
-            if self.contains(quote, n):
+        """The page or section holding the quote, else the one it starts on and runs over
+        from into the next."""
+        q = normalize(quote)
+        if not q:
+            return None
+        order = sorted(self.pages)
+
+        def has(text: str) -> bool:
+            return any(q in normalize(text, keep_hyphens=k) for k in (False, True))
+
+        for n in order:
+            if has(self.pages[n]):
                 return n
+        for a, b in zip(order, order[1:], strict=False):
+            if has(self.pages[a] + "\n" + self.pages[b]):
+                return a
         return None
 
 

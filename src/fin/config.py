@@ -168,6 +168,8 @@ class SyncSettings(_Strict):
     # Chrome via the Playwright extension, for sites that block the separate profile (Costco).
     site_browser: dict[str, Literal["profile", "extension"]] = {}
     playwright_mcp_version: str = "0.0.83"
+    # Sites whose sync also saves each card's offers page, read-only (SPEC-cards Phase C4).
+    offers_sites: list[Literal["amex", "chase", "citi"]] = []
 
     @field_validator("playwright_mcp_version")
     @classmethod

@@ -25,6 +25,22 @@ or manage cards, request anything, or change settings.
 
 Do the cards one at a time. If one download fails twice, record a gap and move on.
 
+## Offers (only when `collect_offers` is true in the run parameters)
+After the transactions and statements, for each card in `cards`: open the card's Amex Offers
+list (often "Offers" on the card's home page, then "View All"). Read only.
+**Never click "Add to Card", Enroll, Activate or Add, and never remove an offer**; the guard blocks
+those controls (and an "Added" filter, which looks the same to it). Use "All offers", "View all"
+or "Load more" to show the whole list, and scroll.
+- Save the whole list with `browser_snapshot` and `filename` =
+  `<run folder>/offers_<card_id>.md`. If the snapshot is cut short or empty, use
+  `browser_pdf_save` to `<run folder>/offers_<card_id>.pdf` instead.
+- Manifest entry: kind `offers`, this card's `card_id`, period_start null, period_end = today,
+  note = how many offers the page showed.
+- If a card has no Amex Offers page, or it won't load after two tries, record a gap (kind
+  `offers`) and move on.
+- Where the playbook says not to use offers, it means never add or enroll; reading the list
+  here is fine. Record where the offers list is in the playbook.
+
 ## Run report
 Counts per card and kind, gaps with reasons, export formats offered, the file names Amex used,
 and where the download and statement controls were.

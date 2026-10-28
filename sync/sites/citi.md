@@ -2,7 +2,8 @@
 
 Collect posted transactions and closed statements for each card in the run parameters
 (the Costco Anywhere Visa). Read-only. Never use "Make a payment", balance transfers,
-credit-line increase requests, offers, rewards redemption, card lock, paperless or settings.
+credit-line increase requests, rewards redemption, card lock, paperless or settings, and never
+enroll in an offer (the Offers step below only reads the list).
 
 ## For each card in `cards`
 1. **Transactions (CSV).** Use Citi's own download for account activity (often a
@@ -23,6 +24,22 @@ credit-line increase requests, offers, rewards redemption, card lock, paperless 
    period_start = the period start if shown, else null.
 
 If one download fails twice, record a gap and move on.
+
+## Offers (only when `collect_offers` is true in the run parameters)
+After the transactions and statements, for each card in `cards`: open the card's Citi Merchant
+Offers list ("Offers" or "Merchant Offers" for the card). Read only.
+**Never click "Enroll", Enroll, Activate or Add, and never remove an offer**; the guard blocks
+those controls (and an "Added" filter, which looks the same to it). Use "All offers", "View all"
+or "Load more" to show the whole list, and scroll.
+- Save the whole list with `browser_snapshot` and `filename` =
+  `<run folder>/offers_<card_id>.md`. If the snapshot is cut short or empty, use
+  `browser_pdf_save` to `<run folder>/offers_<card_id>.pdf` instead.
+- Manifest entry: kind `offers`, this card's `card_id`, period_start null, period_end = today,
+  note = how many offers the page showed.
+- If a card has no Citi Merchant Offers page, or it won't load after two tries, record a gap
+  (kind `offers`) and move on.
+- Where the playbook says not to use offers, it means never add or enroll; reading the list
+  here is fine. Record where the offers list is in the playbook.
 
 ## Run report
 - `collected`: one row per card and kind with the number of files.

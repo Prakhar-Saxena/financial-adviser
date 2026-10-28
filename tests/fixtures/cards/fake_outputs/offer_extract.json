@@ -1,0 +1,22 @@
+{
+  "offers": [
+    {"merchant": "Sample Coffee", "reward": {"kind": "cash", "value": 5}, "min_spend_usd": 20,
+     "expires_text": "Expires 11/30/2099", "added": false, "channel": null,
+     "quote": "Sample Coffee\nSpend $20 or more, earn $5 back. Expires 11/30/2099\nAdd to Card"},
+    {"merchant": "Sample Books", "reward": {"kind": "percent", "value": 10, "max": 15},
+     "min_spend_usd": null, "expires_text": "Expires 12/15/2099", "added": true, "channel": null,
+     "quote": "Sample Books\nEarn 10% back on purchases, up to a total of $15. Expires 12/15/2099\nAdded to Card"},
+    {"merchant": "Kroger", "reward": {"kind": "points_per_dollar", "value": 2, "max": 1000},
+     "min_spend_usd": null, "expires_text": "Expires 12/31/2099", "added": true, "channel": null,
+     "quote": "Kroger\nEarn +2 points per dollar, up to 1,000 points. Expires 12/31/2099\nAdded to Card"},
+    {"merchant": "Sample Shoes", "reward": {"kind": "cash", "value": 40}, "min_spend_usd": 100,
+     "expires_text": "Expires 11/15/2099", "added": false, "channel": null,
+     "quote": "Sample Shoes\nSpend $100 or more, earn $30 back. Expires 11/15/2099"},
+    {"merchant": "Sample Gone", "reward": {"kind": "cash", "value": 2}, "min_spend_usd": 10,
+     "expires_text": "Expires 01/31/2020", "added": null, "channel": null,
+     "quote": "Sample Gone\nSpend $10 or more, earn $2 back. Expires 01/31/2020"},
+    {"merchant": "Sample Invented", "reward": {"kind": "cash", "value": 50}, "min_spend_usd": null,
+     "expires_text": null, "added": true, "channel": null,
+     "quote": "Sample Invented: earn $50 back. Added to Card"}
+  ]
+}

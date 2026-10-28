@@ -1,0 +1,23 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["found", "answer", "citations"],
+  "properties": {
+    "found": {"type": "boolean"},
+    "answer": {"type": "string", "minLength": 1, "maxLength": 1500},
+    "citations": {
+      "type": "array",
+      "maxItems": 6,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["doc", "page", "quote"],
+        "properties": {
+          "doc": {"type": "string", "pattern": "^D[0-9]+$"},
+          "page": {"type": ["integer", "null"], "minimum": 1},
+          "quote": {"type": "string", "minLength": 3, "maxLength": 300}
+        }
+      }
+    }
+  }
+}

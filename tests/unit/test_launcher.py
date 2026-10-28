@@ -122,6 +122,8 @@ def test_prepare_writes_private_control_files(plan):
     assert gc["allowed_domains"] == ["example.com"]
     assert gc["run_dir"] == str(plan.run_dir.resolve())
     assert gc["record_payloads_dir"]  # selftest only
+    # The guard's memory of the page's Add / Enroll controls is out of the agent's reach.
+    assert not gc["state_path"].startswith(str(plan.run_dir.resolve()))
 
     prompt = plan.prompt_md.read_text()
     assert "Rules for every browsing session" in prompt

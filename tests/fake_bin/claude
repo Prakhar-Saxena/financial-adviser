@@ -86,6 +86,10 @@ if (outputs / f"{task}.json").exists():
             items[0]["rate"] += 1
         else:
             items[0]["limits"] = "up to $99,999 per claim"
+    if mode == "bad_quote" and out.get("citations"):  # card_question
+        out["citations"][0]["quote"] = "This sentence is in no document at all."
+    if mode == "bad_number" and "answer" in out:
+        out["answer"] += " It pays up to $99,999."
     if mode == "schema_invalid":
         out["unexpected"] = True
     emit(out)
