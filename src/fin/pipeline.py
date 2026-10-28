@@ -14,6 +14,7 @@ from datetime import date
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from fin.cards.history import HistoryResult, resolve_history
 from fin.categorize.ai import AIResult, Runner, categorize_items, categorize_transactions
 from fin.categorize.rules import apply_overrides, apply_rules, load_seed_rules
 from fin.config import CardsConfig, DataPaths, Settings, Taxonomy
@@ -32,6 +33,7 @@ class ProcessResult:
     rule_matched: int = 0
     ai_merchants: AIResult = field(default_factory=AIResult)
     ai_items: AIResult = field(default_factory=AIResult)
+    card_merchants: HistoryResult = field(default_factory=HistoryResult)
     match: MatchResult = field(default_factory=MatchResult)
     costco: CostcoResult = field(default_factory=CostcoResult)
     ledger: dict[str, int] = field(default_factory=dict)
@@ -42,7 +44,7 @@ class ProcessResult:
 
     @property
     def ai_paused(self) -> str | None:
-        return self.ai_merchants.paused or self.ai_items.paused
+        return self.ai_merchants.paused or self.ai_items.paused or self.card_merchants.paused
 
 
 def process(
@@ -64,6 +66,9 @@ def process(
                                     not res.ai_merchants.paused, runner=runner)
     apply_overrides(s)
     s.commit()
+    # Card optimizer (SPEC-cards §8 History): a merchant profile for every purchase descriptor.
+    res.card_merchants = resolve_history(s, paths, settings, use_ai=use_ai and not res.ai_paused,
+                                         runner=runner)
 
     res.match = match_amazon(s, cards, settings, reviews, today)
     res.costco = match_costco(s, cards, settings, reviews, today)

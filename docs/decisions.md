@@ -655,3 +655,43 @@ Dated record of what was discovered and decided. Newest at the bottom of each da
   normalized requirement or credit name, value yes/no), `anniversary_month` (card), `setting`
   `count_unused_credits`.
 - `fin process` history step (descriptor aliases, batched lookups) is Phase C3, with missed rewards.
+
+## 2026-10-27 (Card optimizer, Phase C3)
+
+### Built
+- `fin.cards.history`: the `fin process` history step (`resolve_history`), missed rewards (`tips`), cap use,
+  credits used, the cheat sheet, and manual credit fixes (`mark_credit`). `fin cards tips|credits|cheatsheet`;
+  API `/tips`, `/credits` (GET, PUT), `/cheatsheet`; the Missed rewards view (`/best-card?view=missed`).
+- Cap use and known credit use now feed the ranking (`load_facts(with_history=True)`).
+- Valuations set with the user: Amex points (one pool across Platinum and Gold, labelled "American Express Rewards
+  Points") 1.6¢, Ultimate Rewards 1.75¢ (NerdWallet's conservative figures; TPG and others put both near 2.0¢,
+  which assumes transfers to partners). Freedom Unlimited pooled into Ultimate Rewards; Prime Visa and Costco
+  stay cash back.
+
+### Choices
+- **History step:** a descriptor resolves through an alias, then the seed rules (stored as a `descriptor` alias,
+  source `rule`), then batched `merchant_profile` calls through the classifier's `classify_keys` (batch size
+  `[ai].batch_size`, cache in `ai_cache`, limit handling). Records are `{key, query}` with the cleaned descriptor
+  only; `known` merchants and the category list ride along. Not-a-merchant answers are cached, so nothing is
+  asked twice. First real run: 113 descriptors, 3 calls; second run 0 calls. One real run folder checked by hand:
+  only cleaned descriptors (some include a billing label such as "WALMART+ MEMBER 07/26").
+- **Missed rewards and the cheat sheet compare earn rates only** (credits and caps left out, labelled "estimate,
+  at current terms"). A known-unused credit made Sapphire "best" for every ride in the cheat sheet; that's
+  right for one search this month, not for a look back or a standing guide.
+- **Credits:** each posted `credit` transaction goes to the card's credit it shares the most keywords with
+  (credit name + merchant names, ≥4 letters, minus stopwords like CREDIT/AMEX/PLATINUM). Real data: Amex lines
+  ("PLATINUM DIGITAL ENTERTAINMENT CREDIT", "AMEX RESY CREDIT", "AMEX CLEAR PLUS CREDIT", "WALMART+ CREDIT",
+  "... DUNKIN' CREDIT") match; Chase's two "STATEMENT CREDIT" lines ($715, $1,720) look like rewards redemptions
+  and correctly match nothing. Credits that don't post (`in_app_balance`, e.g. Uber Cash, DoorDash promos) are
+  "unknown" until marked by hand.
+- **Freshness:** "nothing posted" counts as unused in the ranking only if the card has a transaction from the
+  last 10 days; otherwise the credit shows "data as of …" and isn't counted. Credits post days after use.
+- **Membership names** with "+" ("Walmart+", "CLEAR+") never match a store merchant: the Walmart+ credit pays
+  the membership, not purchases at Walmart.
+- **Periods:** calendar month/quarter/half/year; a cardmember year uses my anniversary month, else the
+  calendar year marked approximate; "statement" approximates as the month; multi-year (Global Entry) as 4
+  calendar years.
+- Facts: `credit_used` (card, ref = credit identity, period = period key, value full/none/cents) and
+  `credit_alias` (card, ref = identity, value = a statement keyword).
+- Acceptance 1 (5 transactions by hand) and 2 (credits vs Amex statements) are the user's; tests reproduce the
+  arithmetic on fictional cards.

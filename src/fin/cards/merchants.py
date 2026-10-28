@@ -232,21 +232,29 @@ def lookup(s: Session, paths: DataPaths, settings: Settings, query: str, *, web:
     results = [r for r in res.output["results"] if r["key"] == "q1"]
     if not results:
         raise cc.AIError("merchant_profile returned no result for the query")
-    r = results[0]
-    source = "ai_web" if web else "ai"
     out = Resolution(query, how="web" if web else "lookup")
-    if not r["is_merchant"]:
+    target = apply_result(s, norm, results[0], "ai_web" if web else "ai", task.prompt_version,
+                          kind="query")
+    if target is None:
         out.not_a_merchant = True
         s.commit()
         return out
-    target = None
-    if r["match_key"]:
-        target = s.get(m.MerchantProfileRow, r["match_key"])
-    if target is None and r["new"]:
-        new = r["new"]
-        target = s.get(m.MerchantProfileRow, new["key"])
-        if target is None:
-            target = _alias(s, norm)  # a `kb` profile from the documents, still uncategorized
+    s.commit()
+    out.merchant = Merchant.of(target)
+    return out
+
+
+def apply_result(s: Session, norm: str, r: dict[str, Any], source: str, prompt_version: str,
+                 *, kind: str) -> m.MerchantProfileRow | None:
+    """Store one merchant_profile result: a match adds `norm` as an alias of that profile, a new
+    merchant becomes a profile (an uncategorized `kb` one from the documents is filled in).
+    Seed and user profiles are never changed. Returns None for "not a merchant"."""
+    if not r["is_merchant"]:
+        return None
+    target = s.get(m.MerchantProfileRow, r["match_key"]) if r["match_key"] else None
+    new = r["new"]
+    if target is None and new:
+        target = s.get(m.MerchantProfileRow, new["key"]) or _alias(s, norm)
         if target is None:
             target = m.MerchantProfileRow(key=new["key"], display_name=new["display_name"],
                                           source=source)
@@ -256,15 +264,13 @@ def lookup(s: Session, paths: DataPaths, settings: Settings, query: str, *, web:
             target.reward_category, target.mcc_guess = new["reward_category"], new["mcc_guess"]
             target.acceptance_json, target.notes = json.dumps(new["acceptance"]), new["notes"]
             target.source, target.confidence = source, r["confidence"]
-            target.prompt_version, target.model = task.prompt_version, "haiku"
+            target.prompt_version, target.model = prompt_version, "haiku"
             target.updated_at = utcnow()
         s.flush()
     if target is None:
-        raise cc.AIError("merchant_profile returned neither a match nor a new merchant")
-    _remember(s, norm, target.key, "query", source)
-    s.commit()
-    out.merchant = Merchant.of(target)
-    return out
+        return None
+    _remember(s, norm, target.key, kind, source)
+    return target
 
 
 # --------------------------------------------------------------------------- corrections

@@ -98,6 +98,8 @@ def merchant_keys(names: list[str], facts: Facts, *, any_source: bool = False) -
     for n in names:
         if CHANNEL_NAME.search(n) and not any_source:
             continue
+        if "+" in n:  # "Walmart+", "CLEAR+": a membership, not the store
+            continue
         hit = facts.names.get(normalize_name(n))
         if hit and (any_source or hit[1] != "kb"):
             out.add(hit[0])

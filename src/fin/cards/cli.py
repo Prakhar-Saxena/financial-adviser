@@ -392,3 +392,76 @@ def merchant(
             typer.echo("Saved (source: user).")
         s.commit()
         typer.echo(json.dumps(mer.as_dict(), indent=2))
+
+
+def _history_inputs(s):
+    from fin.cards.best import active_profiles, load_facts
+
+    settings, cards = load_settings(), load_cards()
+    return settings, cards, active_profiles(s), load_facts(s, settings, cards)
+
+
+@cards_app.command()
+def tips(months: Annotated[int | None, typer.Option(help="Look back this many months")] = None
+         ) -> None:
+    """Where a different card would have earned more on my purchases (an estimate, §10)."""
+    from fin.cards.history import tips as missed
+
+    with _session() as s:
+        settings, cards, profiles, facts = _history_inputs(s)
+        out = missed(s, settings, cards, profiles, facts, months or settings.cards.tips_months)
+    typer.echo(f"Missed rewards, {out['since']} to {out['until']} ({out['estimate']}):\n")
+    if not out["top"]:
+        typer.echo("  Nothing to improve: you used the best card everywhere.")
+    for r in out["top"]:
+        typer.echo(f"  {_money(r['difference_cents']):>8}  {r['text']}  "
+                   f"({r['purchases']} purchases, {_money(r['spend_cents'])})")
+    if out["top"]:
+        typer.echo(f"\n  About {_money(out['total_difference_cents'])} in all.")
+    for r in out["unsure"]:
+        typer.echo(f"  unsure: {r['merchant']} (category {r['category']}), "
+                   f"{_money(r['difference_cents'])}")
+    if out["unknown_purchases"]:
+        typer.echo(f"\n  {out['unknown_purchases']} purchases at {out['unknown_descriptors']} "
+                   "merchants aren't known yet; `fin process` looks them up.")
+
+
+@cards_app.command()
+def credits() -> None:
+    """Statement credits used this period, per card."""
+    from datetime import date
+
+    from fin.cards.history import credit_use
+
+    today = date.today()
+    with _session() as s:
+        _, cards, profiles, facts = _history_inputs(s)
+        rows = [u.as_dict(today) for u in credit_use(s, profiles, cards, facts, today)]
+    product = None
+    for r in rows:
+        if r["product"] != product:
+            product = r["product"]
+            typer.echo(f"\n{product}")
+        used = (f"{_money(r['used_cents'])} of {_money(r['amount_cents'])}" if r["known"]
+                else f"? of {_money(r['amount_cents'])} (not a statement credit; mark it by hand)")
+        enroll = "" if not r["enrollment_required"] else (
+            "  enrolled" if r["enrolled"] else "  needs enrollment" if r["enrolled"] is None
+            else "  not enrolled")
+        typer.echo(f"  {r['name']:<40} {used:<28} {r['period_key']}, {r['days_left']} days left"
+                   f"{enroll}")
+
+
+@cards_app.command()
+def cheatsheet(amount: Annotated[float | None, typer.Option(help="Dollars")] = None) -> None:
+    """The best card per common category and for my merchant-specific cases."""
+    from fin.cards.history import cheatsheet as sheet
+
+    with _session() as s:
+        settings, cards, profiles, facts = _history_inputs(s)
+        out = sheet(s, cards, profiles, facts,
+                    round(amount * 100) if amount else settings.cards.default_amount_cents)
+    for title, rows in (("By category", out["categories"]), ("Merchants", out["merchants"])):
+        typer.echo(f"\n{title}")
+        for r in rows:
+            typer.echo(f"  {r['label']:<28} {r['product'] or '-':<40} "
+                       f"{r['cents_per_dollar']:.2f}¢/$  {r['rule'] or ''}")

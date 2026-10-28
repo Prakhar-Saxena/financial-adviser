@@ -37,7 +37,8 @@ def _facts(s: Session, kind: str) -> list[m.CardFact]:
 
 
 def load_facts(s: Session, settings: Settings, cards: CardsConfig,
-               now: datetime | None = None) -> engine.Facts:
+               now: datetime | None = None, *, with_history: bool = True) -> engine.Facts:
+    """Settings + my facts, and (with_history) cap and credit use from my transactions."""
     cs = settings.cards
     f = engine.Facts(valuations=dict(cs.valuations), count_unused_credits=cs.count_unused_credits)
     for x in _facts(s, "valuation"):
@@ -58,6 +59,13 @@ def load_facts(s: Session, settings: Settings, cards: CardsConfig,
             checked = datetime.strptime(st.last_checked, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
             f.stale_days[st.card_id] = (now - checked).days
     f.names = name_keys(s)
+    if with_history:
+        from fin.cards.history import cap_use, credit_use, credit_used_map
+
+        profiles = active_profiles(s)
+        today = now.date()
+        f.cap_used = {(u.card_id, u.key): u.used_cents for u in cap_use(s, profiles, f, today)}
+        f.credit_used = credit_used_map(credit_use(s, profiles, cards, f, today))
     return f
 
 

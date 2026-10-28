@@ -51,6 +51,15 @@ class MerchantPatch(BaseModel):
     alias: str | None = None
 
 
+class CreditMark(BaseModel):
+    card_id: str
+    identity: str
+    period_key: str | None = None
+    used: str | None = None  # full | none | cents; null clears my mark
+    alias: str | None = None  # a statement keyword for this credit; "" clears it
+    clear: bool = False
+
+
 class RefreshIn(BaseModel):
     card_id: str | None = None
     discover: bool = False
@@ -278,6 +287,53 @@ def cards_router(session: Callable[[], Iterator[Session]], settings: Settings,
             s.rollback()
             raise HTTPException(422, f"bad settings: {e}") from None
         return read(s, settings, cards)
+
+    # ------------------------------------------------------------- my data (§10)
+
+    def _inputs(s: Session):
+        from fin.cards.best import active_profiles, load_facts
+
+        return active_profiles(s), load_facts(s, settings, cards)
+
+    @router.get("/tips")
+    def tips(months: int | None = None, s: Session = Depends(db)):
+        from fin.cards.history import tips as missed
+
+        if months is not None and not 1 <= months <= 24:
+            raise HTTPException(422, "months is 1-24")
+        profiles, facts = _inputs(s)
+        return missed(s, settings, cards, profiles, facts, months or settings.cards.tips_months)
+
+    @router.get("/credits")
+    def credits(s: Session = Depends(db)):
+        from datetime import date
+
+        from fin.cards.history import credit_use
+
+        profiles, facts = _inputs(s)
+        today = date.today()
+        return [u.as_dict(today) for u in credit_use(s, profiles, cards, facts, today)]
+
+    @router.put("/credits", dependencies=[Depends(require_json)])
+    def mark_credit(body: CreditMark, s: Session = Depends(db)):
+        from fin.cards.history import mark_credit as mark
+
+        if body.card_id not in {c.id for c in cards.cards}:
+            raise HTTPException(404, "unknown card")
+        try:
+            mark(s, body.card_id, body.identity, period_key=body.period_key,
+                 used=None if body.clear else body.used, alias=body.alias)
+        except ValueError as e:
+            raise HTTPException(422, str(e)) from None
+        return credits(s)
+
+    @router.get("/cheatsheet")
+    def cheatsheet(amount_cents: int | None = None, s: Session = Depends(db)):
+        from fin.cards.history import cheatsheet as sheet
+
+        profiles, facts = _inputs(s)
+        return sheet(s, cards, profiles, facts,
+                     amount_cents or settings.cards.default_amount_cents)
 
     @router.get("/refresh/{run_id}")
     def refresh_status(run_id: int, s: Session = Depends(db)):
