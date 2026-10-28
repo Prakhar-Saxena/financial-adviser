@@ -9,7 +9,7 @@ FIN := $(UV) fin
 
 .DEFAULT_GOAL := help
 .PHONY: help serve open dev web weekly sync process review import rebuild backup doctor \
-        test lint check stop screenshots cards cards-refresh card-research
+        test lint check stop screenshots cards cards-refresh card-research best
 
 help: ## List the targets
 	@grep -hE '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | \
@@ -70,6 +70,10 @@ cards-refresh: ## Download and read card terms: make cards-refresh CARD=amex_gol
 	$(FIN) cards refresh $(if $(CARD),--card $(CARD),)
 
 card-research: cards-refresh ## Same as cards-refresh
+
+best: ## Which card to use: make best Q="whole foods" (add AMOUNT=120)
+	@test -n "$(Q)" || (echo 'usage: make best Q="whole foods"' && exit 2)
+	$(FIN) cards best "$(Q)" $(if $(AMOUNT),--amount $(AMOUNT),)
 
 stop: ## Stop a dashboard left running in the background, if any
 	@pkill -f "fin serve" && echo "stopped" || echo "nothing running"

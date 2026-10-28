@@ -40,6 +40,17 @@ class Decide(BaseModel):
     version: int
 
 
+class LookupIn(BaseModel):
+    q: str
+    web: bool = False
+
+
+class MerchantPatch(BaseModel):
+    category: str | None = None
+    acceptance: dict[str, str] | None = None
+    alias: str | None = None
+
+
 class RefreshIn(BaseModel):
     card_id: str | None = None
     discover: bool = False
@@ -191,6 +202,82 @@ def cards_router(session: Callable[[], Iterator[Session]], settings: Settings,
         finally:
             PROGRESS.pop(run_id, None)
             gen.close()
+
+    # ------------------------------------------------------------- best card (§12)
+
+    @router.get("/best")
+    def best(q: str = "", amount_cents: int | None = None, channel: str | None = None,
+             abroad: bool = False, key: str | None = None, s: Session = Depends(db)):
+        from fin.cards.best import best as rank
+
+        if channel not in (None, "", "in_store", "online", "in_app"):
+            raise HTTPException(422, "channel is in_store, online or in_app")
+        if amount_cents is not None and not 0 < amount_cents <= 10_000_000:
+            raise HTTPException(422, "amount_cents out of range")
+        if not q.strip() and not key:
+            raise HTTPException(422, "q is required")
+        try:
+            return rank(s, settings, cards, q, amount_cents=amount_cents, channel=channel or None,
+                        abroad=abroad, merchant_key=key,
+                        low_confidence=settings.ai.low_confidence)
+        except KeyError:
+            raise HTTPException(404, "unknown merchant") from None
+
+    @router.post("/merchants/lookup", dependencies=[Depends(require_json)])
+    def merchant_lookup(body: LookupIn, s: Session = Depends(db)):
+        from fin.ai import claude_cli as cc
+        from fin.cards.merchants import LOOKUP_TIMEOUT, NotAMerchantError, lookup
+
+        if not body.q.strip() or len(body.q) > 120:
+            raise HTTPException(422, "q must be 1-120 characters")
+        try:
+            res = lookup(s, paths, settings, body.q, web=body.web, lock_wait=LOOKUP_TIMEOUT)
+        except NotAMerchantError as e:
+            raise HTTPException(422, str(e)) from None
+        except cc.AIBusyError:
+            raise HTTPException(409, "Claude is busy with another task; try again soon") from None
+        except cc.UsageLimitError:
+            raise HTTPException(429, "AI paused: subscription limit reached. Try later.") from None
+        except cc.AIError as e:
+            raise HTTPException(502, f"lookup failed: {e}"[:300]) from None
+        return {"not_a_merchant": res.not_a_merchant,
+                "merchant": res.merchant.as_dict() if res.merchant else None}
+
+    @router.get("/merchants")
+    def merchants(q: str = "", s: Session = Depends(db)):
+        from fin.cards.merchants import autocomplete
+
+        return autocomplete(s, q)
+
+    @router.patch("/merchants/{key}", dependencies=[Depends(require_json)])
+    def patch_merchant(key: str, body: MerchantPatch, s: Session = Depends(db)):
+        from fin.cards.merchants import correct
+
+        try:
+            return correct(s, key, category=body.category, acceptance=body.acceptance,
+                           alias=body.alias).as_dict()
+        except KeyError:
+            raise HTTPException(404, "unknown merchant") from None
+        except ValueError as e:
+            raise HTTPException(422, str(e)) from None
+
+    @router.get("/settings")
+    def get_settings(s: Session = Depends(db)):
+        from fin.cards.best import get_settings as read
+
+        return read(s, settings, cards)
+
+    @router.put("/settings", dependencies=[Depends(require_json)])
+    def put_settings(body: dict, s: Session = Depends(db)):
+        from fin.cards.best import get_settings as read
+        from fin.cards.best import put_settings as write
+
+        try:
+            write(s, cards, body)
+        except (ValueError, KeyError, TypeError) as e:
+            s.rollback()
+            raise HTTPException(422, f"bad settings: {e}") from None
+        return read(s, settings, cards)
 
     @router.get("/refresh/{run_id}")
     def refresh_status(run_id: int, s: Session = Depends(db)):

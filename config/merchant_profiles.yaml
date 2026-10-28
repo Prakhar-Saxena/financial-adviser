@@ -1,0 +1,128 @@
+# Copyright (C) 2026 Prakhar Saxena
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# Seed merchant profiles (docs/SPEC-cards.md §4, §8). Loaded into merchant_profiles on every run
+# (source "seed"); a profile I've corrected (source "user") is never overwritten.
+#
+# category: how the card network codes the merchant (config/reward_categories.json), not what is
+#           bought. Costco is a wholesale club; Target and Walmart are discount stores/superstores.
+# mcc:      a typical merchant category code, as a hint only.
+# accepts:  network acceptance, only where it's well established (else "unknown"). Sources go in
+#           docs/decisions.md.
+# aliases:  extra names; the key and the name are aliases already. Matching is on normalized text
+#           (lower case, "&" -> "and", punctuation dropped).
+version: 1
+merchants:
+  # --- SPEC §10 merchant groups (keys must stay equal to the group names) ---
+  - {key: amazon, name: Amazon.com, category: other, mcc: "5942",
+     aliases: [amazon, amazon com, amzn, amazon prime, prime video, kindle, audible]}
+  - {key: whole_foods, name: Whole Foods Market, category: supermarkets, mcc: "5411",
+     aliases: [whole foods, whole foods market, wholefds]}
+  - {key: costco_warehouse, name: Costco warehouse, category: wholesale_clubs, mcc: "5300",
+     accepts: {visa: "yes", amex: "no", mastercard: "no", discover: "no"},
+     aliases: [costco, costco warehouse, costco whse, costco wholesale]}
+  - {key: costco_gas, name: Costco gas, category: gas_stations, mcc: "5542",
+     accepts: {visa: "yes", amex: "no", mastercard: "no", discover: "no"},
+     aliases: [costco gas, costco gas station, costco fuel]}
+  - {key: costco_online, name: Costco.com, category: wholesale_clubs, mcc: "5300",
+     accepts: {visa: "yes"}, aliases: [costco com, costco online, costco.com]}
+  - {key: amazon_fresh, name: Amazon Fresh, category: supermarkets, mcc: "5411",
+     notes: "Amazon Fresh stores code as groceries; Fresh delivery through amazon.com may code as Amazon.",
+     aliases: [amazon fresh]}
+
+  # --- groceries ---
+  - {key: kroger, name: Kroger, category: supermarkets, mcc: "5411", aliases: [kroger]}
+  - {key: safeway, name: Safeway, category: supermarkets, mcc: "5411", aliases: [safeway]}
+  - {key: trader_joes, name: "Trader Joe's", category: supermarkets, mcc: "5411",
+     aliases: [trader joes, trader joe s]}
+  - {key: aldi, name: Aldi, category: supermarkets, mcc: "5411", aliases: [aldi]}
+  - {key: publix, name: Publix, category: supermarkets, mcc: "5411", aliases: [publix]}
+  - {key: grocery_store, name: Grocery store, category: supermarkets, mcc: "5411",
+     aliases: [grocery, groceries, grocery store, supermarket]}
+  - {key: instacart, name: Instacart, category: other, mcc: "5499",
+     notes: "Usually not coded as a supermarket; check your statement.", aliases: [instacart]}
+
+  # --- big-box and shopping ---
+  - {key: walmart, name: Walmart, category: discount_stores, mcc: "5310",
+     notes: "Superstores usually don't count as supermarkets.", aliases: [walmart, wal mart]}
+  - {key: target, name: Target, category: discount_stores, mcc: "5310", aliases: [target]}
+  - {key: sams_club, name: "Sam's Club", category: wholesale_clubs, mcc: "5300",
+     aliases: [sams club, sam s club]}
+  - {key: home_depot, name: The Home Depot, category: home_improvement, mcc: "5200",
+     aliases: [home depot, the home depot]}
+  - {key: lowes, name: "Lowe's", category: home_improvement, mcc: "5200", aliases: [lowes, lowe s]}
+  - {key: best_buy, name: Best Buy, category: electronics, mcc: "5732", aliases: [best buy]}
+  - {key: apple_store, name: Apple Store, category: electronics, mcc: "5732",
+     aliases: [apple store]}
+  - {key: apple_services, name: Apple (App Store, iCloud), category: digital_goods, mcc: "5818",
+     aliases: [apple, apple com, apple com bill, app store, icloud, itunes]}
+  - {key: etsy, name: Etsy, category: other, aliases: [etsy]}
+
+  # --- dining and delivery ---
+  - {key: restaurant, name: Restaurant, category: dining, mcc: "5812",
+     aliases: [restaurant, dinner, lunch, takeout, bar]}
+  - {key: starbucks, name: Starbucks, category: dining, mcc: "5814", aliases: [starbucks]}
+  - {key: mcdonalds, name: "McDonald's", category: dining, mcc: "5814",
+     aliases: [mcdonalds, mcdonald s]}
+  - {key: chipotle, name: Chipotle, category: dining, mcc: "5814", aliases: [chipotle]}
+  - {key: dunkin, name: "Dunkin'", category: dining, mcc: "5814", aliases: [dunkin, dunkin donuts]}
+  - {key: doordash, name: DoorDash, category: food_delivery, mcc: "5814",
+     aliases: [doordash, door dash]}
+  - {key: uber_eats, name: Uber Eats, category: food_delivery, mcc: "5814",
+     aliases: [uber eats, ubereats]}
+  - {key: grubhub, name: Grubhub, category: food_delivery, mcc: "5814", aliases: [grubhub, seamless]}
+  - {key: food_delivery, name: Food delivery, category: food_delivery, mcc: "5814",
+     aliases: [food delivery, delivery]}
+
+  # --- gas, transit, rides ---
+  - {key: gas_station, name: Gas station, category: gas_stations, mcc: "5541",
+     aliases: [gas, gas station, fuel, shell, chevron, exxon, mobil, bp, speedway, sunoco, citgo,
+               marathon]}
+  - {key: ev_charging, name: EV charging, category: ev_charging, mcc: "5552",
+     aliases: [ev charging, tesla supercharger, electrify america, chargepoint]}
+  - {key: uber, name: Uber, category: rideshare_taxi, mcc: "4121", aliases: [uber, uber ride]}
+  - {key: lyft, name: Lyft, category: rideshare_taxi, mcc: "4121", aliases: [lyft]}
+  - {key: transit, name: Public transit, category: transit, mcc: "4111",
+     aliases: [transit, subway, metro, bus, train, commuter rail]}
+  - {key: parking, name: Parking, category: parking_tolls, mcc: "7523",
+     aliases: [parking, spothero, parkwhiz, parkmobile, tolls, toll]}
+
+  # --- travel ---
+  - {key: delta, name: Delta Air Lines, category: airlines, mcc: "3058",
+     aliases: [delta, delta flight, delta airlines, delta air lines]}
+  - {key: united, name: United Airlines, category: airlines, mcc: "3000",
+     aliases: [united, united flight, united airlines]}
+  - {key: american_airlines, name: American Airlines, category: airlines, mcc: "3001",
+     aliases: [american airlines, aa flight]}
+  - {key: southwest, name: Southwest Airlines, category: airlines, mcc: "3066",
+     aliases: [southwest, southwest airlines, southwest flight]}
+  - {key: airline, name: Airline (booked direct), category: airlines, mcc: "4511",
+     aliases: [flight, flights, airline, airfare, plane ticket]}
+  - {key: hotel, name: Hotel (booked direct), category: hotels, mcc: "7011",
+     aliases: [hotel, hotels, motel]}
+  - {key: marriott, name: Marriott, category: hotels, mcc: "3509", aliases: [marriott]}
+  - {key: hilton, name: Hilton, category: hotels, mcc: "3504", aliases: [hilton]}
+  - {key: airbnb, name: Airbnb, category: travel_agencies, mcc: "4722",
+     notes: "Coding varies; often counts as travel.", aliases: [airbnb]}
+  - {key: expedia, name: Expedia, category: travel_agencies, mcc: "4722", aliases: [expedia]}
+  - {key: car_rental, name: Car rental, category: car_rental, mcc: "7512",
+     aliases: [car rental, rental car, hertz, enterprise, avis, national car rental]}
+
+  # --- bills and subscriptions ---
+  - {key: netflix, name: Netflix, category: streaming_tv, mcc: "4899", aliases: [netflix]}
+  - {key: spotify, name: Spotify, category: streaming_tv, mcc: "5815", aliases: [spotify]}
+  - {key: streaming, name: Streaming service, category: streaming_tv, mcc: "4899",
+     aliases: [streaming, hulu, disney plus, disney, max, hbo]}
+  - {key: phone_bill, name: Phone bill, category: telecom, mcc: "4814",
+     aliases: [phone bill, verizon, at and t, att, t mobile, tmobile]}
+  - {key: internet_bill, name: Internet or cable bill, category: utilities, mcc: "4899",
+     aliases: [internet, cable, comcast, xfinity, spectrum]}
+  - {key: utility_bill, name: Utility bill, category: utilities, mcc: "4900",
+     aliases: [utilities, electric bill, water bill]}
+  - {key: microsoft, name: Microsoft, category: digital_goods, mcc: "5818", aliases: [microsoft]}
+  - {key: peloton, name: Peloton, category: fitness, aliases: [peloton]}
+  - {key: gym, name: Gym, category: fitness, mcc: "7997", aliases: [gym, fitness club]}
+
+  # --- health ---
+  - {key: pharmacy, name: Pharmacy, category: drugstores, mcc: "5912",
+     aliases: [pharmacy, drugstore, cvs, walgreens, rite aid]}

@@ -126,6 +126,7 @@ make sync SITE=chase
 make process         # add NO_AI=1 to skip AI
 make serve           # dashboard on http://127.0.0.1:8765 until Ctrl+C
 make review          # open review items, in the terminal
+make best Q="costco gas"   # which of your cards to use there
 ```
 
 All `make` targets run in the foreground. Other commands:
@@ -133,6 +134,16 @@ All `make` targets run in the foreground. Other commands:
 - `fin import FILE` handles manual downloads, detected by their content.
 - `fin rebuild` regenerates everything from `raw/` and keeps your corrections.
 - `fin backup` makes an online SQLite backup.
+- `fin cards ...` is the card optimizer:
+  - `best "whole foods" [--amount 120] [--online] [--abroad] [--lookup]` ranks your cards. A
+    merchant it doesn't know needs `--lookup`, which asks Claude (haiku) once and sends only the
+    name.
+  - `refresh [--card ID]` downloads each card's public terms into `card-docs/` and has Claude read
+    them. Code checks every quote, and you approve each card's first terms and every material
+    change (`accept` / `reject`). `fin weekly` runs it once a month.
+  - `status`, `sources`, `add-source` and `add-doc` show and manage the documents. A page an issuer
+    blocks can be saved by hand into `card-docs/manual/<card>/`.
+  - `merchant QUERY --category C --accepts amex=no` corrects a merchant. Your corrections are kept.
 
 **Costco.** Costco's account pages don't load in a separate automated Chrome profile, so its sync
 connects to your own Chrome through the Playwright Extension:
@@ -143,6 +154,9 @@ connects to your own Chrome through the Playwright Extension:
 
 ## Dashboard
 
+- **Best card:** type where you're paying to see your cards ranked by cents back, with the rule,
+  its conditions and a link to the exact clause in the card's terms. **Card terms** shows what the
+  app knows about each card, with Accept / Reject for new terms, and your point valuations.
 - **Overview:** spending by category, person, card and merchant, plus the 3-month trend. Each
   chart switches between bars, donut, treemap and table views (the choice is remembered).
 - **Transactions:** filters, item splits, and category or person corrections.

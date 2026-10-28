@@ -140,6 +140,40 @@ export type RefreshStatus = {
   cards: { card_id: string; outcome: string; error: string | null }[]; errors: string[];
 };
 
+export type MerchantInfo = {
+  key: string; display_name: string; reward_category: string | null;
+  acceptance: Record<string, string>; source: string; confidence: number;
+  mcc_guess: string | null; notes: string | null; unsure?: boolean;
+};
+export type BestEvidence = { quote: string; page: number | null; doc_version_id: number | null } | null;
+export type BestResult = {
+  card_id: string; product: string; rank: number; currency: string; valuation_cents: number;
+  total_cents: number; rule_cents: number; credit_cents: number; fee_cents: number;
+  cents_per_dollar: number; units: number;
+  rule: { rate: number; rate_text: string; text: string; is_base: boolean; evidence: BestEvidence } | null;
+  caveats: string[];
+  credit: { name: string; text: string; counted: boolean; needs_enrollment: boolean; evidence: BestEvidence } | null;
+  benefits: { kind: string; name: string; limits: string; coverage: string | null; evidence: BestEvidence }[];
+  alternatives: { text: string; cents: number; caveats: string[]; evidence: BestEvidence }[];
+};
+export type BestAnswer = {
+  query: string; resolution: string | null; needs_lookup: boolean;
+  suggestions: { key: string; display_name: string; alias: string }[];
+  kb: { last_checked: string | null; stale: string[]; without_terms: string[] };
+  merchant: MerchantInfo | null;
+  amount_cents?: number; results?: BestResult[];
+  not_accepted?: { card_id: string; product: string; network: string }[];
+  break_even?: string | null; asks_channel?: boolean; asks_abroad?: boolean;
+};
+export type CardSettings = {
+  valuations: { currency: string; name: string; cents: number }[];
+  count_unused_credits: boolean;
+  reward_categories: { id: string; name: string }[];
+  cards: { card_id: string; product: string; currency: string | null; pooled_into: string | null;
+           anniversary_month: string | null;
+           requirements: { ref: string; kind: string; label: string; for: string; value: string | null }[] }[];
+};
+
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const r = await fetch(path, {
     ...init,
@@ -187,6 +221,21 @@ export const api = {
   refreshCards: (card_id: string | null) =>
     req<{ run_id: number }>("/api/cards/refresh", { method: "POST", body: JSON.stringify({ card_id }) }),
   refreshStatus: (run_id: number) => req<RefreshStatus>(`/api/cards/refresh/${run_id}`),
+  best: (p: { q?: string; key?: string; amount_cents?: number; channel?: string; abroad?: boolean }) => {
+    const q = new URLSearchParams();
+    for (const [k, v] of Object.entries(p)) if (v !== undefined && v !== "" && v !== false) q.set(k, String(v));
+    return req<BestAnswer>(`/api/cards/best?${q}`);
+  },
+  merchantSearch: (q: string) =>
+    req<{ key: string; display_name: string; alias: string }[]>(`/api/cards/merchants?q=${encodeURIComponent(q)}`),
+  lookupMerchant: (q: string, web: boolean) =>
+    req<{ not_a_merchant: boolean; merchant: MerchantInfo | null }>("/api/cards/merchants/lookup",
+      { method: "POST", body: JSON.stringify({ q, web }) }),
+  patchMerchant: (key: string, body: { category?: string; acceptance?: Record<string, string>; alias?: string }) =>
+    req<MerchantInfo>(`/api/cards/merchants/${key}`, { method: "PATCH", body: JSON.stringify(body) }),
+  cardSettings: () => req<CardSettings>("/api/cards/settings"),
+  putCardSettings: (body: unknown) =>
+    req<CardSettings>("/api/cards/settings", { method: "PUT", body: JSON.stringify(body) }),
   resolve: (id: number, status: "resolved" | "ignored") =>
     req(`/api/review/${id}/resolve`, { method: "POST", body: JSON.stringify({ status }) }),
 };

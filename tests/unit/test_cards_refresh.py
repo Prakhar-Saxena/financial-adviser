@@ -764,3 +764,15 @@ def test_manual_file_need_not_name_the_card(env, tmp_path):
         d, outcome = add_doc(s, env.paths, env.settings, env.cards,
                              env.cards.card("example_everyday"), thin, "pricing_terms")
         assert outcome == "rejected" and d.status == "broken"  # still has to have real text
+
+
+def test_plain_points_map_to_the_issuers_program():
+    from fin.cards.compose import currency_id
+
+    s = example_settings()
+    chase = example_cards().cards[0].model_copy(update={"issuer": "chase"})
+    assert currency_id(chase, {"currency_name": "points", "currency_kind": "points"}, s) == \
+        "chase_ur"
+    other = example_cards().cards[0]
+    assert currency_id(other, {"currency_name": "points", "currency_kind": "points"}, s) == \
+        "example_points"
