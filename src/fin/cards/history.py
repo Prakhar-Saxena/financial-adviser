@@ -327,7 +327,8 @@ def earn_only(facts: engine.Facts) -> engine.Facts:
 def tips(s: Session, settings: Settings, cards: CardsConfig, profiles: dict[str, CardProfile],
          facts: engine.Facts, months: int, today: date | None = None) -> dict[str, Any]:
     """For purchases in the last `months`: the card used against the best eligible card at
-    current terms, grouped by merchant. An estimate: credits and caps are left out."""
+    current terms, grouped by merchant. An estimate: credits and caps are left out, except that
+    a purchase a statement credit pays back on the card used is never a miss."""
     today = today or date.today()
     facts = earn_only(facts)
     since = today - timedelta(days=round(months * 30.44))
@@ -349,13 +350,15 @@ def tips(s: Session, settings: Settings, cards: CardsConfig, profiles: dict[str,
         opts = engine.Options(t.amount_cents, None, False, day)
         merchant = as_engine(mp)
         used = engine.evaluate(by_id[t.card_id], profiles[t.card_id], merchant, opts, facts)
-        ranking = engine.rank(merchant, ecards, profiles, opts, facts)
-        best = ranking.results[0]
+        kept = kept_for_credit(t.card_id, profiles[t.card_id], merchant, opts, facts)
+        best = used if kept else engine.rank(merchant, ecards, profiles, opts, facts).results[0]
         g = groups.setdefault(mp.key, {
             "merchant": mp.display_name, "key": mp.key, "category": mp.reward_category,
             "unsure": mp.confidence < low, "purchases": 0, "spend_cents": 0,
             "cards_used": Counter(), "better": Counter(), "used_cents": 0.0, "best_cents": 0.0,
-            "examples": []})
+            "examples": [], "kept_for": set()})
+        if kept:
+            g["kept_for"].add(kept)
         g["purchases"] += 1
         g["spend_cents"] += t.amount_cents
         g["cards_used"][t.card_id] += 1
@@ -381,17 +384,36 @@ def tips(s: Session, settings: Settings, cards: CardsConfig, profiles: dict[str,
             "better_card_id": better, "better_product": names[better],
             "earned_cents": round(g["used_cents"]), "possible_cents": round(g["best_cents"]),
             "difference_cents": round(diff), "examples": g["examples"],
+            "kept_for_credit": sorted(g["kept_for"]),
             "text": _tip_text(names, better, g["merchant"], g["cards_used"]) if diff >= 1
             else None})
     rows.sort(key=lambda r: -r["difference_cents"])
     top = [r for r in rows if r["difference_cents"] >= 1 and not r["unsure"]][:10]
     unsure = [r for r in rows if r["unsure"] and r["difference_cents"] >= 1]
     return {"months": months, "since": since.isoformat(), "until": today.isoformat(),
-            "estimate": "estimate, at current terms (credits and caps not counted)",
+            "estimate": ("estimate, at current terms (caps not counted; a purchase a credit "
+                         "paid back stays put)"),
             "top": top, "unsure": unsure,
             "total_difference_cents": sum(r["difference_cents"] for r in top),
             "merchants": rows, "unknown_descriptors": len(unknown),
             "unknown_purchases": sum(unknown.values())}
+
+
+def kept_for_credit(card_id: str, profile: CardProfile, merchant: engine.Merchant,
+                    opts: engine.Options, facts: engine.Facts) -> str | None:
+    """The statement credit that pays this purchase back on the card I used, if any (Peacock on
+    a card with a streaming credit). Moving it would lose the credit, so it isn't a miss. Only a
+    credit named for the merchant and at least the purchase's size: a $300 travel credit doesn't
+    make a $3,000 flight the right card. An in-app balance (Uber Cash) is spent before the card
+    is charged, so what reaches the card is ordinary spend and still counts."""
+    for c in profile.credits:
+        if (c.posts_as == "statement_credit" and (c.merchant_names or c.merchants)
+                and opts.amount_cents <= c.amount_cents
+                and engine.credit_fits(c, merchant, opts, facts)
+                and not (c.enrollment_required
+                         and facts.requirement(card_id, "enrollment", c.name) is False)):
+            return c.name
+    return None
 
 
 def _tip_text(names: dict[str, str], better: str, merchant: str, used: Counter) -> str:

@@ -12,6 +12,7 @@ import re
 from decimal import Decimal, InvalidOperation
 
 PAYMENT = re.compile(r"\b(PAYMENT|AUTOPAY|AUTO PAY|THANK YOU)\b")
+PAYMENT_REVERSAL = re.compile(r"\b(PAYMENT REVERSAL|RETURNED PAYMENT)\b")
 INTEREST = re.compile(r"\bINTEREST\b")
 FEE = re.compile(r"\b(ANNUAL (MEMBERSHIP )?FEE|LATE FEE|FOREIGN TRANSACTION FEE|FOREIGN TRANS FEE|"
                  r"RETURNED PAYMENT FEE|BALANCE TRANSFER FEE|CASH ADVANCE FEE)\b")
@@ -40,6 +41,10 @@ def classify(
     d = description.upper()
     it = (issuer_type or "").strip().lower()
     if amount_cents > 0:
+        # A payment taken back (a duplicate payment the bank undid): it belongs with the
+        # payments, never with spending. Chase types it "Reversal".
+        if it == "reversal" or (PAYMENT_REVERSAL.search(d) and not FEE.search(d)):
+            return "payment", False
         if INTEREST.search(d) and (it in ("fee", "") or "CHARGE" in d):
             return "interest", False
         if it == "fee" or FEE.search(d):

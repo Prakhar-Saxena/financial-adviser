@@ -58,10 +58,16 @@ def test_golden_amazon(name):
     ("-95.00", "Fee", "ANNUAL MEMBERSHIP FEE", ("fee", 9500)),
     ("1.00", "Adjustment", "BALANCE ADJUSTMENT", ("adjustment", -100)),
     ("25.00", "Sale", "REDEMPTION CREDIT", ("reward", -2500)),
+    ("-3051.41", "Reversal", "Reversal", ("payment", 305141)),  # a duplicate payment undone
 ])
 def test_chase_signs_and_types(raw, typ, amount, expect):
     cents = -to_cents(raw)  # Chase: negative = purchase
     assert (classify(cents, amount, typ)[0], cents) == expect
+
+
+def test_payment_reversal_without_issuer_type_is_a_payment():
+    assert classify(30000, "PAYMENT REVERSAL", None) == ("payment", False)
+    assert classify(3900, "RETURNED PAYMENT FEE", None) == ("fee", False)
 
 
 def test_unexpected_money_in_needs_review():

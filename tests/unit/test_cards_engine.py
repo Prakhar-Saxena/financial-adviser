@@ -246,3 +246,10 @@ def test_stale_caveat_and_benefits():
     assert [b["kind"] for b in club.benefits] == ["purchase_protection"]
     sky = next(x for x in run("skyair").results if x.card.id == "travel")
     assert [b["kind"] for b in sky.benefits] == ["trip_delay"]
+
+
+def test_membership_names_never_match_the_store():
+    facts = e.Facts(names={"walmart": ("walmart", "seed"),
+                           "walmart plus": ("walmart_plus", "seed")})
+    assert e.merchant_keys(["Walmart+"], facts) == {"walmart_plus"}
+    assert e.merchant_keys(["CLEAR+"], facts) == set()  # unknown: no match, not "clear"

@@ -687,7 +687,7 @@ Dated record of what was discovered and decided. Newest at the bottom of each da
 - **Freshness:** "nothing posted" counts as unused in the ranking only if the card has a transaction from the
   last 10 days; otherwise the credit shows "data as of …" and isn't counted. Credits post days after use.
 - **Membership names** with "+" ("Walmart+", "CLEAR+") never match a store merchant: the Walmart+ credit pays
-  the membership, not purchases at Walmart.
+  the membership, not purchases at Walmart. They match as "<name> plus" (seeds `walmart_plus`, `clear_plus`).
 - **Periods:** calendar month/quarter/half/year; a cardmember year uses my anniversary month, else the
   calendar year marked approximate; "statement" approximates as the month; multi-year (Global Entry) as 4
   calendar years.
@@ -695,3 +695,19 @@ Dated record of what was discovered and decided. Newest at the bottom of each da
   `credit_alias` (card, ref = identity, value = a statement keyword).
 - Acceptance 1 (5 transactions by hand) and 2 (credits vs Amex statements) are the user's; tests reproduce the
   arithmetic on fictional cards.
+
+## Card optimizer C3 review (2026-10-27)
+
+- **Payment reversals are payments.** Chase types a duplicate payment it took back as "Reversal" (money out,
+  description "Reversal"); the classifier filed it as a $3,051.41 purchase on Freedom Unlimited. `classify` now
+  makes issuer type "Reversal", or a description "PAYMENT REVERSAL" / "RETURNED PAYMENT", a `payment`. Applied
+  with `fin backup`, `fin rebuild`, `fin process` (0 AI calls); the statement mismatch already open is unchanged.
+- **A purchase a credit pays back isn't a miss.** The look back called Peacock on Platinum a miss (Freedom
+  Unlimited earns more), but the Digital Entertainment Credit pays it back; moving it loses $25/month. A purchase
+  is kept when the card used has a `statement_credit` named for that merchant that is at least the purchase's
+  size. Category-wide credits (Sapphire's $300 travel credit) and in-app balances (Uber Cash) don't count: they
+  would have hidden a $3,230 flight and real Uber Eats misses. Real data: Peacock, Walmart+, CLEAR+ kept.
+- Seeds: Disney+, Hulu, Peacock split out of the generic streaming profile, so a credit naming Disney+ doesn't
+  cover Max.
+- Acceptance 1, checked by Opus on real data: all 10 top rows reproduce by hand from the accepted profiles and
+  valuations (e.g. Costco warehouse $258.27: Costco Citi 2% = $5.17, Freedom Unlimited 1.5x at 1.75¢ = $6.78).
