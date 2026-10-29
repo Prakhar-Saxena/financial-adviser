@@ -5,8 +5,8 @@
 
 ## Your Orders
 - URL: https://www.amazon.com/your-orders/orders?timeFilter=year-2026 (also &page=N, zero-based, 10 orders per page). Year filter covers any range inside the year; months-3 works for short ranges.
-- Pagination by &page=N; last page has fewer than 10 orders.
-- Digital orders: https://www.amazon.com/your-orders/orders?orderFilter=digital&timeFilter=year-2026 (link "Digital Orders" in tab list). Digital order IDs look like D01-...; the page header says "N order placed in".
+- Pagination by &page=N; last page has fewer than 10 orders. Orders are newest first, so stop once dates fall before orders_from.
+- Digital orders: https://www.amazon.com/your-orders/orders?orderFilter=digital&timeFilter=year-2026. Digital order IDs look like D01-...; the page header says "N order placed in". Subscription entries read "Subscription charged on <date>" instead of "Order placed", so search with a date regex rather than "Order placed".
 
 ## Finding order IDs
 - The page snapshot is too large to return inline. Use browser_find with regex `/Order placed [A-Z][a-z]+ \d+, \d{4} Total [^"]*Order # [\d-]+/`. Each match gives date, total and order number (format 114-1234567-1234567).
@@ -16,12 +16,13 @@
 - URL pattern: https://www.amazon.com/gp/css/summary/print.html?orderID=<order-id>
 - Navigating directly works. Then browser_pdf_save to `<run folder>/amazon_<order-id>.pdf`.
 - Invoice has a "Payment method" section with card brand and last 4 digits.
-- Navigate + pdf_save for several orders can go in one batch; they run in order.
+- Navigate + pdf_save for many orders can go in one batch; they run in order.
 
 ## Your Payments > Transactions
 - URL: https://www.amazon.com/cpe/yourpayments/transactions
-- Lists charges with date, card, order number. About 15 per page; click the "Next Page" button (page stays on same URL). Save each page with browser_pdf_save.
-- To read dates, use browser_find regex on month names; stop when the oldest date is before orders_from.
+- Lists charges with date, card, order number. About 20 per page, newest first; click the "Next Page" button (page stays on same URL) for more. Save each page with browser_pdf_save.
+- Dates show as "Mon DD, YYYY" (e.g. "Oct 05, 2026"). Use browser_find regex `/(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]* \d+/`; stop when the oldest date is before orders_from.
+- Charge dates are usually 0-2 days after the order date.
 
 ## Avoid
 - Don't use "Buy it again", review, return or other buttons on the orders list.
