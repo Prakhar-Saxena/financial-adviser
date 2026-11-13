@@ -825,3 +825,35 @@ Dated record of what was discovered and decided. Newest at the bottom of each da
   `fin cards art --file` for a picture saved by hand. The user preferred the first version,
   Prime Visa's ribbon included. A Google Images thumbnail (`gstatic.com`) the user suggested was
   not downloaded: not the issuer, not allowlisted.
+
+## Public repo: fictional fixtures and privacy hooks (2026-11-06)
+
+- The repo is public. The fixtures were redacted copies of real files, and redaction kept real
+  amounts, merchants, store numbers, a street intersection, phone area codes, item titles,
+  balances, credit limits, rates and points. Some of those amounts were also quoted in this
+  file, in docstrings and in tests.
+- Fixed by rewriting git history. Every fixture and golden file, and every place that quoted
+  them, now holds fictional values in the same layouts: same line counts, dates, cardholders and
+  test relationships; statements still balance and charges still match orders. The old history
+  is kept only in a local bundle under `private/`.
+- From now on fixtures are fictional (SPEC §18, `tests/fixtures/README.md`), and
+  `scripts/redact.py` refuses to write into the repo.
+- Prevention (SPEC §7):
+  - `scripts/hooks/privacy_scan.py`, stdlib only, builds its picture of my data at run time from
+    the ledger (opened read-only) and `cards.json` (other people's names, card endings,
+    `private_words`), and keeps no copy. Findings give the place and the kind, never the value.
+  - `pre-commit` checks the staged lines, `commit-msg` the message, and `pre-push` every commit
+    the push would send, which also catches commits made without the first two. `fin doctor`
+    scans tracked files and messages; `make privacy-check` scans every version in history.
+  - Amounts are weak evidence: a fictional amount can equal a real one by chance. One counts
+    when it's over $1,000, a statement total over $100, on the same line as its own date and
+    merchant, or one of at least 2 of mine making up 30% of the amounts in one place. A lone
+    small amount isn't flagged; the fictional-fixtures rule covers that case.
+  - Binary files can't be read, so they're refused except screenshots, web assets and fixtures
+    with a `.src.*` text source.
+  - When `cards.json` is real but the ledger can't be opened, the hooks refuse: they can't tell
+    what is mine.
+  - `.claude/settings.json` runs `scripts/hooks/claude_bash_guard.py` before Claude's Bash
+    commands: no `--no-verify`, `git commit -n`, `core.hooksPath` change or `git send-pack`.
+  - `cards.json` has a new optional `private_words` list; `make_cards_example.py` empties it.
+- GitHub can keep the old commits reachable by their ids until GitHub Support removes them.

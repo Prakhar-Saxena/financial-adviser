@@ -262,7 +262,7 @@ def test_golden_citi_statement():
     assert math_delta(st.summary()) == 0
     assert sum(ln.amount_cents for ln in st.lines if ln.section == "PURCHASE") == st.purchases
     holders = {ln.cardholder_name for ln in st.lines if ln.section == "PURCHASE"}
-    assert holders == {"ALEX EXAMPLE", "SAM Q EXAMPLE"}  # two cardholders, redacted names
+    assert holders == {"ALEX EXAMPLE", "SAM Q EXAMPLE"}  # two cardholders, fictional names
 
 
 def test_golden_citi_csv():

@@ -98,6 +98,9 @@ class CardsConfig(_Strict):
     issuers: list[Site]
     item_sources: list[Site]
     cards: list[Card]
+    # Words that would identify me and are in no other field (my bank, my street...). The git
+    # hooks refuse any commit or push that contains one (scripts/hooks/privacy_scan.py).
+    private_words: list[str] = []
 
     @model_validator(mode="after")
     def _check_references(self) -> CardsConfig:

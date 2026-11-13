@@ -257,7 +257,7 @@ def _register_chase() -> None:
 
     @register("chase", "statement")
     def import_chase_statement(s, path, entry, imp):
-        # .txt = text already extracted by pdfplumber (redacted fixtures)
+        # .txt = text already extracted by pdfplumber (the fixtures)
         st = parse_chase_statement(path.read_text() if path.suffix == ".txt" else pdf_text(path))
         problems = []
         if entry["period_end"] and entry["period_end"] != st.period_end:

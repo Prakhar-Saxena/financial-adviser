@@ -5,7 +5,8 @@
     "card_ending: optional. Cardholders are identified by the name on each transaction (full_name and name_aliases); a transaction with no name is the primary cardholder (self).",
     "people.self.full_name: fill in your own name as it appears on statements.",
     "expected_merchant_groups: merchants a card is reserved for. Charges outside these groups are flagged for review, never rejected. Empty list means a general-purpose card.",
-    "reconcile_with: item-level sources this card is cross-checked against (SPEC.md section 12)."
+    "reconcile_with: item-level sources this card is cross-checked against (SPEC.md section 12).",
+    "private_words: anything else that would identify you (your bank, your street). The git hooks refuse any commit or push that contains one."
   ],
   "people": [
     {
@@ -283,5 +284,6 @@
         "costco"
       ]
     }
-  ]
+  ],
+  "private_words": []
 }

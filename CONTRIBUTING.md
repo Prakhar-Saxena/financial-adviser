@@ -30,6 +30,7 @@ and its licence in `docs/decisions.md`.
 
 ## Data
 
-Never commit real financial data. Test fixtures in `tests/fixtures/` must be redacted
-(`scripts/redact.py`). The pre-commit hook in `scripts/hooks/pre-commit` (installed by
-`fin init`) blocks the most common mistakes.
+Never commit real financial data. Test fixtures in `tests/fixtures/` are fictional: made-up
+values in a real file's layout, never a redacted copy (see `tests/fixtures/README.md`). The git
+hooks in `scripts/hooks/` (installed by `fin init`) check every commit and push against your own
+data and refuse anything of yours.

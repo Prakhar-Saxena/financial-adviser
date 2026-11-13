@@ -5,11 +5,13 @@
 
 from __future__ import annotations
 
+import importlib.util
 import os
 import re
 import shutil
 import stat
 import subprocess
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -31,8 +33,9 @@ CHROME_PATHS = (
 )
 REQUIRED_GITIGNORE = [
     "config/cards.json", ".env", "*.sqlite", "*.pdf", "*.csv", "*.qfx", "*.html",
-    "browser-profiles",
+    "browser-profiles", "/private/",
 ]
+HOOKS = ("pre-commit", "commit-msg", "pre-push")
 
 
 @dataclass
@@ -212,12 +215,54 @@ def check_git_hygiene() -> list[Result]:
     missing = [p for p in REQUIRED_GITIGNORE if p not in lines and f"**/{p}/" not in lines]
     out = [Result("FAIL" if missing else "PASS", "Gitignore rules",
                   f"missing: {missing}" if missing else "all §7 patterns present")]
-    proc = _run(["git", "-C", str(REPO_ROOT), "config", "core.hooksPath"])
-    hooks = proc.stdout.strip() if proc else ""
-    if hooks == "scripts/hooks":
-        out.append(Result("PASS", "Pre-commit guard", "core.hooksPath=scripts/hooks"))
-    else:
-        out.append(Result("FAIL", "Pre-commit guard", "not installed; run `fin init`"))
+    out.append(check_git_hooks())
+    return out
+
+
+def check_git_hooks(repo: Path = REPO_ROOT) -> Result:
+    """The privacy hooks run on every commit and push (SPEC §7)."""
+    proc = _run(["git", "-C", str(repo), "config", "core.hooksPath"])
+    if (proc.stdout.strip() if proc else "") != "scripts/hooks":
+        return Result("FAIL", "Git hooks", "not installed; run `fin init`")
+    d = repo / "scripts" / "hooks"
+    off = [h for h in HOOKS if not os.access(d / h, os.X_OK)]
+    if off or not (d / "privacy_scan.py").is_file():
+        bad = off or ["privacy_scan.py"]
+        return Result("FAIL", "Git hooks", f"missing or not executable: {bad}; run "
+                      "`git checkout -- scripts/hooks`")
+    return Result("PASS", "Git hooks", f"{', '.join(HOOKS)} (core.hooksPath=scripts/hooks)")
+
+
+def _privacy_scan():
+    """scripts/hooks/privacy_scan.py, the same code the git hooks run (stdlib only)."""
+    name = "fin_privacy_scan"
+    if name not in sys.modules:
+        path = REPO_ROOT / "scripts" / "hooks" / "privacy_scan.py"
+        spec = importlib.util.spec_from_file_location(name, path)
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules[name] = mod  # its dataclasses look themselves up here
+        spec.loader.exec_module(mod)
+    return sys.modules[name]
+
+
+def check_privacy(paths: DataPaths) -> list[Result]:
+    """No data of mine in tracked files or commit messages: the repo is public (SPEC §7)."""
+    try:
+        scan = _privacy_scan()
+        terms = scan.load_terms(REPO_ROOT, paths.root)
+        if terms.problem:
+            return [Result("FAIL", "Privacy scan", terms.problem)]
+        files, messages = scan.scan_tree(REPO_ROOT, terms)
+    except Exception as e:  # git missing, unreadable file: report, don't crash doctor
+        return [Result("FAIL", "Privacy scan", f"couldn't run: {e}")]
+    against = terms.summary() + ("" if terms.real else "; config/cards.json has no real values")
+    out = [Result("FAIL", "Privacy scan", f"{len(files)} finding(s) in tracked files, first "
+                  f"{files[0].where}: {files[0].kind}. Run `make privacy-check`")
+               if files else Result("PASS", "Privacy scan", f"tracked files clean ({against})")]
+    if messages:
+        out.append(Result("WARN", "Commit messages", f"{len(messages)} finding(s), first "
+                          f"{messages[0].where}: {messages[0].kind}. Only a history rewrite "
+                          "removes them"))
     return out
 
 
@@ -260,6 +305,7 @@ def run_all(paths: DataPaths) -> list[Result]:
     results += check_cards(paths)
     results.append(check_claude_leftovers(paths))
     results += check_git_hygiene()
+    results += check_privacy(paths)
     results += check_extension_token(paths)
     results.append(Result(
         "INFO", "Usage credits",

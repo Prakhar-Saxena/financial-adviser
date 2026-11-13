@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Copyright (C) 2026 Prakhar Saxena
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# Last gate before anything is public (SPEC §7): checks every commit the push would send,
+# its message and the lines it adds, against your own ledger and config/cards.json. This also
+# catches commits made without the other hooks. Git passes the remote name and URL as
+# arguments and the refs on stdin. Installed by `fin init` via: git config core.hooksPath
+# scripts/hooks
+set -euo pipefail
+
+py=""
+if [ -x .venv/bin/python ]; then py=.venv/bin/python
+elif command -v python3 >/dev/null 2>&1; then py=python3
+fi
+if [ -z "$py" ]; then
+  echo "pre-push: no Python found, so the privacy check can't run. Run 'uv sync'." >&2
+  exit 1
+fi
+if ! "$py" "$(dirname "$0")/privacy_scan.py" push "$1"; then
+  echo "pre-push: push refused; nothing was sent. Fix the commits above (git rebase -i, or" \
+       "git commit --amend for the last one) and push again." >&2
+  exit 1
+fi

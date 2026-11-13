@@ -8,6 +8,9 @@ config/cards.json
 **/browser-profiles/
 browser-profiles
 
+# --- private/: notes that would identify me (SPEC §7). Never commit. ---
+/private/
+
 # Real exports anywhere outside tests/fixtures/
 *.pdf
 *.csv

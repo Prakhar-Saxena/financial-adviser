@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Copyright (C) 2026 Prakhar Saxena
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# Refuses a commit message that holds your own data (SPEC §7). The repo is public.
+# Installed by `fin init` via: git config core.hooksPath scripts/hooks
+set -euo pipefail
+
+py=""
+if [ -x .venv/bin/python ]; then py=.venv/bin/python
+elif command -v python3 >/dev/null 2>&1; then py=python3
+fi
+if [ -z "$py" ]; then
+  echo "commit-msg: no Python found, so the privacy check can't run. Run 'uv sync'." >&2
+  exit 1
+fi
+if ! "$py" "$(dirname "$0")/privacy_scan.py" message "$1"; then
+  echo "commit-msg: commit refused. Write the message without it (it's kept in" \
+       ".git/COMMIT_EDITMSG)." >&2
+  exit 1
+fi

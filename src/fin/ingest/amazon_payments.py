@@ -4,7 +4,7 @@
 """Amazon "Your Payments → Transactions" pages (decided 2026-10-06; SPEC §9.3 extension).
 
 Documented from the first real page (`cpe/yourpayments/transactions`, saved with
-browser_pdf_save, redacted copy in tests/fixtures/amazon/payments_page.txt):
+browser_pdf_save; tests/fixtures/amazon/payments_page.txt is a fictional page in its layout):
 - A date heading ("October 5, 2026") applies to every entry below it until the next one.
 - Each entry: "<card name> ****1234 -$23.84", then "Order #114-...", then the merchant
   ("AMZN Mktp US", "Amazon.com"). The amount and "Order #" can share a line. Money in

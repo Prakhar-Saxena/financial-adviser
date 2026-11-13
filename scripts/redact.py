@@ -1,9 +1,14 @@
 # Copyright (C) 2026 Prakhar Saxena
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-"""Make redacted fixtures from real files (SPEC §18). You run this; Claude never does.
+"""Redacted copies of real files, to see their structure (SPEC §18).
 
-    uv run python scripts/redact.py FILE [FILE ...] --out-dir tests/fixtures/incoming
+    uv run python scripts/redact.py FILE [FILE ...] [--out-dir DIR]
+
+The copies go to the data dir (default `debug/redacted/`), never into the repo: the repo is
+public, and redaction misses things (amounts, dates, merchants, item titles, store numbers).
+A fixture is written by hand from a copy's structure, with made-up values (SPEC §18,
+tests/fixtures/README.md).
 
 - Names from config/cards.json -> a distinct fake name per person, matching
   cards.example.json (self -> ALEX EXAMPLE, spouse -> SAM Q EXAMPLE, ...), so cardholder
@@ -19,7 +24,7 @@
 Inputs: .csv (stays CSV), .html/.htm (stays HTML; scripts and styles removed),
 .pdf (becomes .txt of pdfplumber text, pages separated by form feeds, then a
 "[LINKS]" section listing each page's link targets, redacted), .txt/.json.
-Review every output before committing it. The summary lists lines worth a second look.
+The summary lists lines worth a second look.
 """
 
 from __future__ import annotations
@@ -32,7 +37,8 @@ import secrets
 import sys
 from pathlib import Path
 
-CONFIG = Path(__file__).resolve().parents[1] / "config" / "cards.json"
+REPO = Path(__file__).resolve().parents[1]
+CONFIG = REPO / "config" / "cards.json"
 
 STREET = re.compile(
     r"^\s*\d{1,6}\s+[A-Za-z0-9 .'#-]{2,40}\b(st|street|ave|avenue|rd|road|blvd|boulevard|dr|"
@@ -163,15 +169,25 @@ def redact_pdf(r: Redactor, path: Path) -> str:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
     ap.add_argument("files", nargs="+", type=Path)
-    ap.add_argument("--out-dir", type=Path, required=True)
+    ap.add_argument("--out-dir", type=Path, default=None,
+                    help="outside the repo (default: <data dir>/debug/redacted)")
     ap.add_argument("--cards", type=Path, default=CONFIG)
     ap.add_argument("--endings", default="", help="comma-separated card endings to mask")
     args = ap.parse_args()
+    if args.out_dir is None:
+        from fin.config import data_paths
+
+        args.out_dir = data_paths().debug / "redacted"
+    target = args.out_dir.expanduser().resolve()
+    if target == REPO or REPO in target.parents:
+        print(f"refusing to write into the repo ({target}): it is public. Use the default, "
+              "<data dir>/debug/redacted, or another folder outside it.", file=sys.stderr)
+        return 2
 
     cards = json.loads(args.cards.read_text()) if args.cards.exists() else {}
     endings = {e.strip() for e in args.endings.split(",") if e.strip()}
     r = Redactor(cards, secrets.token_bytes(16), endings)
-    args.out_dir.mkdir(parents=True, exist_ok=True)
+    target.mkdir(mode=0o700, parents=True, exist_ok=True)
 
     for f in args.files:
         ext = f.suffix.lower()
@@ -189,13 +205,14 @@ def main() -> int:
             print(f"skip {f}: unsupported type", file=sys.stderr)
             continue
         dest.write_text(out)
+        dest.chmod(0o600)
         suspects = [ln.strip()[:100] for ln in out.splitlines() if SUSPECT.search(ln)]
         print(f"{f.name} -> {dest}")
         for s in suspects[:10]:
             print(f"   check: {s}")
 
     print("replacements:", json.dumps(r.counts))
-    print("Review every output by eye before committing it.")
+    print("These stay in the data dir. Fixtures are made-up files with this structure.")
     return 0
 
 

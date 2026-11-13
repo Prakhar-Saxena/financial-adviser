@@ -7,8 +7,12 @@ Card optimizer ("Best card", phases C0–C5): `docs/SPEC-cards.md`.
 ## Working agreement (short)
 - One phase at a time (SPEC §17). End each with tests passing, acceptance checks run, then stop for review.
 - Since 2026-10-06 the user allows Claude to read the data dir and run `fin import`, `fin process`,
-  `scripts/redact.py` and other non-browsing commands on real data. Fixtures in the repo stay redacted.
-  Never echo raw transaction rows into the repo, logs or commit messages.
+  `scripts/redact.py` and other non-browsing commands on real data. Never echo raw transaction rows
+  into the repo, logs or commit messages.
+- **The repo is public.** Nothing from real data goes into it. Fixtures are fictional
+  (`tests/fixtures/README.md`); a redacted copy only shows a file's layout and stays in the data dir.
+  The git hooks check every commit and push against the real ledger. Never bypass them
+  (`--no-verify`, `-n`, `core.hooksPath`): when one finds something, replace it with made-up values.
 - `fin sync` / `fin weekly` are interactive (the user types start, logs in, approves clicks): the user
   runs them in their own terminal. Claude takes over after the session ends.
 - If reality disagrees with the spec, stop and say so. Never work around §2.
@@ -39,10 +43,14 @@ Card optimizer ("Best card", phases C0–C5): `docs/SPEC-cards.md`.
 
 ## SPEC §7. Security and privacy rules (standing)
 
-**Repo hygiene**
-- Set up `.gitignore` before the first commit. It must cover `config/cards.json`, `.env`, `*.sqlite`, real `*.pdf/*.csv/*.qfx/*.html` outside `tests/fixtures/`, and anything named `browser-profiles`.
-- Add a plain git pre-commit hook script that blocks files matching those patterns or larger than 1 MB.
-- Card documents live only in the data dir (`card-docs/`). Fixtures in the repo are fictional.
+**Repo hygiene.** The repo is public on GitHub. Nothing from my real data goes into it: not in code, fixtures, tests, docs, comments or commit messages.
+- Set up `.gitignore` before the first commit. It must cover `config/cards.json`, `.env`, `*.sqlite`, real `*.pdf/*.csv/*.qfx/*.html` outside `tests/fixtures/`, anything named `browser-profiles`, and `private/` (notes that would identify me).
+- Git hooks in `scripts/hooks/`, installed by `fin init`:
+  - `pre-commit` blocks files matching those patterns, copies of `cards.json` and files larger than 1 MB. Then `privacy_scan.py` checks the lines being added against my ledger (opened read-only) and `cards.json`: names, card endings, `private_words`, order and reference numbers, item titles, merchant descriptions and amounts.
+  - `commit-msg` checks the message the same way. `pre-push` checks every commit about to be pushed, so it also catches a commit made without the other hooks.
+  - Findings give the place and the kind, never the value. Nothing bypasses them: no `--no-verify`, no `-n`, no `core.hooksPath` change. `.claude/settings.json` denies those to Claude.
+- `cards.json` `private_words`: anything else that would identify me (my bank, my street). The hooks refuse them too.
+- Fixtures are fictional (§18). Card documents live only in the data dir (`card-docs/`).
 
 **`fin doctor` checks**
 - FileVault is on (`fdesetup status`).
@@ -50,7 +58,7 @@ Card optimizer ("Best card", phases C0–C5): `docs/SPEC-cards.md`.
 - `claude auth status` reports `authMethod` of `claude.ai` (or `oauth_token`). It fails on `api_key`, `api_key_helper` or `third_party`.
 - `ANTHROPIC_API_KEY` isn't set.
 - Google Chrome and Node.js are installed, and `playwright_mcp_version` in settings is an exact version, not `latest`.
-- The gitignore rules are present.
+- The gitignore rules are present, the git hooks are installed, and tracked files and commit messages hold none of my data.
 - It prints a reminder to keep usage credits / extra usage off in the Claude account.
 
 **Local API**
@@ -91,9 +99,11 @@ config/      cards.json (real, gitignored)  cards.example.json  categories.json 
 prompts/     classifier system prompts (<!-- prompt_version: X --> header)
 schemas/     classifier JSON Schemas (category enum filled from categories.json)
 sync/        base_rules.md  sites/*.md  playbooks/*.md  guard.py (stdlib only)  manifest.schema.json
-scripts/     redact.py  ai_spike.py  make_cards_example.py  hooks/pre-commit
+scripts/     redact.py  ai_spike.py  make_cards_example.py
+             hooks/ (pre-commit, commit-msg, pre-push, privacy_scan.py, claude_bash_guard.py)
 src/fin/     cli.py config.py doctor.py  db/ (models, alembic migrations, seed)  ai/  sync/  ingest/ ...
-tests/       unit/  fixtures/ (redacted only)  fake_bin/claude (fake CLI; tests never call a model)
+tests/       unit/  fixtures/ (fictional only)  fake_bin/claude (fake CLI; tests never call a model)
+private/     gitignored notes that would identify me; never committed
 ```
 
 ## Commands
@@ -103,7 +113,9 @@ Everything runs in the foreground; don't leave `fin serve` running in the backgr
 uv run pytest                 # all tests (no network, no AI, no browser)
 uv run ruff check .           # lint
 uv run fin init               # data dir, DB migrations, reference rows, pre-commit hook
-uv run fin doctor             # §7 checks
+uv run fin doctor             # §7 checks, privacy scan of tracked files included
+make privacy-check            # every file version and commit message in history, against real data
+make privacy-audit            # same, plus every lone amount that equals a real one (some are chance)
 uv run fin sync selftest      # USER runs this: browsing setup check against example.com
 uv run python scripts/ai_spike.py --sizes 3,50   # §14.3 spike on fake records
 uv run python scripts/make_cards_example.py      # regenerate cards.example.json

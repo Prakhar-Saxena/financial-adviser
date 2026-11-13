@@ -2,8 +2,11 @@
 # Copyright (C) 2026 Prakhar Saxena
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-# Blocks commits of real data, secrets and large files (SPEC §7).
+# Blocks commits of real data, secrets and large files (SPEC §7). The repo is public.
 # Installed by `fin init` via: git config core.hooksPath scripts/hooks
+# 1. Paths: real config, private notes, databases, exports, browser profiles, big files.
+# 2. Content: privacy_scan.py compares the lines being added with your own ledger and
+#    config/cards.json, and refuses anything of yours. It never prints what it found.
 set -euo pipefail
 
 max_bytes=$((1024 * 1024))
@@ -16,12 +19,14 @@ while IFS= read -r -d '' path; do
 
   case "$path" in
     config/cards.json) reason="real cards config" ;;
+    config/cards.*) [ "$path" = "config/cards.example.json" ] || reason="copy of the real cards config" ;;
   esac
   case "$base" in
     .env|.env.*) reason="env file" ;;
     *.sqlite|*.sqlite-*|*.db) reason="database file" ;;
   esac
   case "$lower" in
+    private|private/*) reason="private notes (private/ is never committed)" ;;
     *browser-profiles*) reason="browser profile" ;;
     *financialadviserdata*) reason="data directory content" ;;
   esac
@@ -44,7 +49,19 @@ while IFS= read -r -d '' path; do
   fi
 done < <(git diff --cached --name-only --diff-filter=ACMR -z)
 
+py=""
+if [ -x .venv/bin/python ]; then py=.venv/bin/python
+elif command -v python3 >/dev/null 2>&1; then py=python3
+fi
+if [ -z "$py" ]; then
+  echo "pre-commit: no Python found, so the privacy check can't run. Run 'uv sync'." >&2
+  fail=1
+elif ! "$py" "$(dirname "$0")/privacy_scan.py" staged; then
+  fail=1
+fi
+
 if [ "$fail" -ne 0 ]; then
-  echo "pre-commit: commit refused. Unstage the files above (git restore --staged <file>)." >&2
+  echo "pre-commit: commit refused. Unstage blocked files (git restore --staged <file>) and" \
+       "replace anything of yours with made-up values." >&2
   exit 1
 fi

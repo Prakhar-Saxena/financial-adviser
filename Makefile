@@ -9,7 +9,8 @@ FIN := $(UV) fin
 
 .DEFAULT_GOAL := help
 .PHONY: help serve open dev web weekly sync process review import rebuild backup doctor \
-        test lint check stop screenshots cards cards-refresh card-research best
+        test lint check privacy-check privacy-audit stop screenshots cards cards-refresh \
+        card-research best
 
 help: ## List the targets
 	@grep -hE '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | \
@@ -88,6 +89,12 @@ lint: ## Ruff
 
 check: lint test ## Lint, tests and a type-checked web build
 	npm --prefix web run build
+
+privacy-check: ## Every file version and commit message in history, against your own data
+	$(UV) python scripts/hooks/privacy_scan.py history
+
+privacy-audit: ## Also every lone amount of yours in history (some will be chance)
+	$(UV) python scripts/hooks/privacy_scan.py history --all-amounts
 
 screenshots: web ## README screenshots from a throwaway mock database (headless Chrome)
 	$(UV) python scripts/make_screenshots.py

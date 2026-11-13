@@ -20,7 +20,7 @@ Build spec for Claude Code. Version 2, 2026-10-06.
    - `docs/decisions.md`, a dated log of what you discover and decide: export formats, exact tool names, verified CLI flags, pinned versions.
    - `config/cards.json`, moved from `cards.json` and gitignored, plus a generated `config/cards.example.json` with fake values.
 2. Build one phase at a time (§17). End each phase with tests passing and the acceptance checks run. Then give a short summary and stop for my review.
-3. Don't read my real data directory while developing unless I say so. That's `$FIN_DATA_DIR`, default `~/FinancialAdviserData`. Write parsers against redacted fixtures in `tests/fixtures/`. When you need a real sample, ask me for a redacted one (`scripts/redact.py`, §18).
+3. Don't read my real data directory while developing unless I say so. That's `$FIN_DATA_DIR`, default `~/FinancialAdviserData`. Write parsers against the fixtures in `tests/fixtures/`, which are fictional (§18). When you need to see a real file's layout, ask me for a redacted copy (`scripts/redact.py` writes it into the data dir), then build a fictional fixture in that layout.
 4. Never start `fin sync`, `fin weekly` or any browsing session yourself. They open a browser where I log in to my accounts. Ask me to run them and paste the output.
 5. If reality disagrees with this spec (a site changed, a CLI flag or MCP tool behaves differently), stop and tell me. Never work around §2.
 6. Ask before adding any dependency not listed in §5.
@@ -113,7 +113,7 @@ Only if a bank's CSV export lacks stable transaction IDs, evaluate its QFX/OFX e
 
 ## 6. Repository and data layout
 
-**Repo** (code only, safe for a private git repo):
+**Repo** (code only; it's public on GitHub, so nothing from my data goes in it, §7):
 
 ```
 financial-adviser/
@@ -136,7 +136,10 @@ financial-adviser/
     guard.py              # hook that checks every browser action and file write (§9.1)
     manifest.schema.json  # the agent's manifest.json and run_report.json
     receipt.schema.json   # Costco transcript fallback (§9.4)
-  scripts/redact.py       # helps me make fixtures (§18)
+  scripts/redact.py       # redacted copy of a real file, into the data dir, to see its layout (§18)
+  scripts/hooks/          # pre-commit, commit-msg, pre-push, privacy_scan.py (§7)
+  .claude/settings.json   # denies Claude the ways around the git hooks (§7)
+  private/                # gitignored notes that would identify me; never committed
   src/fin/
     cli.py  config.py
     db/        models.py, migrations/
@@ -173,10 +176,14 @@ financial-adviser/
 
 ## 7. Security and privacy rules (standing)
 
-**Repo hygiene**
-- Set up `.gitignore` before the first commit. It must cover `config/cards.json`, `.env`, `*.sqlite`, real `*.pdf/*.csv/*.qfx/*.html` outside `tests/fixtures/`, and anything named `browser-profiles`.
-- Add a plain git pre-commit hook script that blocks files matching those patterns or larger than 1 MB.
-- Card documents live only in the data dir (`card-docs/`). Fixtures in the repo are fictional.
+**Repo hygiene.** The repo is public on GitHub. Nothing from my real data goes into it: not in code, fixtures, tests, docs, comments or commit messages.
+- Set up `.gitignore` before the first commit. It must cover `config/cards.json`, `.env`, `*.sqlite`, real `*.pdf/*.csv/*.qfx/*.html` outside `tests/fixtures/`, anything named `browser-profiles`, and `private/` (notes that would identify me).
+- Git hooks in `scripts/hooks/`, installed by `fin init`:
+  - `pre-commit` blocks files matching those patterns, copies of `cards.json` and files larger than 1 MB. Then `privacy_scan.py` checks the lines being added against my ledger (opened read-only) and `cards.json`: names, card endings, `private_words`, order and reference numbers, item titles, merchant descriptions and amounts.
+  - `commit-msg` checks the message the same way. `pre-push` checks every commit about to be pushed, so it also catches a commit made without the other hooks.
+  - Findings give the place and the kind, never the value. Nothing bypasses them: no `--no-verify`, no `-n`, no `core.hooksPath` change. `.claude/settings.json` denies those to Claude.
+- `cards.json` `private_words`: anything else that would identify me (my bank, my street). The hooks refuse them too.
+- Fixtures are fictional (§18). Card documents live only in the data dir (`card-docs/`).
 
 **`fin doctor` checks**
 - FileVault is on (`fdesetup status`).
@@ -184,7 +191,7 @@ financial-adviser/
 - `claude auth status` reports `authMethod` of `claude.ai` (or `oauth_token`). It fails on `api_key`, `api_key_helper` or `third_party`.
 - `ANTHROPIC_API_KEY` isn't set.
 - Google Chrome and Node.js are installed, and `playwright_mcp_version` in settings is an exact version, not `latest`.
-- The gitignore rules are present.
+- The gitignore rules are present, the git hooks are installed, and tracked files and commit messages hold none of my data.
 - It prints a reminder to keep usage credits / extra usage off in the Claude account.
 
 **Local API**
@@ -776,7 +783,7 @@ Polished and modern: shadcn/ui, light and dark themes, desktop-first. Convert ce
 
 **Build**
 - Scaffold with uv, ruff and pytest.
-- Write `CLAUDE.md`, the gitignore and the pre-commit guard.
+- Write `CLAUDE.md`, the gitignore and the git hooks (§7).
 - Config loading with pydantic validation.
 - DB schema and Alembic baseline.
 - `fin init` and `fin doctor`.
@@ -800,7 +807,7 @@ Polished and modern: shadcn/ui, light and dark themes, desktop-first. Convert ce
 
 **Build**
 - `sync/sites/chase.md` and `sync/sites/amazon.md`. I run `fin sync chase` and `fin sync amazon`, and we iterate on the playbooks together.
-- Chase CSV and statement parsers, with fixtures from my redacted files.
+- Chase CSV and statement parsers, with fictional fixtures in the layout of my redacted files.
 - Statement math and ledger reconciliation.
 - Amazon invoice parser, matching, Prime Visa checks and allocations.
 - Rules plus AI categorization for transactions and items.
@@ -868,7 +875,8 @@ Replace each site's browsing session with a plain Playwright (Python) script. Ke
 
 ## 18. Testing
 
-- **Fixtures.** Only redacted real samples go in `tests/fixtures/`, including one redacted browsing-run folder. `scripts/redact.py` replaces names from `cards.json` with `FAKE NAME`, replaces card endings with `0000`, masks long digit runs and removes address blocks. It works on CSV, HTML and PDF text.
+- **Fixtures are fictional.** Each one keeps a real file's layout (columns, sections, wording, page breaks) with made-up values: amounts, merchants, store numbers, places, order and reference numbers, item titles, names, card endings, balances, limits, rates and points. Totals still add up. Never a redacted copy of a real file: redaction leaves amounts, merchants, item titles, store numbers and locations, and the repo is public. How to make one: `tests/fixtures/README.md`.
+- `scripts/redact.py` writes a redacted copy into the data dir (`debug/redacted/`, never the repo) so a layout can be studied. It replaces names from `cards.json`, card endings and long digit runs, and removes address blocks, on CSV, HTML and PDF text.
 - **Golden tests.** For each parser: fixture → expected JSON.
 - **Unit tests**
   - Signs per issuer.

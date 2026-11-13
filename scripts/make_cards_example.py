@@ -3,8 +3,8 @@
 
 """Generate config/cards.example.json from config/cards.json with fake personal values.
 
-Structure, ids, issuers, sites and products are kept; names and card endings are replaced.
-Usage: uv run python scripts/make_cards_example.py
+Structure, ids, issuers, sites and products are kept; names and card endings are replaced,
+and `private_words` is emptied. Usage: uv run python scripts/make_cards_example.py
 """
 
 import json
@@ -39,6 +39,8 @@ def main() -> None:
             n += 1
             width = 5 if card["network"] == "amex" else 4
             holder["card_ending"] = str(n).zfill(width)
+    if "private_words" in cards:
+        cards["private_words"] = []
     (CONFIG / "cards.example.json").write_text(json.dumps(cards, indent=2) + "\n")
     print(f"wrote {CONFIG / 'cards.example.json'}")
 

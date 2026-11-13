@@ -1,7 +1,7 @@
 # Copyright (C) 2026 Prakhar Saxena
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-"""Pre-commit guard, gitignore, redaction and playbooks."""
+"""Pre-commit guard, gitignore, redaction and playbooks. Privacy scan: test_privacy_scan.py."""
 
 import importlib.util
 import os
@@ -31,8 +31,8 @@ def repo(tmp_path):
     r.mkdir()
     env = {**os.environ, "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_SYSTEM": "/dev/null"}
     subprocess.run(["git", "init", "-q"], cwd=r, check=True, env=env)
-    (r / "scripts" / "hooks").mkdir(parents=True)
-    shutil.copy(HOOK, r / "scripts" / "hooks" / "pre-commit")
+    shutil.copytree(HOOK.parent, r / "scripts" / "hooks",
+                    ignore=shutil.ignore_patterns("__pycache__"))
     subprocess.run(["git", "config", "core.hooksPath", "scripts/hooks"], cwd=r, check=True)
     subprocess.run(["git", "config", "user.email", "t@example.com"], cwd=r, check=True)
     subprocess.run(["git", "config", "user.name", "T"], cwd=r, check=True)
@@ -86,7 +86,8 @@ def test_repo_gitignore_and_check():
 def test_source_files_have_license_header():
     files = subprocess.run(
         ["git", "ls-files", "*.py", "*.ts", "*.tsx", "*.css", "*.html",
-         "Makefile", "scripts/hooks/pre-commit", "tests/fake_bin/claude"],
+         "Makefile", "scripts/hooks/pre-commit", "scripts/hooks/commit-msg",
+         "scripts/hooks/pre-push", "tests/fake_bin/claude"],
         cwd=REPO, capture_output=True, text=True, check=True,
     ).stdout.split()
     files = [f for f in files if not f.startswith("src/fin/db/migrations/versions/")]  # generated
@@ -190,3 +191,14 @@ def test_redact_ending_with_colon():
     redact = load_script("redact")
     out = redact.Redactor({}, b"s").text("Account number ending in: 5678", addresses=False)
     assert "5678" not in out and out.endswith("0000")
+
+
+def test_redact_refuses_to_write_into_the_repo(tmp_path, monkeypatch):
+    redact = load_script("redact")
+    f = tmp_path / "activity.csv"
+    f.write_text("a,b\n")
+    monkeypatch.setattr("sys.argv", ["redact.py", str(f), "--out-dir", str(REPO / "tests")])
+    assert redact.main() == 2
+    out = tmp_path / "out"
+    monkeypatch.setattr("sys.argv", ["redact.py", str(f), "--out-dir", str(out)])
+    assert redact.main() == 0 and (out / "activity.csv").stat().st_mode & 0o077 == 0

@@ -3,7 +3,8 @@
 
 """Issuer activity CSV parsers (SPEC §9.2).
 
-Chase (documented from the first redacted export, tests/fixtures/chase/activity_prime_visa.csv):
+Chase (documented from the first real export; fictional fixture in its layout:
+tests/fixtures/chase/activity_prime_visa.csv):
 
     Transaction Date,Post Date,Description,Category,Type,Amount,Memo
     10/05/2026,10/05/2026,AMAZON MKTPL*98WLHDBFZ,Shopping,Sale,-52.11,

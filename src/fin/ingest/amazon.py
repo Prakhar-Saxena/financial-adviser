@@ -103,7 +103,7 @@ class Invoice:
 
 
 def split_links(text: str) -> tuple[str, list[str]]:
-    """Fixtures (redact.py) append "\\f[LINKS]" with one "page N: <uri>" per line."""
+    """PDF text in redact.py's format ends with "\\f[LINKS]", one "page N: <uri>" per line."""
     if "[LINKS]" not in text:
         return text, []
     body, links = text.split("[LINKS]", 1)

@@ -93,6 +93,9 @@ The browsing agent works on logged-in bank sessions, so it is boxed in on severa
   decisions, never page content.
 - **The classifier sees as little as possible.** It runs as `claude -p` with Claude haiku and no
   tools. It only sees cleaned merchant names, amounts, dates and item titles.
+- **Your data stays out of git.** Git hooks check every commit and push against your own ledger and
+  `config/cards.json`, and refuse anything of yours (names, card endings, order numbers, item
+  titles, amounts, words you list as private) without printing it. Test fixtures are fictional.
 
 This is defense in depth, not a guarantee. Watch the browser while a sync runs.
 
@@ -184,8 +187,12 @@ make dev       # live-reload frontend on :5173 plus the API
 make screenshots   # README screenshots from a throwaway mock database
 ```
 
-- Test fixtures are redacted and use fictional names, places and products.
-- `scripts/redact.py` makes fixtures from your own files.
+- Test fixtures are fictional: made-up values in the layout of real files
+  ([`tests/fixtures/README.md`](tests/fixtures/README.md)).
+- `scripts/redact.py` writes a redacted copy of one of your files into the data dir, to study its
+  layout. It never writes into the repo.
+- `fin init` installs the git hooks (`scripts/hooks/`): pre-commit, commit-msg and pre-push check
+  what you commit and push against your own data. `make privacy-check` checks all of history.
 - Design notes and every decision live in [`docs/SPEC.md`](docs/SPEC.md) and
   [`docs/decisions.md`](docs/decisions.md).
 
