@@ -930,3 +930,16 @@ Spec: `docs/SPEC-checking.md`. The bank is "the bank" here and everywhere in the
   playbooks uses a newly denied label. Tested with a fictional recorded bank page
   (`tests/fixtures/hook_payloads/bank_activity_post.json`), where an icon-only Zelle link is
   blocked through its child's label.
+- **The §12 rows for B0.** `NON_SPENDING` gains `transfer` and `deposit`, and a test checks
+  that every `TXN_TYPES` value is in exactly one of it and `SPENDING_TYPES`. `match_amazon`
+  names a row's card with `account_name`, so a debit Amazon purchase no longer raises. API rows
+  carry `flow_kind` and `counts_as_spending`; `/api/meta` lists accounts after cards, each
+  entry with `kind` (`card`/`account`). `Transactions.tsx` reads `counts_as_spending` for the
+  Category badge, the spending total and the detail panel instead of its two deny lists, and
+  its type filter lists `transfer` and `deposit`. `fin doctor` checks `bank_rules.yaml` and
+  each bank site: FAIL in extension mode, WARN in `trusted_sites`. Left for B2 as §15 says:
+  `pipeline.process`, `apply_rules`'s p2p/check rule, `resolve_history`, `PROCESS_KINDS`.
+- **Tests with a bank account.** The pipeline fixtures load the real `cards.json`, which has
+  no bank until the user adds it after B0, so checking tests swap in `cards.example.json`.
+  Fixture checking rows carry `person_id = self`, as the B2 parser will (§5); without it they
+  raise `unknown_person` items.

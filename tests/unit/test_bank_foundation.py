@@ -102,3 +102,37 @@ def test_rebuild_clears_links_and_bank_statements(tmp_path):
         s.commit()
         rebuild(s)
         assert s.query(m.TransferLink).count() == s.query(m.BankStatement).count() == 0
+
+
+def test_every_type_is_spending_or_not_exactly_once():
+    """A future type can't slip into spending, or out of it, unnoticed (SPEC-checking §16)."""
+    from fin.api.spending import SPENDING_TYPES
+    from fin.categorize.rules import NON_SPENDING
+    from fin.db.models import TXN_TYPES
+
+    assert set(SPENDING_TYPES) | NON_SPENDING == set(TXN_TYPES)
+    assert not set(SPENDING_TYPES) & NON_SPENDING
+    assert {"transfer", "deposit"} <= NON_SPENDING
+
+
+def test_doctor_bank_checks(tmp_path):
+    import json
+
+    from fin.doctor import check_bank
+
+    def run(settings=None, mutate=None):
+        d = json.loads((CONFIG_DIR / "cards.example.json").read_text())
+        (mutate or (lambda _: None))(d)
+        p = tmp_path / "cards.json"
+        p.write_text(json.dumps(d))
+        return {r.name: r for r in check_bank(p, Settings.model_validate(settings or {}))}
+
+    ok = run()
+    assert ok["bank_rules.yaml"].status == "PASS" and ok["Bank site bank"].status == "PASS"
+    assert run({"sync": {"trusted_sites": ["bank"]}})["Bank site bank"].status == "WARN"
+    assert run({"sync": {"site_browser": {"bank": "extension"}}})[
+        "Bank site bank"].status == "FAIL"
+    no_amex = run(mutate=lambda d: d.update(
+        cards=[c for c in d["cards"] if c["issuer"] != "amex"]))
+    assert no_amex["bank_rules.yaml"].status == "FAIL"  # its amex rule names no tracked card
+    assert run(mutate=lambda d: d.update(bank_accounts=[]))["Bank accounts"].status == "INFO"

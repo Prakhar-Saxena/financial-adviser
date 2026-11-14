@@ -22,8 +22,9 @@ from fin.config import CONFIG_DIR, Taxonomy
 from fin.db import models as m
 
 RULES_PATH = CONFIG_DIR / "rules.yaml"
-# Excluded from spending (§13): they get no category.
-NON_SPENDING = {"payment", "credit", "reward", "adjustment"}
+# Excluded from spending (§13): they get no category. Every other type is in
+# fin.api.spending.SPENDING_TYPES; a test checks that each type is in exactly one.
+NON_SPENDING = {"payment", "credit", "reward", "adjustment", "transfer", "deposit"}
 
 
 @dataclass(frozen=True)

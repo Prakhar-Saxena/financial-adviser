@@ -208,6 +208,40 @@ def check_cards(paths: DataPaths) -> list[Result]:
     return out
 
 
+def check_bank(cards_path: Path | None = None, settings=None) -> list[Result]:
+    """The checking account (docs/SPEC-checking.md §7.4, §12): bank_rules.yaml, and every
+    bank site in approve mode in its own Chrome profile."""
+    from fin.normalize.bank import load_bank_rules
+
+    cards_path = cards_path or CONFIG_DIR / "cards.json"
+    try:
+        cards = load_cards(cards_path)
+    except Exception:
+        return []  # reported by check_config
+    out = []
+    try:
+        n = len(load_bank_rules(cards))
+        out.append(Result("PASS", "bank_rules.yaml", f"{n} rules; patterns compile, issuers known"))
+    except Exception as e:  # ValueError from the checks, or a YAML error
+        out.append(Result("FAIL", "bank_rules.yaml", str(e).splitlines()[0]))
+    if not cards.bank_accounts:
+        out.append(Result("INFO", "Bank accounts", "none in cards.json"))
+        return out
+    sync = (settings or load_settings()).sync
+    for site in cards.bank_sites:
+        n = len(cards.accounts_for_site(site))
+        if sync.browser_for(site) == "extension":
+            out.append(Result("FAIL", f"Bank site {site}", "site_browser is extension: it would "
+                              "act in your everyday Chrome with all your logins; remove it"))
+        elif site in sync.trusted_sites:
+            out.append(Result("WARN", f"Bank site {site}", "in trusted_sites; bank sites stay in "
+                              "approve mode, so `fin sync` refuses until you remove it"))
+        else:
+            out.append(Result("PASS", f"Bank site {site}",
+                              f"{n} account(s); approve mode, own Chrome profile"))
+    return out
+
+
 def check_git_hygiene() -> list[Result]:
     gi = REPO_ROOT / ".gitignore"
     text = gi.read_text() if gi.exists() else ""
@@ -303,6 +337,7 @@ def run_all(paths: DataPaths) -> list[Result]:
     results += [check_playwright_pin()]
     results += check_config()
     results += check_cards(paths)
+    results += check_bank()
     results.append(check_claude_leftovers(paths))
     results += check_git_hygiene()
     results += check_privacy(paths)

@@ -18,7 +18,8 @@ import { categoryColors } from "@/lib/palette";
 import { cn, money } from "@/lib/utils";
 
 const col = createColumnHelper<Txn>();
-const TYPES = ["purchase", "refund", "payment", "credit", "reward", "fee", "interest", "adjustment"];
+const TYPES = ["purchase", "refund", "payment", "credit", "reward", "fee", "interest", "adjustment",
+               "transfer", "deposit"];
 
 export function Transactions({ month, meta }: { month: string; meta: Meta }) {
   const [params, setParams] = useSearchParams();
@@ -68,7 +69,7 @@ export function Transactions({ month, meta }: { month: string; meta: Meta }) {
     col.accessor("person_id", { header: "Person", cell: (c) => <span className="text-ink-2">{personName[c.getValue() ?? ""] ?? "Unknown"}</span> }),
     col.accessor("category_id", { header: "Category", cell: (c) => {
       const t = c.row.original;
-      if (["payment", "credit", "reward", "adjustment"].includes(t.type)) return <Badge>{t.type}</Badge>;
+      if (!t.counts_as_spending) return <Badge>{t.type}</Badge>;
       return (
         <span className="inline-flex items-center gap-1.5 text-ink-2">
           <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: cat.color(c.getValue()) }} />
@@ -84,7 +85,7 @@ export function Transactions({ month, meta }: { month: string; meta: Meta }) {
     data, columns, state: { sorting }, onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(), getSortedRowModel: getSortedRowModel(),
   });
-  const total = data.filter((t) => ["purchase", "refund", "fee", "interest"].includes(t.type))
+  const total = data.filter((t) => t.counts_as_spending)
     .reduce((s, t) => s + t.amount_cents, 0);
 
   return (
@@ -179,7 +180,7 @@ export function TxnDetailPanel({ id, meta, catName }: { id: number; meta: Meta; 
     onError: (e) => setNote(String(e)),
   });
   if (!d) return <p className="text-sm text-muted">Loading…</p>;
-  const spending = !["payment", "credit", "reward", "adjustment"].includes(d.type);
+  const spending = d.counts_as_spending;
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <div className="space-y-3 text-sm">

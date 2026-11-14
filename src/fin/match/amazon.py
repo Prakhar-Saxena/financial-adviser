@@ -86,7 +86,7 @@ def match_amazon(s: Session, cards: CardsConfig, settings: Settings, reviews: Re
     for t in txns:
         if t.id in user:
             continue
-        product = cards.card(t.card_id).product
+        product = cards.account_name(t.card_id)  # a debit purchase comes from an account
         order = method = charge = None
         if t.order_ref and t.order_ref in by_ref:
             order, method = by_ref[t.order_ref], "exact"

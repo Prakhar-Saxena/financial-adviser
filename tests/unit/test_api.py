@@ -212,3 +212,75 @@ def test_web_build_caching(tmp_path, client):
     r = c.get("/assets/index-abc123.js")
     assert r.status_code == 200 and "immutable" in r.headers["cache-control"]
     assert "cache-control" not in c.get("/assets/missing.js").headers
+
+
+# ------------------------------------------------- checking (docs/SPEC-checking.md Phase B0)
+
+
+def add_checking_rows(db, rows):
+    """Fictional checking rows: (amount, type, flow_kind, description)."""
+    with session_factory(db)() as s:
+        s.merge(m.Card(id="checking", issuer="bank", product="Example Bank Checking",
+                       network="none", card_type="checking"))
+        imp = s.scalar(select(m.Import.id))
+        for i, (amt, typ, flow, desc) in enumerate(rows):
+            s.add(m.Transaction(card_id="checking", person_id="self",  # §5: rows default to self
+                                person_source="default_self",
+                                post_date="2026-09-10", amount_cents=amt,
+                                description_raw=desc, description_clean=desc, type=typ,
+                                flow_kind=flow, dedupe_key=f"bank-{i}", import_id=imp))
+        s.commit()
+
+
+@pytest.fixture
+def example_cards(monkeypatch):
+    """The example config, which has a bank account (the real one may not yet)."""
+    from fin.config import CONFIG_DIR, load_cards
+
+    cards = load_cards(CONFIG_DIR / "cards.example.json")
+    monkeypatch.setattr("tests.unit.test_pipeline.load_cards", lambda: cards)
+    monkeypatch.setattr("fin.api.app.load_cards", lambda: cards)
+    return cards
+
+
+def test_transfers_and_deposits_never_count_as_spending(client, example_cards):
+    c, db = client
+    before = c.get("/api/summary", params={"month": "2026-09"}).json()
+    add_checking_rows(db, [(51290, "transfer", "card_payment", "EXAMPLE CARD AUTOPAY"),
+                           (-250000, "deposit", "income", "EXAMPLE CORP PAYROLL"),
+                           (-1200, "transfer", "own_transfer", "TRANSFER FROM SAVINGS")])
+    run(db.parent.parent)  # fin process, now with checking rows in the ledger
+    after = c.get("/api/summary", params={"month": "2026-09"}).json()
+    assert after["total_cents"] == before["total_cents"]
+    assert after["credits_rewards_cents"] == before["credits_rewards_cents"]
+    assert after["by_category"] == before["by_category"]
+    rows = c.get("/api/transactions", params={"card": "checking"}).json()
+    assert len(rows) == 3
+    assert all(not r["counts_as_spending"] and r["category_id"] is None for r in rows)
+    assert {r["flow_kind"] for r in rows} == {"card_payment", "income", "own_transfer"}
+    refs = {str(r["id"]) for r in rows}
+    assert not [i for i in c.get("/api/review").json()
+                if i["ref_table"] == "transactions" and i["ref_id"] in refs]
+    card_rows = c.get("/api/transactions", params={"month": "2026-09"}).json()
+    assert all(r["counts_as_spending"] == (r["type"] in ("purchase", "refund", "fee", "interest"))
+               for r in card_rows)
+
+
+def test_a_debit_amazon_purchase_doesnt_break_matching(client, example_cards):
+    """match_amazon looked a row's card up with cards.card(), which raises on an account."""
+    c, db = client
+    add_checking_rows(db, [(1999, "purchase", None, "AMAZON MKTP US")])
+    r = run(db.parent.parent)
+    assert r is not None
+    (row,) = c.get("/api/transactions", params={"card": "checking"}).json()
+    assert row["merchant_group"] == "amazon" and row["counts_as_spending"]
+
+
+def test_meta_names_accounts_next_to_cards(client, example_cards):
+    _, db = client
+    meta = TestClient(create_app(db, web_dist=None), base_url="http://127.0.0.1").get(
+        "/api/meta").json()
+    kinds = {x["id"]: x["kind"] for x in meta["cards"]}
+    assert kinds["checking"] == "account" and kinds["amex_gold"] == "card"
+    assert next(x for x in meta["cards"] if x["id"] == "checking")["name"] == \
+        "Example Bank Checking"

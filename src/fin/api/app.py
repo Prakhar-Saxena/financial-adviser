@@ -124,7 +124,9 @@ def create_app(db_file: Path | None = None, web_dist: Path | None = WEB_DIST) ->
                               if v > 0 and k != "uncategorized"],
             "people": [{"id": p.id, "name": p.display_name} for p in cards.people],
             "cards": [{"id": c.id, "name": c.product, "issuer": c.issuer, "network": c.network,
-                       "art": art.get(c.id)} for c in cards.cards],
+                       "art": art.get(c.id), "kind": "card"} for c in cards.cards]
+                     + [{"id": a.id, "name": a.product, "issuer": a.site, "network": "none",
+                         "art": None, "kind": "account"} for a in cards.bank_accounts],
             "categories": [{"id": c.id, "name": c.name, "parent_id": c.parent_id}
                            for c in taxonomy.categories],
         }
@@ -154,6 +156,9 @@ def create_app(db_file: Path | None = None, web_dist: Path | None = WEB_DIST) ->
             "merchant_group": merchant.merchant_group if merchant else None,
             "category_id": t.category_id, "category_source": t.category_source,
             "review_status": t.review_status, "order_ref": t.order_ref,
+            # Checking rows (docs/SPEC-checking.md §13): the dashboard asks this instead of
+            # keeping its own list of types.
+            "flow_kind": t.flow_kind, "counts_as_spending": t.type in SPENDING_TYPES,
         }
 
     @app.get("/api/transactions")
