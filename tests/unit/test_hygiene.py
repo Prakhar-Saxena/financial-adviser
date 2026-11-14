@@ -166,6 +166,37 @@ def test_playbook_login_hosts_and_diff(tmp_path):
     assert (tmp_path / "amazon.md").read_text() == "# Amazon\n"
 
 
+def test_bank_playbook_lives_in_private(tmp_path, monkeypatch):
+    """A bank site's playbook names the bank: private/playbooks/, whatever its id
+    (docs/SPEC-checking.md §7.5)."""
+    import json
+
+    from fin.config import CONFIG_DIR
+
+    cfg = tmp_path / "config"
+    cfg.mkdir()
+    cards = json.loads((CONFIG_DIR / "cards.example.json").read_text())
+    cards["issuers"][-1]["id"] = cards["bank_accounts"][0]["site"] = "mybank"
+    (cfg / "cards.json").write_text(json.dumps(cards))
+    monkeypatch.setattr(playbooks, "CONFIG_DIR", cfg)
+    monkeypatch.setattr(playbooks, "PRIVATE_PLAYBOOKS_DIR", tmp_path / "private" / "playbooks")
+    monkeypatch.setattr(playbooks, "PLAYBOOKS_DIR", tmp_path / "public")
+
+    saved = playbooks.accept("mybank", "# The bank\n\n## Login hosts\n- login.bank.example\n")
+    assert saved == tmp_path / "private" / "playbooks" / "mybank.md"
+    assert oct(saved.parent.stat().st_mode & 0o777) == "0o700"
+    assert playbooks.login_hosts("mybank") == ["login.bank.example"]
+    assert "+New" in playbooks.diff("mybank", "New\n")
+    assert playbooks.path_for("chase") == tmp_path / "public" / "chase.md"
+    assert not (tmp_path / "public").exists()
+
+    (cfg / "cards.json").write_text("{not json")  # broken config: fail, don't go public
+    with pytest.raises(ValueError):
+        playbooks.path_for("mybank")
+    (cfg / "cards.json").unlink()                 # no config at all: no bank sites
+    assert playbooks.path_for("mybank") == tmp_path / "public" / "mybank.md"
+
+
 def test_redact_endings_option_spares_money():
     redact = load_script("redact")
     r = redact.Redactor({}, b"s", {"4321"})

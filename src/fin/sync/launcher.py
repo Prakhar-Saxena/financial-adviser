@@ -27,12 +27,14 @@ from pathlib import Path
 from typing import Any
 
 from fin.ai.claude_cli import claude_bin, clean_env
-from fin.config import REPO_ROOT, DataPaths, Settings, Site
+from fin.config import REPO_ROOT, CardsConfig, DataPaths, Settings, Site
 from fin.sync import playbooks
 from fin.sync.mcp_config import SERVER, extension_token, mcp_config
 
 SYNC_DIR = REPO_ROOT / "sync"
 GUARD = SYNC_DIR / "guard.py"
+# One generic site file serves every bank site, whatever its id (docs/SPEC-checking.md §1.1).
+BANK_SITE_FILE = SYNC_DIR / "sites" / "bank.md"
 PW = f"mcp__{SERVER}__"
 
 SELFTEST_SITE = Site(
@@ -72,6 +74,13 @@ class SessionPlan:
     keep_transcript: bool
     params: dict[str, Any] = field(default_factory=dict)
     browser: str = "profile"  # or "extension" (settings.sync.site_browser)
+    # A site that holds a bank account: stricter guard, approve mode only (SPEC-checking §7.3).
+    money_site: bool = False
+    money_url_words: list[str] = field(default_factory=list)
+
+    @property
+    def site_file(self) -> Path:
+        return BANK_SITE_FILE if self.money_site else SYNC_DIR / "sites" / f"{self.site.id}.md"
 
     @property
     def mode(self) -> str:
@@ -107,8 +116,15 @@ def plan_session(
     trusted: bool = False,
     keep_transcript: bool = False,
     params: dict[str, Any] | None = None,
+    cards: CardsConfig | None = None,
 ) -> SessionPlan:
     run_date = run_date or date.today().isoformat()
+    accounts = cards.accounts_for_site(site.id) if cards else []
+    money_site = bool(accounts)
+    if money_site and (trusted or site.id in settings.sync.trusted_sites
+                       or settings.sync.browser_for(site.id) == "extension"):
+        raise ValueError(f"{site.id} holds a bank account: it runs in approve mode, in its own "
+                         "Chrome profile (docs/SPEC-checking.md §7.4)")
     return SessionPlan(
         site=site,
         run_date=run_date,
@@ -121,6 +137,8 @@ def plan_session(
         browser=settings.sync.browser_for(site.id),
         keep_transcript=keep_transcript,
         params=params or {},
+        money_site=money_site,
+        money_url_words=sorted({w for a in accounts for w in a.money_url_words}),
     )
 
 
@@ -170,7 +188,7 @@ def session_settings(plan: SessionPlan, python: str = sys.executable) -> dict[st
 
 def build_prompt(plan: SessionPlan) -> str:
     parts = [(SYNC_DIR / "base_rules.md").read_text()]
-    parts.append((SYNC_DIR / "sites" / f"{plan.site.id}.md").read_text())
+    parts.append(plan.site_file.read_text())
     playbook = playbooks.current(plan.site.id)
     parts.append(
         "# Current playbook\n\n" + (playbook if playbook else "(none yet: this is the first run)")

@@ -1,7 +1,11 @@
 # Copyright (C) 2026 Prakhar Saxena
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-"""Per-site playbooks (SPEC §9.1). The agent proposes; the user accepts or rejects."""
+"""Per-site playbooks (SPEC §9.1). The agent proposes; the user accepts or rejects.
+
+A bank site's playbook names the bank, so it lives in the gitignored `private/playbooks/`
+(docs/SPEC-checking.md §1.1, §7.5); every other site's lives in `sync/playbooks/`.
+"""
 
 from __future__ import annotations
 
@@ -9,22 +13,34 @@ import difflib
 import re
 from pathlib import Path
 
-from fin.config import REPO_ROOT
+from fin.config import CONFIG_DIR, REPO_ROOT, load_cards
 
 PLAYBOOKS_DIR = REPO_ROOT / "sync" / "playbooks"
+PRIVATE_PLAYBOOKS_DIR = REPO_ROOT / "private" / "playbooks"
 HOST = re.compile(r"^[a-z0-9-]+(\.[a-z0-9-]+)+$")
 
 
-def path_for(site: str, root: Path = PLAYBOOKS_DIR) -> Path:
-    return root / f"{site}.md"
+def bank_sites(cards_path: Path | None = None) -> list[str]:
+    """Bank sites from cards.json. No cards.json means no bank; a broken one raises, so a bank
+    playbook can't fall through to the public folder."""
+    path = cards_path or CONFIG_DIR / "cards.json"
+    return load_cards(path).bank_sites if path.exists() else []
 
 
-def current(site: str, root: Path = PLAYBOOKS_DIR) -> str | None:
+def root_for(site: str) -> Path:
+    return PRIVATE_PLAYBOOKS_DIR if site in bank_sites() else PLAYBOOKS_DIR
+
+
+def path_for(site: str, root: Path | None = None) -> Path:
+    return (root or root_for(site)) / f"{site}.md"
+
+
+def current(site: str, root: Path | None = None) -> str | None:
     p = path_for(site, root)
     return p.read_text() if p.exists() else None
 
 
-def login_hosts(site: str, root: Path = PLAYBOOKS_DIR) -> list[str]:
+def login_hosts(site: str, root: Path | None = None) -> list[str]:
     """Hosts listed under a `## Login hosts` heading, one per bullet line."""
     text = current(site, root) or ""
     hosts: list[str] = []
@@ -40,7 +56,7 @@ def login_hosts(site: str, root: Path = PLAYBOOKS_DIR) -> list[str]:
     return hosts
 
 
-def diff(site: str, proposed: str, root: Path = PLAYBOOKS_DIR) -> str:
+def diff(site: str, proposed: str, root: Path | None = None) -> str:
     old = current(site, root) or ""
     return "".join(
         difflib.unified_diff(
@@ -50,7 +66,8 @@ def diff(site: str, proposed: str, root: Path = PLAYBOOKS_DIR) -> str:
     )
 
 
-def accept(site: str, proposed: str, root: Path = PLAYBOOKS_DIR) -> Path:
+def accept(site: str, proposed: str, root: Path | None = None) -> Path:
     p = path_for(site, root)
+    p.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     p.write_text(proposed if proposed.endswith("\n") else proposed + "\n")
     return p

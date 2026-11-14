@@ -36,6 +36,22 @@ SITE_PHASE = {"chase": 1, "amazon": 1, "citi": 2, "costco": 2, "amex": 3, "gmail
 MARK = {"PASS": "✓", "FAIL": "✗", "WARN": "!", "INFO": "i"}
 
 
+def _bank_sites() -> list[str]:
+    """Sites that hold a bank account, from cards.json (docs/SPEC-checking.md §7.5)."""
+    path = CONFIG_DIR / "cards.json"
+    return load_cards(path).bank_sites if path.exists() else []
+
+
+def _bank_site_ready() -> bool:
+    from fin.sync.launcher import BANK_SITE_FILE
+
+    return BANK_SITE_FILE.exists()
+
+
+BANK_SITE_NOT_READY = ("The bank's site file (sync/sites/bank.md) arrives in Phase B1 of "
+                       "docs/SPEC-checking.md.")
+
+
 def _private_dir(p: Path) -> None:
     p.mkdir(parents=True, exist_ok=True, mode=0o700)
     p.chmod(0o700)
@@ -128,7 +144,8 @@ def doctor() -> None:
 
 @app.command()
 def sync(
-    site: Annotated[str, typer.Argument(help="chase|amex|citi|amazon|costco|selftest|gmail")],
+    site: Annotated[str, typer.Argument(
+        help="chase|amex|citi|amazon|costco|selftest|gmail, or your bank site's id")],
     trusted: Annotated[bool, typer.Option(help="Allow action tools without prompts")] = False,
     since: Annotated[str | None, typer.Option(help="Override start date YYYY-MM-DD")] = None,
     keep_transcript: Annotated[bool, typer.Option(help="Keep this session's transcript")] = False,
@@ -142,6 +159,15 @@ def sync(
     )] = None,
 ) -> None:
     """One browsing session for one site (§9.1), then import. You log in; Claude drives Chrome."""
+    if site in _bank_sites():
+        if driven or trusted:
+            typer.echo(f"{site} holds a bank account: it runs in approve mode only, so you "
+                       "answer every click (docs/SPEC-checking.md §7.4). Drop --driven/--trusted.")
+            raise typer.Exit(2)
+        if not _bank_site_ready():
+            typer.echo(BANK_SITE_NOT_READY)
+            raise typer.Exit(2)
+        raise typer.Exit(sync_site(site, since=since, keep_transcript=keep_transcript))
     if driven and site in READY_SITES:
         raise typer.Exit(sync_driven(site, since=since, hold=hold, offers=offers))
     if site == "selftest":
@@ -256,10 +282,14 @@ def plan_site(
             s, cards, settings, site_id, today, date.fromisoformat(since) if since else None,
             offers,
         )
-    plan = launcher.plan_session(
-        paths, settings, site, trusted=trusted, keep_transcript=keep_transcript,
-        params=run_params,
-    )
+    try:
+        plan = launcher.plan_session(
+            paths, settings, site, trusted=trusted, keep_transcript=keep_transcript,
+            params=run_params, cards=cards,
+        )
+    except ValueError as e:  # a bank site set up to run trusted or in the everyday Chrome
+        typer.echo(str(e))
+        raise typer.Exit(2) from e
     moved = launcher.prepare(plan, settings.sync.playwright_mcp_version)
     return SitePlan(settings, paths, method, cards, plan, since_date, until_date, moved,
                     datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"))
@@ -468,6 +498,13 @@ def _record_selftest_run(paths, plan, checks, log) -> None:
 WEEKLY_ORDER = ("chase", "citi", "amex", "amazon", "costco")
 
 
+def weekly_order() -> list[str]:
+    """Bank sites go after amex (docs/SPEC-checking.md §7.5)."""
+    order = list(WEEKLY_ORDER)
+    i = order.index("amex") + 1
+    return order[:i] + _bank_sites() + order[i:]
+
+
 @app.command()
 def weekly(
     only: Annotated[str | None, typer.Option(help="e.g. chase,amazon")] = None,
@@ -478,16 +515,20 @@ def weekly(
     import subprocess as sp
     import sys
 
-    wanted = [x.strip() for x in only.split(",")] if only else list(WEEKLY_ORDER)
-    unknown = [x for x in wanted if x not in WEEKLY_ORDER]
+    order, banks = weekly_order(), _bank_sites()
+    wanted = [x.strip() for x in only.split(",")] if only else order
+    unknown = [x for x in wanted if x not in order]
     if unknown:
         typer.echo(f"Unknown sites: {unknown}")
         raise typer.Exit(2)
     results: dict[str, str] = {}
-    for site in WEEKLY_ORDER:
+    for site in order:
         if site not in wanted:
             continue
-        if site not in READY_SITES:
+        if site in banks and not _bank_site_ready():
+            results[site] = "skipped (its site file arrives in Phase B1)"
+            continue
+        if site not in READY_SITES and site not in banks:
             results[site] = f"skipped (arrives in Phase {SITE_PHASE[site]})"
             continue
         typer.echo(f"\n=== {site} ===")
@@ -520,7 +561,7 @@ def weekly(
 def import_(
     file: Annotated[Path | None, typer.Argument(help="A manually downloaded file")] = None,
     inbox: Annotated[bool, typer.Option("--inbox", help="Import every run folder")] = False,
-    card: Annotated[str | None, typer.Option(help="Card id, for a CSV")] = None,
+    card: Annotated[str | None, typer.Option(help="Card or account id, for a CSV")] = None,
 ) -> None:
     """Import a file or the inbox (§9.6). Re-importing never creates duplicates."""
     from fin.db import session_factory
@@ -564,16 +605,18 @@ def import_(
     path = file.expanduser().resolve()
     found = ib.detect(path)
     if not found:
-        typer.echo(f"Can't tell what {path.name} is. Supported: Chase activity CSV, Chase "
-                   "statement PDF, Amazon invoice PDF.")
+        typer.echo(f"Can't tell what {path.name} is. Supported: Chase, Citi and Amex "
+                   "activity CSVs and statement PDFs, Amazon invoice PDFs; your bank's "
+                   "statements are recognized by its statement_markers (parser: Phase B2).")
         raise typer.Exit(1)
     site, kind = found
     card_id = card
     if kind == "statement" and not card_id:
         card_id = ib.statement_card(path, site, cards)
     if kind in ("transactions", "statement") and not card_id:
-        ids = ", ".join(c.id for c in cards.cards_for_issuer(site))
-        typer.echo(f"Which card is {path.name}? Pass --card (one of: {ids}).")
+        ids = ", ".join([c.id for c in cards.cards_for_issuer(site)]
+                        + [a.id for a in cards.accounts_for_site(site)])
+        typer.echo(f"Which card or account is {path.name}? Pass --card (one of: {ids}).")
         raise typer.Exit(2)
     with Session() as s:
         r = ib.import_file(s, paths, path, site, kind, card_id)

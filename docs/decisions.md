@@ -893,3 +893,21 @@ Spec: `docs/SPEC-checking.md`. The bank is "the bank" here and everywhere in the
   names the issuer of a tracked card, and that every pattern compiles. Cleaning and
   classification join that module in Phase B2.
 - **Settings**: `[match] transfer_window_days = [-10, 6]`, `transfer_grace_days = 10`.
+- **Bank site plumbing (§7.5).** Bank sites come from `cards.bank_accounts`; no id is
+  hard-coded. `fin sync <site>` accepts them, `fin weekly` runs them after amex, and `fin import`
+  lists accounts with cards. The launcher gives any bank site `sync/sites/bank.md`; until Phase
+  B1 writes that file, `fin sync` and `fin weekly` say so and skip it. A bank site's playbook
+  resolves to `private/playbooks/<site>.md` (created 700); if `cards.json` exists but won't load,
+  the lookup fails instead of falling back to the public folder.
+- **Approve mode is enforced, not just advised (§7.4).** `fin sync <bank> --driven` and
+  `--trusted` exit with a message, and `plan_session` refuses a bank site listed in
+  `trusted_sites` or set to `site_browser = extension`. `fin doctor` reports both settings too.
+- **Run parameters.** An account's have a card's shape under `accounts` (plus
+  `account_ending`). The first run starts at the earliest card transaction (falling back to
+  `history_months` when there are none) and asks for every closed statement since;
+  `statements_already_imported` reads `bank_statements`. `run_params` no longer fails for a site
+  with nothing to sync.
+- **Inbox.** `detect()` recognizes a bank statement by its account's `statement_markers` (from
+  `cards.json`, so no bank words in code); the export's header is unknown until B1, so the
+  export isn't detected yet. `statement_card` gives a bank site's statement to its only account,
+  or to the one whose ending it prints, never to the Chase parser.

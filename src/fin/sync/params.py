@@ -8,6 +8,9 @@
 - Statements: closed statements in range that aren't imported yet. On the first run,
   the last `statements_per_card` per card.
 - Amazon / Costco: orders in range that aren't imported yet.
+- A bank account (docs/SPEC-checking.md §7.5): the same shape as a card's. Its first run reaches
+  back to the earliest card transaction, so every card payment can find its checking row, and
+  asks for every closed statement in that span.
 """
 
 from __future__ import annotations
@@ -77,6 +80,46 @@ def issuer_params(
     return {"cards": out, "collect_offers": collect}
 
 
+def account_params(
+    s: Session, cards: CardsConfig, settings: Settings, site: str, today: date,
+    since: date | None = None,
+) -> dict[str, Any]:
+    card_ids = [c.id for c in cards.cards]
+    earliest = s.scalar(select(func.min(m.Transaction.post_date)).where(
+        m.Transaction.card_id.in_(card_ids))) if card_ids else None
+    out = []
+    for acct in cards.accounts_for_site(site):
+        latest = s.scalar(
+            select(func.max(m.Transaction.post_date)).where(m.Transaction.card_id == acct.id)
+        )
+        start, first = _start(latest, today, settings)
+        if first and earliest:
+            start = date.fromisoformat(earliest)
+        if since:
+            start, first = since, False
+        imported = sorted(s.scalars(
+            select(m.BankStatement.period_end).where(m.BankStatement.card_id == acct.id)))
+        if first:
+            wanted = (f"Every closed statement with a closing date on or after "
+                      f"{start.isoformat()} (first run).")
+        else:
+            wanted = (
+                f"Every closed statement with a closing date on or after {start.isoformat()} "
+                "whose closing date is not in statements_already_imported."
+            )
+        out.append({
+            "card_id": acct.id,
+            "product": acct.product,
+            "account_ending": acct.account_ending,
+            "transactions_from": start.isoformat(),
+            "transactions_to": today.isoformat(),
+            "first_run": first,
+            "statements_wanted": wanted,
+            "statements_already_imported": imported,
+        })
+    return {"accounts": out}
+
+
 def source_params(
     s: Session, settings: Settings, source: str, today: date, since: date | None = None,
 ) -> dict[str, Any]:
@@ -121,12 +164,17 @@ def run_params(
     if site in ITEM_SOURCES:
         p = source_params(s, settings, site, today, since)
         return p, p["orders_from"], p["orders_to"]
-    p = issuer_params(s, cards, settings, site, today, since, offers)
-    froms = [c["transactions_from"] for c in p["cards"]]
-    return p, min(froms), today.isoformat()
+    if site in cards.bank_sites:
+        p = account_params(s, cards, settings, site, today, since)
+        froms = [a["transactions_from"] for a in p["accounts"]]
+    else:
+        p = issuer_params(s, cards, settings, site, today, since, offers)
+        froms = [c["transactions_from"] for c in p["cards"]]
+    return p, min(froms, default=today.isoformat()), today.isoformat()
 
 
 def allowed_card_ids(cards: CardsConfig, site: str) -> set[str]:
     if site in ITEM_SOURCES:
         return set()
-    return {c.id for c in cards.cards_for_issuer(site)}
+    return {c.id for c in cards.cards_for_issuer(site)} | {
+        a.id for a in cards.accounts_for_site(site)}

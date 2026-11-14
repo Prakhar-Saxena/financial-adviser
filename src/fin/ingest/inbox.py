@@ -229,8 +229,27 @@ def record_gaps(session: Session, report: dict[str, Any], sync_run_id: int) -> i
 # ------------------------------------------------------------ manual files
 
 
-def detect(path: Path) -> tuple[str, str] | None:
-    """Content-based type detection for manual drops (§9.6). Returns (site, kind)."""
+def bank_statement_site(text: str, cards) -> str | None:
+    """The bank site whose `statement_markers` appear in a statement's text, if any. Markers
+    name the bank, so they live in cards.json, never in code (docs/SPEC-checking.md §1.1)."""
+    upper = text.upper()
+    for acct in cards.bank_accounts:
+        if any(mk.strip() and mk.upper() in upper for mk in acct.statement_markers):
+            return acct.site
+    return None
+
+
+def _cards_if_configured():
+    from fin.config import CONFIG_DIR, load_cards
+
+    path = CONFIG_DIR / "cards.json"
+    return load_cards(path) if path.exists() else None
+
+
+def detect(path: Path, cards=None) -> tuple[str, str] | None:
+    """Content-based type detection for manual drops (§9.6). Returns (site, kind).
+
+    A bank's activity export is recognized by its header once Phase B2 has seen a real one."""
     from fin.ingest.bank_csv import is_amex_csv, is_chase_csv, is_citi_csv
 
     suffix = path.suffix.lower()
@@ -247,6 +266,10 @@ def detect(path: Path) -> tuple[str, str] | None:
             text = pdf_text(path)
         else:
             text = path.read_text(errors="replace")
+        cards = cards or _cards_if_configured()
+        bank = bank_statement_site(text, cards) if cards else None
+        if bank:
+            return (bank, "statement")
         if "Order placed" in text and "Order #" in text:
             return ("amazon", "order_invoice")
         if "Opening/Closing Date" in text and "chase.com" in text.lower():
@@ -259,7 +282,17 @@ def detect(path: Path) -> tuple[str, str] | None:
 
 
 def statement_card(path: Path, site: str, cards) -> str | None:
-    """Which configured card a statement belongs to, from its product markers."""
+    """Which configured card or account a statement belongs to, from its product markers (a
+    card) or the account ending it prints (a bank account)."""
+    if site in cards.bank_sites:
+        accounts = cards.accounts_for_site(site)
+        if len(accounts) == 1:
+            return accounts[0].id
+        from fin.ingest.statements import pdf_text
+
+        text = path.read_text() if path.suffix == ".txt" else pdf_text(path)
+        hits = [a.id for a in accounts if a.account_ending and a.account_ending in text]
+        return hits[0] if len(hits) == 1 else None
     from fin.ingest.statements import (
         parse_amex_statement,
         parse_chase_statement,
