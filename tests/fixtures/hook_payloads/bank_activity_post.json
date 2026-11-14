@@ -1,0 +1,13 @@
+{
+ "session_id": "fictional",
+ "cwd": "{SESSION_CWD}",
+ "hook_event_name": "PostToolUse",
+ "tool_name": "mcp__playwright__browser_snapshot",
+ "tool_input": {},
+ "tool_response": [
+  {
+   "type": "text",
+   "text": "### Page\n- Page URL: https://online.bank.example/accounts/checking/activity\n- Page Title: Account activity\n### Snapshot\n```yaml\n- banner [ref=e1]:\n  - navigation \"Main\" [ref=e2]:\n    - button \"Payments & Transfers\" [ref=e3] [cursor=pointer]\n    - link \"Send money with Zelle\" [ref=e4] [cursor=pointer]\n    - link [ref=e5] [cursor=pointer]:\n      - img \"Zelle\" [ref=e6]\n    - link \"Transfer money\" [ref=e7] [cursor=pointer]\n    - link \"Bill Pay\" [ref=e8] [cursor=pointer]\n    - link \"Wire transfers\" [ref=e9] [cursor=pointer]\n    - link \"Statements & Documents\" [ref=e10] [cursor=pointer]\n- main [ref=e11]:\n  - heading \"Example Bank Checking ...0000\" [level=1] [ref=e12]\n  - paragraph [ref=e13]: Available balance $0.00\n  - button \"Download account activity\" [ref=e14] [cursor=pointer]\n  - combobox \"Date range\" [ref=e15]\n  - button \"Apply\" [ref=e16] [cursor=pointer]\n  - table \"Transactions\" [ref=e17]:\n    - row \"Date Description Amount\" [ref=e18]\n    - row \"11/01 SAMPLE COFFEE -4.50\" [ref=e19]\n  - button \"Next page\" [ref=e20] [cursor=pointer]\n```\n"
+  }
+ ]
+}

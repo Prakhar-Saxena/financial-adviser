@@ -167,6 +167,10 @@ def guard_config(plan: SessionPlan, login_hosts: list[str]) -> dict[str, Any]:
         "session_cwd": str(plan.session_cwd.resolve()),
         "allowed_domains": list(plan.site.allowed_domains),
         "login_hosts": login_hosts,
+        # A site that holds a bank account: the stricter rules (SPEC-checking §7.3). The bank's
+        # own URL words come from cards.json; this file lives in the data dir.
+        "money_site": plan.money_site,
+        "money_url_words": list(plan.money_url_words),
         "log_path": str(plan.guard_log.resolve()),
         # The page's Add / Enroll controls the guard has seen (outside the run folder).
         "state_path": str((plan.control_dir / "guard_state.json").resolve()),

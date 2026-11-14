@@ -13,6 +13,10 @@ this hook sees. Approve mode and the user watching the browser are the real prot
 
 guard.log records only time, event, tool, decision and a short label.
 Never page text, URLs' paths or typed values.
+
+A site that holds a bank account (`money_site` in guard_config.json) gets three more rules
+(docs/SPEC-checking.md §7.3): no money-moving pages by URL, no amount-like typing, no revealing
+full account numbers. The wider action and page deny lists apply to every site.
 """
 
 from __future__ import annotations
@@ -65,6 +69,11 @@ DENY_ACTIONS = re.compile(
     | \brenew(al)?\b | \bauto-?renew\b | \bupgrade\b | \breorder\b | \border\s+again\b
     | \bpay\s+over\s+time\b | \bplan\s+it\b | \bsend\s*&?\s*split\b | \badd\s+(a\s+)?card\b
     | \btransfer\s+points\b | \buse\s+points\b
+    | \bwires?\b | \bbill\s*-?\s*pay\b | \bpay\s+bills?\b | \bpayees?\b | \brecipients?\b
+    | \bstop\s+(a\s+)?(payment|check)\b | \border\s+checks\b | \bdeposit\s+(a\s+)?checks?\b
+    | \bexternal\s+accounts?\b | \blink\s+(an?\s+)?(external\s+)?accounts?\b
+    | \bopen\s+(an?\s+|new\s+)?accounts?\b | \boverdraft\b
+    | \bcard\s+(controls?|management)\b | \bdirect\s+deposit\b
     """,
     re.IGNORECASE | re.VERBOSE,
 )
@@ -90,8 +99,31 @@ PAGE_DENY = re.compile(
     | ^\s*(\+|add|added)\s*$
     | \bmake\s+(a\s+)?payments?\b | \bpay\s+(now|bill|balance|card)\b | \bredeem\b
     | \btransfer\s+points\b
+    | \bpayments?\s*(and|&)\s*transfers?\b | \btransfers?\s*(and|&)\s*payments?\b
+    | \bsend\s+money\b | \bzelle | \bwires?\b | \btransfer\s+money\b | \bmake\s+a\s+transfer\b
+    | \bbill\s*-?\s*pay\b | \bpay\s+bills?\b
     """,
     re.IGNORECASE | re.VERBOSE,
+)
+
+# ------------------------------------------------- money sites (SPEC-checking §7.3)
+# Rule 1: pages that move money, by URL path, query or fragment. Generic words only: a word
+# unique to one bank comes from cards.json through guard_config.json's money_url_words.
+MONEY_URL = re.compile(
+    r"transfer|billpay|bill-pay|pay-?bills?|zelle|wire|p2p|send-?money|money-?movement"
+    r"|external-?account|direct-?deposit|remote-?deposit|deposit-?check|card-?management"
+    r"|card-?control",
+    re.IGNORECASE,
+)
+# Rule 2: nothing read-only needs an amount, and moving money always does.
+AMOUNT = re.compile(r"^\s*\$?\s*\d[\d,]*(\.\d{1,2})?\s*$")
+DIGIT_KEY = re.compile(r"^(Digit|Numpad)?\d$")
+# Rule 3: full account, routing and card numbers stay hidden.
+REVEAL = re.compile(
+    r"\b(show|view|reveal|display|unmask|see)\b[\w\s]{0,24}\b(account|routing|card)\s*"
+    r"(number|num|no\b|#)|\baccount\s+details\b|\b(full|complete)\s+(account|routing|card)\s*"
+    r"(number|num|no\b|#)",
+    re.IGNORECASE,
 )
 # `- button "Add to Card" [ref=e45] [cursor=pointer]` or `- button [ref=e45]: Add to Card`
 SNAPSHOT_LINE = re.compile(
@@ -120,6 +152,23 @@ def url_ok(url: str, cfg: dict) -> tuple[bool, str]:
         return False, f"scheme {parts.scheme or '?'}"
     host = parts.hostname or ""
     return host_allowed(host, cfg), host
+
+
+def money_page(url: str, cfg: dict) -> bool:
+    """A money-moving page on a money site, judged by path, query and fragment."""
+    if not cfg.get("money_site"):
+        return False
+    parts = urlsplit(url)
+    where = f"{parts.path}?{parts.query}#{parts.fragment}".lower()
+    words = [w.lower() for w in cfg.get("money_url_words") or [] if w.strip()]
+    return bool(MONEY_URL.search(where)) or any(w in where for w in words)
+
+
+MONEY_PAGE = "money page"
+MONEY_PAGE_REASON = (
+    "That page moves money (transfers, bill pay, person-to-person payments, wires or card "
+    "controls). This session is read-only. Don't use it; if the task needs it, stop and tell "
+    "the user.")
 
 
 def inside(path: Path, root: Path) -> bool:
@@ -275,9 +324,16 @@ def pre_tool(payload: dict, cfg: dict) -> tuple[str, str, str]:
                 f"Navigation to {host} is outside this site's allowed domains. "
                 "Stay on the site; if the task needs another site, stop and tell the user."
             ), host
+        if money_page(url, cfg):
+            return "deny", MONEY_PAGE_REASON, MONEY_PAGE
         lbl = host
     else:
         lbl = ""
+
+    if cfg.get("money_site"):
+        found = money_site_rules(short, args)
+        if found:
+            return "deny", *found
 
     # Files saved by browser tools must land in the run folder.
     fname = args.get("filename")
@@ -331,6 +387,27 @@ def pre_tool(payload: dict, cfg: dict) -> tuple[str, str, str]:
     return "allow", "", lbl
 
 
+def money_site_rules(short: str, args: dict) -> tuple[str, str] | None:
+    """Rules 2 and 3 for a money site: (reason, log label) when the action is denied."""
+    amount = ("Amounts can't be typed on a bank's site: nothing read-only needs one. Dates "
+              "with slashes are fine. If the task needs an amount, stop and tell the user.",
+              "amount-like text")
+    if short == "browser_type" and AMOUNT.match(str(args.get("text") or "")):
+        return amount
+    if short == "browser_fill_form" and any(
+            isinstance(f, dict) and AMOUNT.match(str(f.get("value") or ""))
+            for f in args.get("fields") or []):
+        return amount
+    if short == "browser_press_key" and DIGIT_KEY.match(str(args.get("key") or "")):
+        return amount
+    if short in ("browser_click", "browser_select_option"):
+        element = str(args.get("element") or "")
+        if REVEAL.search(element):
+            return ("Full account, routing and card numbers stay hidden, and account details "
+                    "aren't needed. Don't open them.", label(element))
+    return None
+
+
 # Sites that give every export the same name (Amex: activity.csv). The guard renames a fresh
 # download so the next card's export can't overwrite it, and tells the agent the new name.
 GENERIC_DOWNLOADS = {"activity.csv"}
@@ -363,6 +440,11 @@ def post_tool(payload: dict, cfg: dict) -> tuple[str, str, str]:
     if not urls:
         return "allow", "", ""
     ok, host = url_ok(urls[-1], cfg)
+    if ok and money_page(urls[-1], cfg):
+        return "block", (
+            "The page now moves money. Go back with browser_navigate_back, do nothing on this "
+            "page, and stop to tell the user."
+        ), MONEY_PAGE
     if ok:
         return "allow", "", host
     return "block", (

@@ -367,3 +367,173 @@ def test_guard_state_is_reserved(env):
     p = {"hook_event_name": "PreToolUse", "tool_name": "Write", "cwd": str(cwd),
          "tool_input": {"file_path": str(run / "guard_state.json"), "content": "{}"}}
     assert decide(p, cfg) == "deny"
+
+
+# ------------------------------------------------ bank sites (SPEC-checking §7.3)
+# A fictional bank (bank.example). Rules 1 to 3 apply to money sites only; rules 4 and 5 to all.
+
+
+@pytest.fixture
+def bank(env):
+    cfg, cfg_path, cwd, run = env
+    cfg = {**cfg, "site": "bank", "allowed_domains": ["bank.example"], "login_hosts": [],
+           "money_site": True, "money_url_words": ["harborpay"]}
+    cfg_path.write_text(json.dumps(cfg))
+    return cfg, cfg_path, cwd, run
+
+
+MONEY_URLS = [
+    "https://online.bank.example/transfers", "https://online.bank.example/billpay/home",
+    "https://online.bank.example/pay-bills", "https://online.bank.example/a/b?flow=zelle",
+    "https://online.bank.example/#/money-movement/send", "https://online.bank.example/wire/new",
+    "https://online.bank.example/p2p", "https://online.bank.example/external-accounts",
+    "https://online.bank.example/direct-deposit", "https://online.bank.example/deposit-check",
+    "https://online.bank.example/card-controls", "https://online.bank.example/harborpay/start",
+]
+
+
+@pytest.mark.parametrize("url", MONEY_URLS)
+def test_money_page_denied_before_navigation(bank, url):
+    cfg, _, cwd, _ = bank
+    decision, _, lbl = guard.pre_tool(pw("browser_navigate", cwd, url=url), cfg)
+    assert (decision, lbl) == ("deny", "money page")
+    assert decide(pw("browser_tabs", cwd, action="new", url=url), cfg) == "deny"
+
+
+@pytest.mark.parametrize("url", MONEY_URLS)
+def test_money_page_blocked_after_navigation(bank, url):
+    """A click that lands on a money page: the URL comes from the tool result, not the model."""
+    cfg, _, cwd, _ = bank
+    p = pw("browser_click", cwd, event="PostToolUse", element="Statements link", target="e1")
+    p["tool_response"] = [{"type": "text", "text": f"### Page\n- Page URL: {url}\n"}]
+    decision, reason, lbl = guard.post_tool(p, cfg)
+    assert (decision, lbl) == ("block", "money page") and "navigate_back" in reason
+
+
+@pytest.mark.parametrize("url", [
+    "https://online.bank.example/accounts/checking/activity",
+    "https://online.bank.example/statements?year=2026",
+    "https://online.bank.example/documents/download?type=deposit",
+])
+def test_read_only_bank_pages_allowed(bank, url):
+    cfg, _, cwd, _ = bank
+    assert decide(pw("browser_navigate", cwd, url=url), cfg) == "allow"
+    p = pw("browser_navigate", cwd, event="PostToolUse", url=url)
+    p["tool_response"] = [{"type": "text", "text": f"- Page URL: {url}\n"}]
+    assert decide(p, cfg) == "allow"
+
+
+def test_money_page_rules_only_on_money_sites(env):
+    cfg, _, cwd, _ = env
+    assert decide(pw("browser_navigate", cwd, url="https://www.chase.com/transfers"),
+                  cfg) == "allow"
+
+
+def test_money_page_log_holds_no_path(bank):
+    _, cfg_path, cwd, run = bank
+    run_guard(cfg_path, pw("browser_navigate", cwd, url="https://online.bank.example/zelle/x1"))
+    p = pw("browser_click", cwd, event="PostToolUse", element="Statements", target="e1")
+    p["tool_response"] = [{"type": "text", "text": "- Page URL: https://online.bank.example/"
+                                                   "billpay/payee-77\n"}]
+    out = json.loads(run_guard(cfg_path, p).stdout)
+    assert out["decision"] == "block"
+    log = (run / "guard.log").read_text()
+    assert [json.loads(x)["label"] for x in log.splitlines()] == ["money page", "money page"]
+    assert "zelle" not in log and "payee" not in log
+
+
+@pytest.mark.parametrize(("tool", "args"), [
+    ("browser_type", {"element": "Search", "target": "e3", "text": "125.00"}),
+    ("browser_type", {"element": "Search", "target": "e3", "text": "$1,250"}),
+    ("browser_type", {"element": "Memo", "target": "e3", "text": " 40 "}),
+    ("browser_fill_form", {"fields": [{"name": "Amount", "type": "textbox", "target": "e1",
+                                       "value": "40.5"}]}),
+    ("browser_fill_form", {"fields": [{"name": "From date", "type": "textbox", "target": "e1",
+                                       "value": "07/01/2026"},
+                                      {"name": "Note", "type": "textbox", "target": "e2",
+                                       "value": "$9"}]}),
+    ("browser_press_key", {"key": "5"}),
+    ("browser_press_key", {"key": "Digit0"}),
+    ("browser_press_key", {"key": "Numpad7"}),
+])
+def test_amounts_cannot_be_typed_on_a_money_site(bank, tool, args):
+    cfg, _, cwd, _ = bank
+    decision, _, lbl = guard.pre_tool(pw(tool, cwd, **args), cfg)
+    assert (decision, lbl) == ("deny", "amount-like text")
+
+
+@pytest.mark.parametrize(("tool", "args"), [
+    ("browser_type", {"element": "Search", "target": "e3", "text": "coffee"}),
+    ("browser_fill_form", {"fields": [
+        {"name": "From date", "type": "textbox", "target": "e1", "value": "07/01/2026"},
+        {"name": "To date", "type": "textbox", "target": "e2", "value": "10/01/2026"}]}),
+    ("browser_press_key", {"key": "Enter"}),
+    ("browser_press_key", {"key": "Tab"}),
+])
+def test_dates_and_words_still_typed_on_a_money_site(bank, tool, args):
+    cfg, _, cwd, _ = bank
+    assert decide(pw(tool, cwd, **args), cfg) == "allow"
+
+
+def test_amount_rule_only_on_money_sites(env):
+    cfg, _, cwd, _ = env
+    assert decide(pw("browser_type", cwd, element="Search all orders", target="e3",
+                     text="2026"), cfg) == "allow"
+    assert decide(pw("browser_press_key", cwd, key="5"), cfg) == "allow"
+
+
+@pytest.mark.parametrize("element", [
+    "Show full account number", "View routing number", "Reveal account number button",
+    "See full card number", "Account details", "Show account # link",
+])
+def test_full_numbers_stay_hidden_on_a_money_site(bank, element):
+    cfg, _, cwd, _ = bank
+    assert decide(pw("browser_click", cwd, element=element, target="e2"), cfg) == "deny"
+
+
+def test_reveal_rule_only_on_money_sites(env):
+    cfg, _, cwd, _ = env
+    assert decide(pw("browser_click", cwd, element="Account details", target="e2"),
+                  cfg) == "allow"
+
+
+@pytest.mark.parametrize("element", [
+    "Wire money", "Bill Pay", "Pay bills", "Add a payee", "Recipients", "Stop payment",
+    "Stop a check", "Order checks", "Deposit a check", "External accounts",
+    "Link an account", "Link external account", "Open an account", "Overdraft protection",
+    "Card controls", "Card management", "Direct deposit form",
+])
+def test_bank_actions_denied_everywhere(env, bank, element):
+    for cfg, _, cwd, _ in (env, bank):
+        assert decide(pw("browser_click", cwd, element=element, target="e5"), cfg) == "deny"
+
+
+@pytest.mark.parametrize("element", [
+    "Payment activity tab", "Apply", "Apply filter button", "Download account activity",
+    "Statements & documents", "Next page", "Date range dropdown", "Statements & Activity",
+    "Statements & documents link", "Download account activity icon", "Archived statements tab",
+    "Checking account activity", "Transactions tab", "Deposits filter",
+])
+def test_read_only_labels_still_allowed_on_a_money_site(bank, element):
+    cfg, _, cwd, _ = bank
+    assert decide(pw("browser_click", cwd, element=element, target="e5"), cfg) == "allow"
+
+
+def test_bank_page_controls_blocked_by_their_own_labels(bank):
+    """Zelle, transfer, bill pay and wire controls are blocked however the agent describes them,
+    even an icon-only Zelle link (its label comes from its child)."""
+    cfg, _, cwd, run = bank
+    assert decide(recorded("bank_activity_post.json", cwd, run), cfg) == "allow"
+    for ref in ("e3", "e4", "e5", "e7", "e8", "e9"):
+        assert decide(pw("browser_click", cwd, element="Statements link", ref=ref), cfg) == "deny"
+    for ref in ("e10", "e14", "e16", "e20"):
+        assert decide(pw("browser_click", cwd, element="Statements link", ref=ref),
+                      cfg) == "allow"
+
+
+def test_bank_page_labels_blocked_on_any_site(env):
+    """Rule 5 lists page labels for every site, not only money sites."""
+    cfg, _, cwd, run = env
+    cfg = {**cfg, "allowed_domains": ["bank.example"]}
+    decide(recorded("bank_activity_post.json", cwd, run), cfg)
+    assert decide(pw("browser_click", cwd, element="Statements link", ref="e4"), cfg) == "deny"

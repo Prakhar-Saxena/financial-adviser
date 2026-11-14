@@ -911,3 +911,22 @@ Spec: `docs/SPEC-checking.md`. The bank is "the bank" here and everywhere in the
   `cards.json`, so no bank words in code); the export's header is unknown until B1, so the
   export isn't detected yet. `statement_card` gives a bank site's statement to its only account,
   or to the one whose ending it prints, never to the Chase parser.
+- **Stricter guard (§7.3), `sync/guard.py`.** `guard_config.json` carries `money_site` (true only
+  for a site in `bank_accounts`) and `money_url_words` (from `cards.json`). On a money site:
+  1. `MONEY_URL` (§7.3's generic list) and the bank's own words are matched against path, query
+     and fragment. PreToolUse denies any tool whose `url` is one (navigate, new tab);
+     PostToolUse blocks when the page the tool landed on is one, reading the URL from the tool
+     result. `guard.log` records only `money page`.
+  2. `browser_type` text and `browser_fill_form` values that look like an amount are denied,
+     and so are digit keys (`5`, `Digit5`, `Numpad5`) in `browser_press_key`. Slashed dates and
+     words still work. Logged as `amount-like text`.
+  3. Clicks described as showing, viewing, revealing or seeing an account, routing or card
+     number, a "full" such number, or "account details" are denied.
+  Everywhere: `DENY_ACTIONS` gains wire, bill pay, pay bills, payee, recipient, stop payment/a
+  check, order checks, deposit a check, external account, link/open an account, overdraft, card
+  controls/management, direct deposit; `PAGE_DENY` gains payments & transfers (either order),
+  send money, Zelle, wire, transfer money, make a transfer, bill pay, pay bills. The existing
+  allowed labels still pass on both kinds of site, and none of the current site files or
+  playbooks uses a newly denied label. Tested with a fictional recorded bank page
+  (`tests/fixtures/hook_payloads/bank_activity_post.json`), where an icon-only Zelle link is
+  blocked through its child's label.
