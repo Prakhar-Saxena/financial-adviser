@@ -25,7 +25,9 @@ EXAMPLE = json.loads((CONFIG_DIR / "cards.example.json").read_text())
 def test_example_and_settings_load():
     cards = load_cards(CONFIG_DIR / "cards.example.json")
     assert len(cards.cards) == 6 and len(cards.people) == 4
-    assert {i.id for i in cards.issuers} == {"amex", "chase", "citi"}
+    assert {i.id for i in cards.issuers} == {"amex", "chase", "citi", "bank"}
+    assert cards.bank_sites == ["bank"]
+    assert cards.account_name("checking") == "Example Bank Checking"
     s = load_settings()
     assert s.general.history_months == 3 and s.sync.sync_overlap_days == 14
     assert s.match.amazon_window_days == (-1, 3)
@@ -50,10 +52,26 @@ def mutate(fn):
     lambda d: d["issuers"][0].update(allowed_domains=["https://chase.com"]),
     lambda d: d["issuers"][0].update(start_url="http://chase.com"),
     lambda d: d.update(unexpected=1),
+    # Bank accounts (docs/SPEC-checking.md §5)
+    lambda d: d["bank_accounts"][0].update(id="amex_gold"),        # id shared with a card
+    lambda d: d["bank_accounts"][0].update(site="nowhere"),
+    lambda d: d["bank_accounts"][0].update(site="chase"),          # a card issuer
+    lambda d: d["bank_accounts"][0].update(account_type="savings"),
+    lambda d: d["bank_accounts"][0].update(account_ending="12345"),
+    lambda d: d["bank_accounts"].append(dict(d["bank_accounts"][0])),
 ])
 def test_invalid_cards(fn):
     with pytest.raises(ValidationError):
         CardsConfig.model_validate(mutate(fn))
+
+
+def test_missing_bank_accounts_still_loads():
+    doc = mutate(lambda d: d.pop("bank_accounts"))
+    cards = CardsConfig.model_validate(doc)
+    assert cards.bank_accounts == [] and cards.bank_sites == []
+    assert cards.account_name("amex_gold") == "American Express Gold Card"
+    with pytest.raises(KeyError):
+        cards.account_name("checking")
 
 
 def test_blank_endings_allowed():

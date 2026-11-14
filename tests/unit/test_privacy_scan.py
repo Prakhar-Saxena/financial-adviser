@@ -334,6 +334,53 @@ def test_precommit_blocks_private_paths(hook_repo, name):
     assert proc.returncode != 0 and "blocked" in proc.stderr
 
 
+@pytest.mark.parametrize("line", [
+    "Checking lives at Harborview Bank.", "start at online.harborviewbank.example",
+    "see harborviewbank.example/statements", "the Harborview Rewards Checking account",
+])
+def test_precommit_refuses_a_bank_site_without_private_words(hook_repo, line):
+    """The bank's words come from bank_accounts and its issuer entry, not only private_words."""
+    r, _ = hook_repo
+    (r / "config" / "cards.json").write_text(json.dumps({**CARDS, "private_words": []}))
+    proc = commit(hook_repo, {"docs/notes.md": f"x\n{line}\n"}, "Add notes")
+    assert proc.returncode != 0 and "docs/notes.md:2: a private word" in proc.stderr
+    assert "harborview" not in proc.stderr.lower()
+    proc = commit(hook_repo, {"docs/notes.md": "x\n"}, f"Notes: {line}")
+    assert proc.returncode != 0 and "harborview" not in proc.stderr.lower()
+
+
+def test_make_cards_example_writes_none_of_the_bank():
+    make = load_script("make_cards_example")
+    real = {**CARDS, "_notes": ["Real config for Jordan at Harborview Bank"],
+            "issuers": CARDS["issuers"] + [{"id": "chase", "name": "Chase",
+                                             "start_url": "https://www.chase.com/",
+                                             "allowed_domains": ["chase.com"]}],
+            "cards": [{"id": "visa", "issuer": "chase", "network": "visa", "cardholders": [
+                {"person": "self", "card_ending": "4321"},
+                {"person": "casey", "card_ending": "98765"}]}],
+            "bank_accounts": [{**CARDS["bank_accounts"][0], "account_type": "checking",
+                               "statement_markers": ["HARBORVIEW REWARDS CHECKING SUMMARY"],
+                               "money_url_words": ["harborpay"]}]}
+    text = json.dumps(make.make_example(real)).lower()
+    words, endings = scan.site_terms(real)
+    names, _ = scan.people_terms(real)
+    for w in [*words, *endings, *names, "harborview", "harborpay", "maplewood", "realname"]:
+        assert w.lower() not in text, w
+    example = json.loads(text)
+    assert example["bank_accounts"][0]["product"] == "example bank checking"
+    assert {"bank.example"} == {d for s in example["issuers"] for d in s["allowed_domains"]
+                                if s["id"] == "bank"}
+    # A config with no bank still gets the fictional one, so the example shows the shape.
+    assert make.make_example({**real, "bank_accounts": []})["bank_accounts"][0]["id"] == "checking"
+
+
+def load_script(name):
+    spec = importlib.util.spec_from_file_location(f"s_{name}", REPO / "scripts" / f"{name}.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
 def test_binary_files_need_a_text_source(hook_repo):
     png = b"\x89PNG\r\n\x1a\n\0\0\0"
     proc = commit(hook_repo, {"tests/fixtures/d/guide.pdf": b"%PDF\0\x01"})

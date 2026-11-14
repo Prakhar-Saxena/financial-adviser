@@ -89,6 +89,21 @@ class Card(_Strict):
         )
 
 
+class BankAccount(_Strict):
+    """A bank account in the ledger (docs/SPEC-checking.md §5). In the database it's a row in
+    `cards` with card_type = account_type and network = "none"."""
+
+    id: str = Field(pattern=SLUG)
+    site: str  # an issuer id
+    product: str
+    account_type: Literal["checking"]
+    account_ending: str = Field(default="", pattern=r"^(\d{4})?$")
+    # Labels a parser needs that would name the bank (statement headings and the like).
+    statement_markers: list[str] = []
+    # URL words unique to this bank that mark a money-moving page (SPEC-checking §7.3 rule 1).
+    money_url_words: list[str] = []
+
+
 class CardsConfig(_Strict):
     model_config = ConfigDict(extra="forbid", frozen=True, populate_by_name=True)
 
@@ -98,6 +113,7 @@ class CardsConfig(_Strict):
     issuers: list[Site]
     item_sources: list[Site]
     cards: list[Card]
+    bank_accounts: list[BankAccount] = []
     # Words that would identify me and are in no other field (my bank, my street...). The git
     # hooks refuse any commit or push that contains one (scripts/hooks/privacy_scan.py).
     private_words: list[str] = []
@@ -111,7 +127,7 @@ class CardsConfig(_Strict):
 
         unique([p.id for p in self.people], "people")
         unique([s.id for s in self.issuers + self.item_sources], "site")
-        unique([c.id for c in self.cards], "card")
+        unique([c.id for c in self.cards] + [a.id for a in self.bank_accounts], "card or account")
         if sum(p.relationship == "self" for p in self.people) != 1:
             raise ValueError("exactly one person must have relationship 'self'")
 
@@ -135,7 +151,33 @@ class CardsConfig(_Strict):
             endings = [h.card_ending for h in card.cardholders if h.card_ending]
             if len(set(endings)) != len(endings):
                 raise ValueError(f"card {card.id}: duplicate card_ending")
+        for acct in self.bank_accounts:
+            if acct.site not in issuers:
+                raise ValueError(f"account {acct.id}: unknown site {acct.site!r}")
+            if self.cards_for_issuer(acct.site):
+                raise ValueError(f"account {acct.id}: site {acct.site!r} also issues cards")
         return self
+
+    @property
+    def bank_sites(self) -> list[str]:
+        """Sites that hold a bank account, in config order."""
+        return list(dict.fromkeys(a.site for a in self.bank_accounts))
+
+    def accounts_for_site(self, site_id: str) -> list[BankAccount]:
+        return [a for a in self.bank_accounts if a.site == site_id]
+
+    def account(self, account_id: str) -> BankAccount:
+        for a in self.bank_accounts:
+            if a.id == account_id:
+                return a
+        raise KeyError(account_id)
+
+    def account_name(self, card_or_account_id: str) -> str:
+        """The product of a card or a bank account, for code that may meet either."""
+        for x in [*self.cards, *self.bank_accounts]:
+            if x.id == card_or_account_id:
+                return x.product
+        raise KeyError(card_or_account_id)
 
     def site(self, site_id: str) -> Site:
         for s in self.issuers + self.item_sources:

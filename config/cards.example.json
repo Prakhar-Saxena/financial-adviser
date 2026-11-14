@@ -6,7 +6,8 @@
     "people.self.full_name: fill in your own name as it appears on statements.",
     "expected_merchant_groups: merchants a card is reserved for. Charges outside these groups are flagged for review, never rejected. Empty list means a general-purpose card.",
     "reconcile_with: item-level sources this card is cross-checked against (SPEC.md section 12).",
-    "private_words: anything else that would identify you (your bank, your street). The git hooks refuse any commit or push that contains one."
+    "private_words: anything else that would identify you (your bank, your street). The git hooks refuse any commit or push that contains one.",
+    "bank_accounts: your bank account(s). The bank is named only here, in private/ and in the data dir (docs/SPEC-checking.md section 1.1)."
   ],
   "people": [
     {
@@ -67,6 +68,14 @@
       "start_url": "https://www.citi.com/",
       "allowed_domains": [
         "citi.com"
+      ]
+    },
+    {
+      "id": "bank",
+      "name": "Example Bank",
+      "start_url": "https://online.bank.example/",
+      "allowed_domains": [
+        "bank.example"
       ]
     }
   ],
@@ -285,5 +294,15 @@
       ]
     }
   ],
-  "private_words": []
+  "private_words": [],
+  "bank_accounts": [
+    {
+      "id": "checking",
+      "site": "bank",
+      "product": "Example Bank Checking",
+      "account_type": "checking",
+      "account_ending": "",
+      "statement_markers": []
+    }
+  ]
 }

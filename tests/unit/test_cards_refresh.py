@@ -43,6 +43,7 @@ def example_cards() -> CardsConfig:
     holder = [{"person": "self", "card_ending": "", "role": "primary"}]
     d["issuers"] = [{"id": "example", "name": "Example Bank", "start_url": "https://www.example.com/",
                      "allowed_domains": ["example.com"]}]
+    d["bank_accounts"] = []
     d["cards"] = [
         {"id": "example_everyday", "issuer": "example", "product": "Example Bank Everyday Visa",
          "network": "visa", "card_type": "credit", "cardholders": holder},

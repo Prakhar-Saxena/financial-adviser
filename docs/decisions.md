@@ -857,3 +857,19 @@ Dated record of what was discovered and decided. Newest at the bottom of each da
     commands: no `--no-verify`, `git commit -n`, `core.hooksPath` change or `git send-pack`.
   - `cards.json` has a new optional `private_words` list; `make_cards_example.py` empties it.
 - GitHub can keep the old commits reachable by their ids until GitHub Support removes them.
+
+## Checking account, Phase B0 (2026-11-13)
+
+Spec: `docs/SPEC-checking.md`. The bank is "the bank" here and everywhere in the repo (§1.1).
+
+- **Config.** `cards.json` gains `bank_accounts` (`BankAccount`: id, site, product,
+  `account_type: "checking"`, `account_ending`, `statement_markers`, `money_url_words`). A
+  missing list loads as empty. Ids are unique across cards and accounts. An account's `site`
+  must be an issuer that issues none of the tracked cards: the generic bank site file only
+  handles accounts, so a site that does both would need its own design. Helpers: `bank_sites`,
+  `accounts_for_site`, `account`, `account_name` (a card's or an account's product).
+- **Example config.** `make_cards_example.py` is now a pure `make_example(dict)` plus `main()`.
+  Every bank site and account becomes the fictional Example Bank (`bank.example`); a real
+  `account_ending` becomes a fake one; `statement_markers` and `money_url_words` are dropped.
+  When `cards.json` has no bank yet, the fictional one is added anyway, so the example always
+  shows the shape (and `test_config.py` pins the issuer set with `bank` in it).
