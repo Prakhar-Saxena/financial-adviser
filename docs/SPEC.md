@@ -32,7 +32,7 @@ A local expense tracker for 6 credit cards and 4 cardholders. It shows where the
 - **How data comes in (MVP):** once a week I run `fin weekly`. For each site, Claude opens Chrome and I log in. Claude then downloads statements and transactions, or saves order and receipt pages. Python code imports, checks and categorizes everything.
 - **History:** the last 3 months on the first run. After that, each weekly run adds what's new. The database is designed to grow for years and support trend analysis.
 - **Later:** once a site's weekly routine is stable, turn it into a plain Playwright script (Phase 6), keeping the AI agent as the fallback. After that, this becomes the base for a "Financial Adviser" (§20).
-- **Out of scope for the MVP:** pending transactions, checking/savings/Venmo/Zelle, budgets, investments, notifications, mobile.
+- **Out of scope for the MVP:** pending transactions, savings/Venmo/Zelle histories, budgets, investments, notifications, mobile. Checking joined later (`docs/SPEC-checking.md`).
 
 ## 2. Hard constraints (non-negotiable)
 
@@ -48,9 +48,11 @@ A local expense tracker for 6 credit cards and 4 cardholders. It shows where the
    - All of them follow §14.1–14.2: clean environment, subscription auth check, `--no-session-persistence`, `--safe-mode`, strict MCP config, the run folder as cwd, and an audit trail in `ai-runs/`.
 3. **Local only.** Everything runs and is stored on my Mac. The only network traffic is to the sites being synced (Chase, Amex, Citi, Amazon, Costco, Gmail API) and to Claude on my subscription. §7 describes what Claude sees.
    - Card research reads public, logged-out pages and documents on the allowlisted domains (SPEC-cards §15): the issuers' sites, co-brand partners' card pages and the CFPB's credit card agreement database. Python downloads them with no cookies and an honest User-Agent, and keeps them in the data dir. WebSearch runs on Anthropic's search backend. WebFetch downloads from my Mac with no cookies; Claude reads the result like any tool output, and the hostname goes to Anthropic's safety check.
+   - The bank in `config/cards.json` (`bank_accounts`) is one of the sites being synced. It's named only there, in `private/` and in the data dir.
 4. **Open-source dependencies only.** Prefer MIT, BSD or Apache-2.0. The one exception is the Google Chrome browser already on my Mac (§5).
 5. **Read-only toward every financial site.** The agent navigates, reads, downloads and saves pages. It never pays, transfers, buys, enrolls in offers, redeems points or changes settings. The only forms it uses are search, filter and date-range controls. I do the logins (rule 6).
    - This covers the card optimizer too (`docs/SPEC-cards.md`). The dashboard tells me what to do; it never enrolls, activates, adds offers, redeems or applies.
+   - On a bank's site the agent also never uses Zelle, bill pay, wires, external transfers, check deposit, stop payment, card controls or direct deposit setup, and never reveals a full account number.
 6. **I do the logins.** I type passwords and 2FA codes myself in the Chrome window. The agent never types into login, password or verification-code fields, and the app never stores site passwords. Nothing tries to get past bot detection or CAPTCHAs. If a site blocks the automated browser, fall back to manual downloads into `inbox/` (§9.6).
 7. **AI fetches, code counts.** Amounts come from downloaded files and saved pages, which Python parses and checks with math. The only exception is the Costco transcript fallback (§9.4), which is accepted only when it adds up to the cent.
 
@@ -139,7 +141,8 @@ financial-adviser/
   scripts/redact.py       # redacted copy of a real file, into the data dir, to see its layout (§18)
   scripts/hooks/          # pre-commit, commit-msg, pre-push, privacy_scan.py (§7)
   .claude/settings.json   # denies Claude the ways around the git hooks (§7)
-  private/                # gitignored notes that would identify me; never committed
+  private/                # gitignored notes that would identify me; never committed:
+                          # bank-notes.md, and playbooks/<site>.md for bank sites
   src/fin/
     cli.py  config.py
     db/        models.py, migrations/
@@ -184,6 +187,7 @@ financial-adviser/
   - Findings give the place and the kind, never the value. Nothing bypasses them: no `--no-verify`, no `-n`, no `core.hooksPath` change. `.claude/settings.json` denies those to Claude.
 - `cards.json` `private_words`: anything else that would identify me (my bank, my street). The hooks refuse them too.
 - Fixtures are fictional (§18). Card documents live only in the data dir (`card-docs/`).
+- The bank is named only in `config/cards.json`, `private/` and the data dir. Checking data never goes in docs, playbooks, fixtures, test names or commit messages (`docs/SPEC-checking.md` §1.1).
 
 **`fin doctor` checks**
 - FileVault is on (`fdesetup status`).
@@ -201,7 +205,9 @@ financial-adviser/
 
 **What Claude sees**
 - **Browsing agent:** the pages it works on, including balances, transactions, names, partial card numbers and order details. That content goes to Anthropic under my Claude privacy settings. Keep it to what each task needs: no unrelated pages, and accessibility snapshots instead of screenshots where possible.
+  - On the bank's site it also sees checking balances and recent rows on the pages it passes through, including who paid me and whom I paid. It goes straight to the export and the statements, and it doesn't open single transactions.
 - **Classifier (§14):** only cleaned descriptors, amounts, dates and item titles. Never names, card or account numbers, card endings, addresses, emails or order numbers.
+  - Checking rows reach it only after cleaning (`docs/SPEC-checking.md` §8.3). Person-to-person and check rows are never sent, and neither are transfers or deposits.
 - **Card research and extraction (SPEC-cards):** card product and issuer names, and public documents. Never names, card endings, balances, transactions or the merchants I use.
 - **Merchant profiles (SPEC-cards):** merchant names only, either what I typed or cleaned descriptors (as for the classifier). No amounts, dates or cards.
 
@@ -215,6 +221,7 @@ financial-adviser/
 - No shell, no file reads or edits, no web fetch. Dangerous browser tools are removed.
 - A guard hook checks every browser action and file write.
 - Approve mode, where I confirm each click, until I mark a site trusted.
+- A site that holds a bank account gets the stricter guard in `docs/SPEC-checking.md` §7.3 and stays in approve mode.
 - Playbook changes need my approval.
 
 **Logs.** Logs record counts and IDs, never raw transaction rows or page text. `guard.log` records only the tool name, the decision and the short label of the button or field.
@@ -234,6 +241,7 @@ The database is one SQLite file, `db/finance.sqlite` in the data dir. There's no
 **Conventions**
 - Money is integer cents.
 - Positive amounts are money out (purchase, fee, interest). Negative amounts are money in (payment, refund, credit, reward).
+- A bank account is a row in `cards` with `card_type = "checking"` and `network = "none"` (`docs/SPEC-checking.md` §4, §6).
 - Dates are `YYYY-MM-DD`. Timestamps are UTC ISO-8601.
 
 The tables below are indicative. Refine them in Phase 0 and record the changes in `docs/decisions.md`.
@@ -241,11 +249,11 @@ The tables below are indicative. Refine them in Phase 0 and record the changes i
 | Table | Key columns |
 |---|---|
 | `people` | id (`self`, `spouse`, …), display_name, full_name, relationship |
-| `cards` | id, issuer, product, network, card_type |
+| `cards` | id, issuer, product, network, card_type (`credit`/`charge`/`checking`) |
 | `card_holders` | card_id, person_id, card_ending, role |
 | `sync_runs` | id, site, started_at, ended_at, since_date, until_date, run_dir, model, mode (`approve`/`trusted`), status (`ok`/`partial`/`failed`/`aborted`), files_imported, guard_blocks, report_json |
 | `imports` | id, sync_run_id NULL, source, kind (`transactions`/`statement`/`orders`/`receipts`/`emails`), file_path, sha256 UNIQUE, period_start, period_end, row_count, status, error, imported_at |
-| `transactions` | id, card_id, person_id NULL, txn_date, post_date, amount_cents, description_raw, description_clean, merchant_id NULL, type (`purchase`/`payment`/`refund`/`credit`/`reward`/`fee`/`interest`/`adjustment`), category_id NULL, category_source (`rule`/`ai`/`user`/`split`), external_id NULL, dedupe_key UNIQUE, import_id, statement_id NULL, review_status |
+| `transactions` | id, card_id, person_id NULL, txn_date, post_date, amount_cents, description_raw, description_clean, merchant_id NULL, type (`purchase`/`payment`/`refund`/`credit`/`reward`/`fee`/`interest`/`adjustment`/`transfer`/`deposit`), flow_kind NULL (checking rows only), bank_type NULL, balance_after_cents NULL, category_id NULL, category_source (`rule`/`ai`/`user`/`split`), external_id NULL, dedupe_key UNIQUE, import_id, statement_id NULL, review_status |
 | `merchants` | id, name, merchant_group NULL (`amazon`, `whole_foods`, `costco_warehouse`, `costco_gas`, `costco_online`, …), default_category_id |
 | `statements` | id, card_id, period_start, period_end, due_date, previous_balance, payments, credits, purchases, cash_advances, balance_transfers, fees, interest, new_balance, minimum_due, pdf_path, parse_method (`regex`/`ai`/`manual`), math_ok, ledger_status (`match`/`mismatch`/`incomplete`), ledger_delta_cents |
 | `orders` | id, merchant (`amazon`/`costco`/…), channel (`online`/`warehouse`/`digital`), external_id, order_date, subtotal, shipping, tax, discounts, total, raw_path, UNIQUE(merchant, external_id) |
@@ -259,6 +267,8 @@ The tables below are indicative. Refine them in Phase 0 and record the changes i
 | `ai_cache` | task, key, prompt_version, output_json, model, created_at. PK(task, key, prompt_version) |
 | `ai_runs` | id, task, run_dir, n_items, status, duration_ms, error |
 | `review_items` | id, kind, ref_table, ref_id, details_json, status (`open`/`resolved`/`ignored`), created_at, resolved_at |
+| `transfer_links` | id, bank_txn_id, card_txn_id UNIQUE, method (`named`/`group`/`amount_only`), days_apart, confidence. Both ids ON DELETE CASCADE |
+| `bank_statements` | id, card_id, import_id, period_start, period_end, opening_balance, deposits, withdrawals, closing_balance, pdf_path, parse_method, math_ok, ledger_status, ledger_delta_cents. UNIQUE(card_id, period_end) |
 | `emails` (Phase 4) | id, gmail_id UNIQUE, from_addr, subject, sent_at, merchant, parsed_total_cents, parsed_json, raw_path, linked_transaction_id |
 
 The review kinds are:
@@ -271,6 +281,7 @@ The review kinds are:
 - `uncategorized`
 - `unknown_person`
 - `sync_gap`: the agent couldn't collect something it should have
+- `unmatched_transfer`, `uncertain_transfer`, `bank_balance_gap`: checking (`docs/SPEC-checking.md` §6)
 
 ## 9. Ingestion
 
@@ -615,7 +626,7 @@ Gmail uses its API, not the browsing agent.
 
 **Spending totals**
 - Refunds net against their category.
-- `payment`, `credit`, `reward` and `adjustment` are excluded from spending.
+- `payment`, `credit`, `reward`, `adjustment`, `transfer` and `deposit` are excluded from spending.
 - Credits and rewards show as their own line, "Card credits & rewards".
 
 **Seed taxonomy (id: subcategories)**
@@ -766,6 +777,8 @@ Polished and modern: shadcn/ui, light and dark themes, desktop-first. Convert ce
 | `fin init` | Creates the data dir (700), DB and migrations, copies config templates, checks the gitignore |
 | `fin doctor` | The §7 checks, plus Claude auth, Chrome, Node.js and FileVault |
 | `fin sync chase\|amex\|citi\|amazon\|costco [--trusted] [--since DATE] [--keep-transcript]` | One browsing session for one site (§9.1), then import |
+| `fin sync bank` | The checking account's site, from `bank_accounts` (`docs/SPEC-checking.md` §7), then import. Approve mode only |
+| `fin transfers [--month YYYY-MM] [--check]` | Card payments, own transfers and investments from checking, what each linked to, and the no-double-counting checks (`docs/SPEC-checking.md` §14) |
 | `fin sync selftest` | Phase 0 check of the browsing setup against example.com |
 | `fin sync gmail` | Phase 4 (Gmail API, no browsing agent) |
 | `fin weekly [--only chase,amazon]` | Runs `fin sync` for each site in turn (Chase, Citi, Amex, Amazon, Costco), then Gmail (Phase 4+), `fin process` and `fin backup`. Prints a summary and opens the dashboard. |
@@ -927,4 +940,4 @@ Replace each site's browsing session with a plain Playwright (Python) script. Ke
   - Amex credit usage against annual fees
   - flag Amazon purchases not on the Prime Visa, and Costco purchases not on the Costco card
 - Budgets, anomaly alerts, and a monthly plain-English summary written by Haiku.
-- Checking, Venmo and Zelle via CSV into `inbox/`, with transfer detection so card payments aren't counted twice.
+- Venmo and Zelle histories via CSV into `inbox/`. (Checking is built: `docs/SPEC-checking.md`.)

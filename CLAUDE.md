@@ -1,8 +1,9 @@
 # Financial Adviser: expense tracker
 
-Local expense tracker for 6 cards / 4 cardholders. Full spec: `docs/SPEC.md`.
+Local expense tracker for 6 cards and a checking account, 4 cardholders. Full spec: `docs/SPEC.md`.
 Decisions and verified facts: `docs/decisions.md`. Claude CLI spike: `docs/ai-cli-notes.md`.
 Card optimizer ("Best card", phases C0–C5): `docs/SPEC-cards.md`.
+Checking account (phases B0–B4): `docs/SPEC-checking.md`.
 
 ## Working agreement (short)
 - One phase at a time (SPEC §17). End each with tests passing, acceptance checks run, then stop for review.
@@ -15,6 +16,7 @@ Card optimizer ("Best card", phases C0–C5): `docs/SPEC-cards.md`.
   (`--no-verify`, `-n`, `core.hooksPath`): when one finds something, replace it with made-up values.
 - `fin sync` / `fin weekly` are interactive (the user types start, logs in, approves clicks): the user
   runs them in their own terminal. Claude takes over after the session ends.
+- **The bank stays private:** named only in `config/cards.json`, `private/` and the data dir; elsewhere it's "the bank" (SPEC-checking §1.1).
 - If reality disagrees with the spec, stop and say so. Never work around §2.
 - Free, open-source dependencies are pre-approved (user, 2026-10-06); record each in docs/decisions.md.
 - Licence: AGPL-3.0-or-later, no dual licensing, no CLA. Only add dependencies with permissive,
@@ -34,10 +36,12 @@ Card optimizer ("Best card", phases C0–C5): `docs/SPEC-cards.md`.
    - Merchant profiles (`merchant_profile`): `claude -p`, no tools, `haiku`. `merchant_profile_web` (WebSearch only) only when I ask.
    - All follow §14.1–14.2: clean env, subscription auth check, `--no-session-persistence`, `--safe-mode`, strict MCP config, run folder as cwd, audit trail in `ai-runs/`.
 3. **Local only.** Everything runs and is stored on my Mac. The only network traffic is to the sites being synced (Chase, Amex, Citi, Amazon, Costco, Gmail API) and to Claude on my subscription. §7 describes what Claude sees.
+   - The bank in `config/cards.json` (`bank_accounts`) is one of the synced sites, named only there, in `private/` and the data dir.
    - Card research reads public, logged-out pages on the allowlisted domains (issuers, co-brand partners' card pages, CFPB agreements database). Python downloads them with no cookies and an honest User-Agent into the data dir. WebSearch runs on Anthropic's backend; WebFetch downloads from my Mac with no cookies, and its hostname goes to Anthropic's safety check.
 4. **Open-source dependencies only.** Prefer MIT, BSD or Apache-2.0. The one exception is the Google Chrome browser already on my Mac (§5).
 5. **Read-only toward every financial site.** The agent navigates, reads, downloads and saves pages. It never pays, transfers, buys, enrolls in offers, redeems points or changes settings. The only forms it uses are search, filter and date-range controls. I do the logins (rule 6).
    - Covers the card optimizer too: the dashboard tells me what to do; it never enrolls, activates, adds offers, redeems or applies.
+   - On a bank's site also never: Zelle, bill pay, wires, external transfers, check deposit, stop payment, card controls, direct deposit setup, or revealing a full account number.
 6. **I do the logins.** I type passwords and 2FA codes myself in the Chrome window. The agent never types into login, password or verification-code fields, and the app never stores site passwords. Nothing tries to get past bot detection or CAPTCHAs. If a site blocks the automated browser, fall back to manual downloads into `inbox/` (§9.6).
 7. **AI fetches, code counts.** Amounts come from downloaded files and saved pages, which Python parses and checks with math. The only exception is the Costco transcript fallback (§9.4), which is accepted only when it adds up to the cent.
 
@@ -51,6 +55,7 @@ Card optimizer ("Best card", phases C0–C5): `docs/SPEC-cards.md`.
   - Findings give the place and the kind, never the value. Nothing bypasses them: no `--no-verify`, no `-n`, no `core.hooksPath` change. `.claude/settings.json` denies those to Claude.
 - `cards.json` `private_words`: anything else that would identify me (my bank, my street). The hooks refuse them too.
 - Fixtures are fictional (§18). Card documents live only in the data dir (`card-docs/`).
+- The bank is named only in `config/cards.json`, `private/` and the data dir. Checking data never goes in docs, playbooks, fixtures, test names or commit messages.
 
 **`fin doctor` checks**
 - FileVault is on (`fdesetup status`).
@@ -68,7 +73,9 @@ Card optimizer ("Best card", phases C0–C5): `docs/SPEC-cards.md`.
 
 **What Claude sees**
 - **Browsing agent:** the pages it works on, including balances, transactions, names, partial card numbers and order details. That content goes to Anthropic under my Claude privacy settings. Keep it to what each task needs: no unrelated pages, and accessibility snapshots instead of screenshots where possible.
+  - On the bank's site also checking balances and recent rows, including who paid me and whom I paid. It goes straight to the export and statements and doesn't open single transactions.
 - **Classifier (§14):** only cleaned descriptors, amounts, dates and item titles. Never names, card or account numbers, card endings, addresses, emails or order numbers.
+  - Checking rows only after SPEC-checking §8.3 cleaning; never person-to-person, check, transfer or deposit rows.
 - **Card research/extraction:** card product and issuer names, and public documents. Never names, card endings, balances, transactions or the merchants I use.
 - **Merchant profiles:** merchant names only (what I typed, or cleaned descriptors). No amounts, dates or cards.
 
@@ -82,6 +89,7 @@ Card optimizer ("Best card", phases C0–C5): `docs/SPEC-cards.md`.
 - No shell, no file reads or edits, no web fetch. Dangerous browser tools are removed.
 - A guard hook checks every browser action and file write.
 - Approve mode, where I confirm each click, until I mark a site trusted.
+- A site that holds a bank account gets the stricter guard (SPEC-checking §7.3) and stays in approve mode.
 - Playbook changes need my approval.
 
 **Logs.** Logs record counts and IDs, never raw transaction rows or page text. `guard.log` records only the tool name, the decision and the short label of the button or field.
@@ -103,7 +111,7 @@ scripts/     redact.py  ai_spike.py  make_cards_example.py
              hooks/ (pre-commit, commit-msg, pre-push, privacy_scan.py, claude_bash_guard.py)
 src/fin/     cli.py config.py doctor.py  db/ (models, alembic migrations, seed)  ai/  sync/  ingest/ ...
 tests/       unit/  fixtures/ (fictional only)  fake_bin/claude (fake CLI; tests never call a model)
-private/     gitignored notes that would identify me; never committed
+private/     gitignored: notes that would identify me, bank-notes.md, playbooks/<bank site>.md
 ```
 
 ## Commands
