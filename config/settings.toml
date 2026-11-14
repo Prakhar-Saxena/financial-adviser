@@ -30,6 +30,8 @@ low_confidence = 0.7
 amazon_window_days = [-1, 3]            # charge date -> card txn date
 costco_warehouse_window_days = [0, 2]
 unmatched_grace_days = 5
+transfer_window_days = [-10, 6]  # checking date minus card date (SPEC-checking §10); tighten in B2
+transfer_grace_days = 10         # how long a card payment may wait for its other side
 
 [server]
 host = "127.0.0.1"

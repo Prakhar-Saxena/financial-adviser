@@ -1,7 +1,8 @@
 {
-  "version": 1,
+  "version": 2,
   "_notes": [
-    "Category taxonomy (SPEC \u00a713). Edit freely; ids are stable keys. The classifier must pick one of these ids."
+    "Category taxonomy (SPEC §13). Edit freely; ids are stable keys. The classifier must pick one of these ids.",
+    "Version 2 (2026-11-13): housing, loans, taxes, cash and fees_interest.bank_fee for the checking account (docs/SPEC-checking.md section 5)."
   ],
   "categories": [
     {
@@ -330,6 +331,56 @@
       "name": "Shopping (other)"
     },
     {
+      "id": "housing",
+      "parent_id": null,
+      "name": "Housing"
+    },
+    {
+      "id": "housing.rent",
+      "parent_id": "housing",
+      "name": "Rent"
+    },
+    {
+      "id": "housing.mortgage",
+      "parent_id": "housing",
+      "name": "Mortgage"
+    },
+    {
+      "id": "loans",
+      "parent_id": null,
+      "name": "Loans"
+    },
+    {
+      "id": "loans.auto",
+      "parent_id": "loans",
+      "name": "Auto loan"
+    },
+    {
+      "id": "loans.student",
+      "parent_id": "loans",
+      "name": "Student loan"
+    },
+    {
+      "id": "loans.other",
+      "parent_id": "loans",
+      "name": "Other loans"
+    },
+    {
+      "id": "taxes",
+      "parent_id": null,
+      "name": "Taxes"
+    },
+    {
+      "id": "cash",
+      "parent_id": null,
+      "name": "Cash"
+    },
+    {
+      "id": "cash.atm",
+      "parent_id": "cash",
+      "name": "ATM withdrawals"
+    },
+    {
       "id": "fees_interest",
       "parent_id": null,
       "name": "Fees & interest"
@@ -353,6 +404,11 @@
       "id": "fees_interest.interest",
       "parent_id": "fees_interest",
       "name": "Interest"
+    },
+    {
+      "id": "fees_interest.bank_fee",
+      "parent_id": "fees_interest",
+      "name": "Bank fees"
     },
     {
       "id": "uncategorized",

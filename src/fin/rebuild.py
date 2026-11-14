@@ -22,8 +22,10 @@ from fin.db import models as m
 from fin.ingest import load_parsers
 from fin.ingest.inbox import PARSERS, safe_error
 
-DERIVED = [m.Allocation, m.Match, m.OrderCharge, m.OrderItem, m.Order, m.StatementLine,
-           m.Transaction, m.Statement, m.Merchant, m.AIRun]
+# Deleted in this order. Transfer links first: they point at two transactions each
+# (docs/SPEC-checking.md §6); `fin process` recomputes them.
+DERIVED = [m.TransferLink, m.Allocation, m.Match, m.OrderCharge, m.OrderItem, m.Order,
+           m.StatementLine, m.Transaction, m.Statement, m.BankStatement, m.Merchant, m.AIRun]
 
 KEPT_REVIEW_KINDS = ("sync_gap", *m.CARD_REVIEW_KINDS)
 

@@ -873,3 +873,23 @@ Spec: `docs/SPEC-checking.md`. The bank is "the bank" here and everywhere in the
   `account_ending` becomes a fake one; `statement_markers` and `money_url_words` are dropped.
   When `cards.json` has no bank yet, the fictional one is added anyway, so the example always
   shows the shape (and `test_config.py` pins the issuer set with `bank` in it).
+- **Migration 0009** (batch mode): `transactions` gains `flow_kind` (CHECK on SPEC-checking
+  §4's twelve values, NULL allowed), `bank_type` and `balance_after_cents`; `TXN_TYPES` gains
+  `transfer` and `deposit`; three review kinds; tables `transfer_links` (both ids ON DELETE
+  CASCADE, `card_txn_id` UNIQUE) and `bank_statements`. Autogenerate doesn't compare CHECKs, so
+  those are hand-written, with the value lists copied into the revision. `transactions` is
+  recreated: alembic's engine runs with foreign keys off, and a test shows allocations and
+  matches survive the upgrade and the downgrade. `fin rebuild` clears both new tables,
+  `transfer_links` first.
+- **A bank account in `cards`**: `network = "none"`, `card_type = "checking"`, `issuer` = the
+  site id, no card_holders.
+- **Categories version 2**: `housing` (rent, mortgage), `loans` (auto, student, other),
+  `taxes`, `cash` (ATM), `fees_interest.bank_fee`. Seed rules for them sit at the end of
+  `rules.yaml`, start-anchored like the rest, so they can only catch a row no earlier rule
+  matched. The AI cache is keyed by prompt version, not the taxonomy, so nothing is
+  re-classified.
+- **`config/bank_rules.yaml`** as in §5. `fin.normalize.bank.load_bank_rules` checks the version,
+  each flow (a flow kind, or `fee`/`refund`), that `issuer` appears only on `card_payment` and
+  names the issuer of a tracked card, and that every pattern compiles. Cleaning and
+  classification join that module in Phase B2.
+- **Settings**: `[match] transfer_window_days = [-10, 6]`, `transfer_grace_days = 10`.

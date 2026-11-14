@@ -648,7 +648,11 @@ Gmail uses its API, not the browsing agent.
 - `pets`
 - `office_school`
 - `shopping_other`
-- `fees_interest`: annual fee, foreign transaction fee, late fee, interest
+- `housing`: rent, mortgage (version 2, for checking)
+- `loans`: auto, student, other (version 2)
+- `taxes` (version 2)
+- `cash`: ATM (version 2)
+- `fees_interest`: annual fee, foreign transaction fee, late fee, interest, bank fee (version 2)
 - `uncategorized`
 
 ## 14. Classifier: `claude -p`, subscription only

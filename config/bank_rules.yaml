@@ -1,0 +1,25 @@
+# What a checking row is (docs/SPEC-checking.md §5, §9). config/rules.yaml still decides
+# merchant and category. Patterns are case-insensitive, run with re.search on the cleaned
+# description, and the first hit wins. Every pattern is a starting guess: check them against
+# real rows in Phase B2. Short patterns need word boundaries (a bare NSF matches TRANSFER).
+# A pattern that would name the bank never goes here: make it one of your corrections instead.
+version: 1
+rules:
+  # Payments to the cards in cards.json. `issuer` is an issuer id.
+  - {pattern: '\bAMEX\b|AMERICAN EXPRESS', flow: card_payment, issuer: amex}
+  - {pattern: 'CHASE CREDIT|CHASE CARD|CHASE EPAY|CHASE AUTOPAY', flow: card_payment, issuer: chase}
+  - {pattern: 'CITI ?CARD|CITI AUTOPAY|CITI CRD|CITIBANK', flow: card_payment, issuer: citi}
+  # Any other card, the bank's own included.
+  - {pattern: 'CAPITAL ONE|\bDISCOVER\b|BARCLAY|SYNCHRONY|APPLECARD|BK OF AMER|CARDMEMBER SERV|CREDIT ?CARD|CRCARDPMT', flow: card_payment_other}
+  - {pattern: 'ZELLE|VENMO|CASH ?APP', flow: p2p}
+  - {pattern: 'TRANSFER (TO|FROM)|XFER|OVERDRAFT TRANSFER', flow: own_transfer}
+  - {pattern: 'FIDELITY|VANGUARD|SCHWAB|ROBINHOOD|E\*?TRADE|BETTERMENT|WEALTHFRONT|COINBASE', flow: investment}
+  - {pattern: '^CHECK\b', flow: check}
+  - {pattern: '\bATM\b|CASH WITHDRAWAL', flow: atm}
+  - {pattern: 'SERVICE (FEE|CHARGE)|MONTHLY FEE|\bNSF\b|RETURNED ITEM FEE', flow: fee}
+  # These five flows apply to money-in rows only.
+  - {pattern: 'DIVIDEND|INTEREST (PAID|EARNED|DEPOSIT|CREDIT)', flow: interest}
+  - {pattern: 'PAYROLL|DIRECT DEP|DIR DEP|SALARY', flow: income}
+  - {pattern: 'REWARD|CASH BACK', flow: reward}
+  - {pattern: 'IRS TREAS|TAX REF', flow: tax_refund}
+  - {pattern: 'REFUND|\bRETURN\b|REVERSAL', flow: refund}

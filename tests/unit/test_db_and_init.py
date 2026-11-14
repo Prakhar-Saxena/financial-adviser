@@ -151,3 +151,88 @@ def test_backup_keeps_newest(tmp_path, db):
     with make_engine(made[2]).connect() as c:
         assert "transactions" in {r[0] for r in c.execute(text(
             "select name from sqlite_master where type='table'"))}
+
+
+# ------------------------------------------------- checking (docs/SPEC-checking.md §6)
+
+
+def test_migration_0009_keeps_every_row_and_widens_the_checks(tmp_path):
+    """0009 recreates `transactions`: rows that point at it (allocations, matches) survive,
+    the new types and flow kinds are allowed, unknown ones refused, and it downgrades."""
+    from alembic import command
+
+    from fin.db import alembic_config
+
+    db = tmp_path / "old.sqlite"
+    command.upgrade(alembic_config(db), "0008")
+    with make_engine(db).begin() as c:
+        c.execute(text("insert into cards values ('visa', 'chase', 'Example Visa', 'visa', "
+                       "'credit')"))
+        c.execute(text("insert into categories values ('groceries', null, 'Groceries')"))
+        c.execute(text("insert into imports (id, source, kind, file_path, sha256, status, "
+                       "row_count, imported_at) values (1, 'chase', 'transactions', 'x', 'h', "
+                       "'ok', 1, 't')"))
+        c.execute(text("insert into transactions (id, card_id, post_date, amount_cents, "
+                       "description_raw, description_clean, type, source, dedupe_key, import_id, "
+                       "review_status) values (7, 'visa', '2026-09-01', 1234, 'X', 'X', "
+                       "'purchase', 'csv', 'k', 1, 'ok')"))
+        c.execute(text("insert into allocations (transaction_id, category_id, amount_cents, "
+                       "source) values (7, 'groceries', 1234, 'user')"))
+        c.execute(text("insert into matches (transaction_id, method, confidence) "
+                       "values (7, 'user', 1.0)"))
+    command.upgrade(alembic_config(db), "head")
+    Session = session_factory(db)
+    with Session() as s:
+        assert s.execute(text("select count(*) from allocations")).scalar() == 1
+        assert s.execute(text("select count(*) from matches")).scalar() == 1
+        t = s.get(models.Transaction, 7)
+        assert (t.flow_kind, t.bank_type, t.balance_after_cents) == (None, None, None)
+        t.type, t.flow_kind = "transfer", "card_payment"
+        s.add(models.ReviewItem(kind="uncertain_transfer", ref_table="transactions", ref_id="7"))
+        s.commit()
+    for field, value in (("type", "wire"), ("flow_kind", "lottery")):
+        with Session() as s:
+            setattr(s.get(models.Transaction, 7), field, value)
+            with pytest.raises(IntegrityError):
+                s.commit()
+    with make_engine(db).begin() as c:
+        c.execute(text("update transactions set type = 'purchase', flow_kind = null"))
+        c.execute(text("delete from review_items"))
+    command.downgrade(alembic_config(db), "0008")
+    with make_engine(db).connect() as c:
+        assert c.execute(text("select count(*) from allocations")).scalar() == 1
+        assert "flow_kind" not in {x["name"] for x in inspect(c).get_columns("transactions")}
+
+
+def test_seed_adds_bank_accounts_as_cards_rows(db):
+    cards, tax = load_cards(CONFIG_DIR / "cards.example.json"), load_taxonomy()
+    with session_factory(db)() as s:
+        counts = sync_reference(s, cards, tax)
+        row = s.get(models.Card, "checking")
+        assert counts["bank_accounts"] == 1
+        assert (row.issuer, row.network, row.card_type) == ("bank", "none", "checking")
+        assert s.execute(text("select count(*) from card_holders where card_id = 'checking'")
+                         ).scalar() == 0
+
+
+def test_transfer_link_cascades_with_its_transactions(db):
+    """`link_statements` deletes a statement-sourced card row when its CSV row arrives; a
+    link left from the last run must not block that (SPEC-checking §6)."""
+    Session = session_factory(db)
+    with Session() as s:
+        sync_reference(s, load_cards(CONFIG_DIR / "cards.example.json"), load_taxonomy())
+        s.add(models.Import(id=1, source="x", kind="transactions", file_path="x", sha256="h",
+                            status="ok"))
+        for i, (card, amt, typ) in enumerate([("checking", 5000, "transfer"),
+                                              ("amex_gold", -5000, "payment")], 1):
+            s.add(models.Transaction(id=i, card_id=card, post_date="2026-09-01",
+                                     amount_cents=amt, description_raw="x",
+                                     description_clean="x", type=typ, dedupe_key=f"k{i}",
+                                     import_id=1))
+        s.flush()
+        s.add(models.TransferLink(bank_txn_id=1, card_txn_id=2, method="named", days_apart=0,
+                                  confidence=1.0))
+        s.commit()
+        s.delete(s.get(models.Transaction, 2))
+        s.commit()
+        assert s.execute(text("select count(*) from transfer_links")).scalar() == 0

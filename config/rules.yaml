@@ -36,3 +36,13 @@ rules:
   - {pattern: 'FOREIGN TRANSACTION FEE|FOREIGN TRANS FEE', merchant: Foreign transaction fee, category: fees_interest.foreign_transaction_fee}
   - {pattern: 'LATE FEE', merchant: Late fee, category: fees_interest.late_fee}
   - {pattern: 'INTEREST CHARGE', merchant: Interest, category: fees_interest.interest}
+  # --- Checking account (docs/SPEC-checking.md §5). Starting guesses, like the rest: check them
+  # against real rows in Phase B2. config/bank_rules.yaml decides what a row is; these only set
+  # merchant and category. A pattern that would name the bank never goes here.
+  - {pattern: 'MONTHLY (SERVICE|MAINTENANCE) (FEE|CHARGE)|SERVICE (FEE|CHARGE)|OVERDRAFT (ITEM )?FEE|NSF FEE|RETURNED ITEM FEE|INSUFFICIENT FUNDS FEE|WIRE (TRANSFER )?FEE|(NON-?\S* )?ATM FEE', merchant: Bank fee, category: fees_interest.bank_fee}
+  - {pattern: 'ATM\b|CASH WITHDRAWAL', merchant: ATM, category: cash.atm}
+  - {pattern: 'RENT (PAYMENT|PMT)|RENTPAYMENT|APARTMENT RENT', merchant: Rent, category: housing.rent}
+  - {pattern: 'MORTGAGE|MTG (PMT|PYMT|PAYMENT)', merchant: Mortgage, category: housing.mortgage}
+  - {pattern: 'NAVIENT|NELNET|MOHELA|SALLIE MAE|AIDVANTAGE|GREAT LAKES ED|DEPT EDUCATION|STUDENT (LN|LOAN)', merchant: Student loan, category: loans.student}
+  - {pattern: 'AUTO LOAN|CAR LOAN|TOYOTA FINANCIAL|HONDA FINANCIAL|GM FINANCIAL|FORD CREDIT', merchant: Auto loan, category: loans.auto}
+  - {pattern: 'IRS USATAXPYMT|IRS TREAS|US TREASURY TAX|FRANCHISE TAX|(STATE |\w+ )?DEPT (OF )?REVENUE', merchant: Taxes, category: taxes}

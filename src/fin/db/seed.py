@@ -1,7 +1,11 @@
 # Copyright (C) 2026 Prakhar Saxena
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-"""Sync reference tables (people, cards, card_holders, categories) from config files."""
+"""Sync reference tables (people, cards, card_holders, categories) from config files.
+
+A bank account is a `cards` row too (docs/SPEC-checking.md §4), so every `card_id` column and
+filter works for it unchanged; it has no card_holders.
+"""
 
 from __future__ import annotations
 
@@ -19,6 +23,9 @@ def sync_reference(session: Session, cards: CardsConfig, taxonomy: Taxonomy) -> 
     for c in cards.cards:
         session.merge(m.Card(id=c.id, issuer=c.issuer, product=c.product, network=c.network,
                              card_type=c.card_type))
+    for a in cards.bank_accounts:
+        session.merge(m.Card(id=a.id, issuer=a.site, product=a.product, network="none",
+                             card_type=a.account_type))
     session.flush()
     session.execute(delete(m.CardHolder))
     for c in cards.cards:
@@ -32,6 +39,7 @@ def sync_reference(session: Session, cards: CardsConfig, taxonomy: Taxonomy) -> 
     return {
         "people": len(cards.people),
         "cards": len(cards.cards),
+        "bank_accounts": len(cards.bank_accounts),
         "card_holders": sum(len(c.cardholders) for c in cards.cards),
         "categories": len(taxonomy.categories),
     }

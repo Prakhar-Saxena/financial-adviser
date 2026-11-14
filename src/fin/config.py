@@ -243,6 +243,16 @@ class MatchSettings(_Strict):
     amazon_window_days: tuple[int, int] = (-1, 3)
     costco_warehouse_window_days: tuple[int, int] = (0, 2)
     unmatched_grace_days: int = 5
+    # Checking date minus card date for a card payment's two sides (docs/SPEC-checking.md §10).
+    transfer_window_days: tuple[int, int] = (-10, 6)
+    transfer_grace_days: int = Field(default=10, ge=0, le=60)
+
+    @field_validator("transfer_window_days")
+    @classmethod
+    def _ordered(cls, v: tuple[int, int]) -> tuple[int, int]:
+        if v[0] > v[1]:
+            raise ValueError("transfer_window_days must be [low, high]")
+        return v
 
 
 class ServerSettings(_Strict):

@@ -50,6 +50,14 @@ class Base(DeclarativeBase):
 
 TXN_TYPES = (
     "purchase", "payment", "refund", "credit", "reward", "fee", "interest", "adjustment",
+    # Checking rows (docs/SPEC-checking.md §4): my own money moving, and money in from outside.
+    "transfer", "deposit",
+)
+# What a checking row is (SPEC-checking §4). NULL on card rows.
+FLOW_KINDS = (
+    "card_payment", "card_payment_other", "own_transfer", "investment",
+    "check", "atm", "p2p",
+    "income", "interest", "reward", "tax_refund", "other_in",
 )
 CATEGORY_SOURCES = ("rule", "ai", "user", "split")
 REVIEW_KINDS = (
@@ -57,6 +65,8 @@ REVIEW_KINDS = (
     "parse_failure", "low_confidence", "uncategorized", "unknown_person", "sync_gap",
     # Card optimizer (docs/SPEC-cards.md §6): created by `fin cards refresh`, kept by rebuild.
     "card_terms_pending", "card_terms_unverified", "card_source_problem",
+    # Checking (docs/SPEC-checking.md §6).
+    "unmatched_transfer", "uncertain_transfer", "bank_balance_gap",
 )
 CARD_REVIEW_KINDS = ("card_terms_pending", "card_terms_unverified", "card_source_problem")
 IMPORT_KINDS = ("transactions", "statement", "orders", "receipts", "emails", "offers")
@@ -241,6 +251,11 @@ class Transaction(Base):
             name="category_source",
         ),
         _in("review_status", ("ok", "needs_review", "reviewed")),
+        CheckConstraint(
+            "flow_kind IS NULL OR flow_kind IN ("
+            + ", ".join(f"'{k}'" for k in FLOW_KINDS) + ")",
+            name="flow_kind",
+        ),
         Index("ix_transactions_card_post", "card_id", "post_date"),
     )
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -267,6 +282,57 @@ class Transaction(Base):
     import_id: Mapped[int] = mapped_column(ForeignKey("imports.id"))
     statement_id: Mapped[int | None] = mapped_column(ForeignKey("statements.id"))
     review_status: Mapped[str] = mapped_column(default="ok")
+    # Checking rows only (SPEC-checking §6): what the row is, the export's own row type, and
+    # the export's running balance. The balance stays out of the dedupe key.
+    flow_kind: Mapped[str | None]
+    bank_type: Mapped[str | None]
+    balance_after_cents: Mapped[int | None]
+
+
+class TransferLink(Base):
+    """A checking row paired with the card payment it paid (SPEC-checking §10). Recomputed by
+    every `fin process`. CASCADE: `link_statements` deletes a statement-sourced card row when
+    its CSV row arrives, and a link left from the last run must not stop that."""
+
+    __tablename__ = "transfer_links"
+    __table_args__ = (_in("method", ("named", "group", "amount_only")),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    bank_txn_id: Mapped[int] = mapped_column(
+        ForeignKey("transactions.id", ondelete="CASCADE"), index=True)
+    card_txn_id: Mapped[int] = mapped_column(
+        ForeignKey("transactions.id", ondelete="CASCADE"), unique=True)
+    method: Mapped[str]
+    days_apart: Mapped[int]
+    confidence: Mapped[float] = mapped_column(Float)
+
+
+class BankStatement(Base):
+    """A checking statement's summary (SPEC-checking §8.2). It proves the ledger; it never
+    creates transactions."""
+
+    __tablename__ = "bank_statements"
+    __table_args__ = (
+        UniqueConstraint("card_id", "period_end"),
+        _in("parse_method", ("regex", "ai", "manual")),
+        CheckConstraint(
+            "ledger_status IS NULL OR ledger_status IN ('match', 'mismatch', 'incomplete')",
+            name="ledger_status",
+        ),
+    )
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    card_id: Mapped[str] = mapped_column(ForeignKey("cards.id"))
+    import_id: Mapped[int | None] = mapped_column(ForeignKey("imports.id"))
+    period_start: Mapped[str]
+    period_end: Mapped[str]
+    opening_balance: Mapped[int]
+    deposits: Mapped[int] = mapped_column(default=0)
+    withdrawals: Mapped[int] = mapped_column(default=0)
+    closing_balance: Mapped[int]
+    pdf_path: Mapped[str]
+    parse_method: Mapped[str]
+    math_ok: Mapped[bool] = mapped_column(default=False)
+    ledger_status: Mapped[str | None]
+    ledger_delta_cents: Mapped[int | None]
 
 
 class Order(Base):
