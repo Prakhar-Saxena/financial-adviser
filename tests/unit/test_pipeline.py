@@ -202,3 +202,15 @@ def test_weekly_runs_sites_in_order_then_process(loaded, monkeypatch):
     assert r.exit_code == 0, r.output
     assert calls == ["chase", "citi", "amex", "amazon", "costco"]
     assert list((loaded / "backups").glob("finance-*.sqlite"))
+
+
+def test_process_adds_categories_new_since_init(loaded):
+    """Seed rules are reloaded every run and may name a category added to categories.json
+    after `fin init` (taxonomy version 2 did): process brings the table up to date first."""
+    db = loaded / "db" / "finance.sqlite"
+    with session_factory(db)() as s:
+        s.execute(m.Category.__table__.delete().where(m.Category.id.like("housing%")))
+        s.commit()
+    run(loaded)
+    with session_factory(db)() as s:
+        assert s.get(m.Category, "housing.rent").parent_id == "housing"

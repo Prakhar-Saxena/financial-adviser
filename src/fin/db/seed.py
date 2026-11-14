@@ -16,6 +16,15 @@ from fin.config import CardsConfig, Taxonomy
 from fin.db import models as m
 
 
+def sync_categories(session: Session, taxonomy: Taxonomy) -> None:
+    """Add or rename categories from categories.json. `fin process` runs this too, because
+    seed rules (reloaded on every run) may name a category added since `fin init`."""
+    # Parents first, so the self-referencing foreign key is satisfied.
+    for cat in sorted(taxonomy.categories, key=lambda c: c.parent_id is not None):
+        session.merge(m.Category(id=cat.id, parent_id=cat.parent_id, name=cat.name))
+    session.flush()
+
+
 def sync_reference(session: Session, cards: CardsConfig, taxonomy: Taxonomy) -> dict[str, int]:
     for p in cards.people:
         session.merge(m.Person(id=p.id, display_name=p.display_name, full_name=p.full_name,
@@ -32,9 +41,7 @@ def sync_reference(session: Session, cards: CardsConfig, taxonomy: Taxonomy) -> 
         for h in c.cardholders:
             session.add(m.CardHolder(card_id=c.id, person_id=h.person,
                                      card_ending=h.card_ending or None, role=h.role))
-    # Parents first, so the self-referencing foreign key is satisfied.
-    for cat in sorted(taxonomy.categories, key=lambda c: c.parent_id is not None):
-        session.merge(m.Category(id=cat.id, parent_id=cat.parent_id, name=cat.name))
+    sync_categories(session, taxonomy)
     session.commit()
     return {
         "people": len(cards.people),

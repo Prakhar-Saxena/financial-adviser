@@ -943,3 +943,8 @@ Spec: `docs/SPEC-checking.md`. The bank is "the bank" here and everywhere in the
   no bank until the user adds it after B0, so checking tests swap in `cards.example.json`.
   Fixture checking rows carry `person_id = self`, as the B2 parser will (§5); without it they
   raise `unknown_person` items.
+- **Found on real data: `fin process` needs the categories it names.** Seed rules are reloaded
+  on every run, but categories reached the DB only through `fin init`, so the version 2 rules
+  failed a foreign key until `init` ran again. `fin process` now merges `categories.json` into
+  the table first (`seed.sync_categories`, also used by `sync_reference`). Test included; it
+  fails without the fix.
