@@ -53,6 +53,12 @@ item for Amazon and Costco, and checks every number against your bank statements
 | American Express | activity CSV, statement PDFs | statement credits kept separate from spending |
 | Amazon | printable invoices, Your Payments → Transactions | charges matched by order number |
 | Costco | warehouse receipts | uses your own Chrome via the Playwright Extension |
+| A checking account | transaction export, statement PDFs | named only in your `cards.json`; stays in approve mode |
+
+A checking account adds the spending that never touches a card (debit purchases, bills, checks,
+Zelle) without counting anything twice: a payment from checking to a card is linked to the payment
+on that card and left out of spending, since those purchases already count on the card. Moves
+between your own accounts, pay and other deposits are left out too.
 
 Gmail receipts are designed (SPEC Phase 4) but not built.
 
@@ -137,6 +143,8 @@ All `make` targets run in the foreground. Other commands:
 - `fin import FILE` handles manual downloads, detected by their content.
 - `fin rebuild` regenerates everything from `raw/` and keeps your corrections.
 - `fin backup` makes an online SQLite backup.
+- `fin transfers [--month YYYY-MM] [--check]` lists checking's card payments and what each one
+  paid; `--check` runs the no-double-counting checks.
 - `fin cards ...` is the card optimizer:
   - `best "whole foods" [--amount 120] [--online] [--abroad] [--lookup]` ranks your cards. A
     merchant it doesn't know needs `--lookup`, which asks Claude (haiku) once and sends only the
@@ -171,12 +179,18 @@ connects to your own Chrome through the Playwright Extension:
   what the app predicts, to catch wrong terms or merchant categories. **Card terms** shows what the
   app knows about each card, with Accept / Reject for new terms, your point valuations, and
   **Ask about this card** (plain-words answers that quote the card's documents).
-- **Overview:** spending by category, person, card and merchant, plus the 3-month trend. Each
-  chart switches between bars, donut, treemap and table views (the choice is remembered).
-- **Transactions:** filters, item splits, and category or person corrections.
+- **Overview:** spending by category, person, card or account and merchant, plus the 3-month
+  trend. Each chart switches between bars, donut, treemap and table views (the choice is
+  remembered). With a checking account, **Money in and out** shows the month's checking by kind,
+  as the statement counts it.
+- **Transactions:** filters, item splits, and category or person corrections. A row left out of
+  spending says why; a card payment links to the payment on the card, and a checking row has
+  **This is spending** / **This isn't spending**.
 - **Amazon & Costco:** orders, receipts, top items.
-- **Review:** low-confidence AI guesses, unmatched charges, statement mismatches.
-- **Reconciliation:** each statement's math and ledger check.
+- **Review:** low-confidence AI guesses, unmatched charges, statement mismatches, and **Card
+  payments to check** with one-click choices.
+- **Reconciliation:** each statement's math and ledger check; for checking also the running
+  balance, and how many card payments were matched to checking.
 - **Rules:** a rule editor with a live preview.
 
 ## Development

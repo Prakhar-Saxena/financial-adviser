@@ -8,12 +8,13 @@ import {
 } from "@tanstack/react-table";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { Fragment, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
-import { api, type Meta, type Txn } from "@/api";
+import { Link, useSearchParams } from "react-router-dom";
+import { api, type Meta, type Txn, type TxnDetail, type TxnPatch } from "@/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
+import { excludedLabel, FLOW_CHOICES, isAccount } from "@/lib/flows";
 import { categoryColors } from "@/lib/palette";
 import { cn, money } from "@/lib/utils";
 
@@ -32,18 +33,22 @@ export function Transactions({ month, meta }: { month: string; meta: Meta }) {
     type: params.get("type") ?? undefined,
     review: params.get("review") ?? undefined,
   };
+  // ?txn=ID shows that one row, whatever its month: where a transfer's "Paid ..." link lands.
+  const one = params.get("txn");
   const set = (k: string, v: string) => {
     const next = new URLSearchParams(params);
     if (v) next.set(k, v); else next.delete(k);
     setParams(next);
   };
   const { data = [], isFetching } = useQuery({
-    queryKey: ["transactions", filters],
-    queryFn: () => api.transactions(filters),
+    queryKey: ["transactions", filters, one],
+    queryFn: () => api.transactions(one ? { id: one } : filters),
     placeholderData: (prev) => prev,
   });
   const [sorting, setSorting] = useState<SortingState>([]);
-  const [open, setOpen] = useState<number | null>(null);
+  // The row I opened; a linked row starts open, and following another link resets it.
+  const [opened, setOpen] = useState<{ from: string | null; id: number | null } | null>(null);
+  const open = opened && opened.from === one ? opened.id : one ? Number(one) : null;
   const { data: summary } = useQuery({ queryKey: ["summary", month], queryFn: () => api.summary(month) });
   const cat = useMemo(() => categoryColors(meta, summary?.by_category ?? []), [meta, summary]);
   // Several categories at once: the Overview donut's "Other" links here with all of its members.
@@ -65,11 +70,11 @@ export function Transactions({ month, meta }: { month: string; meta: Meta }) {
         <div className="text-ink">{c.row.original.merchant ?? c.getValue()}</div>
         {c.row.original.merchant && <div className="text-xs text-muted">{c.getValue()}</div>}
       </div>) }),
-    col.accessor("card_id", { header: "Card", cell: (c) => <span className="text-ink-2">{cardName[c.getValue()] ?? c.getValue()}</span> }),
+    col.accessor("card_id", { header: "Card or account", cell: (c) => <span className="text-ink-2">{cardName[c.getValue()] ?? c.getValue()}</span> }),
     col.accessor("person_id", { header: "Person", cell: (c) => <span className="text-ink-2">{personName[c.getValue() ?? ""] ?? "Unknown"}</span> }),
     col.accessor("category_id", { header: "Category", cell: (c) => {
       const t = c.row.original;
-      if (!t.counts_as_spending) return <Badge>{t.type}</Badge>;
+      if (!t.counts_as_spending) return <Badge title="Not counted as spending">{excludedLabel(t)}</Badge>;
       return (
         <span className="inline-flex items-center gap-1.5 text-ink-2">
           <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: cat.color(c.getValue()) }} />
@@ -91,9 +96,22 @@ export function Transactions({ month, meta }: { month: string; meta: Meta }) {
   return (
     <div>
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <Select value={filters.card ?? ""} onChange={(e) => set("card", e.target.value)} aria-label="Card">
-          <option value="">All cards</option>
-          {meta.cards.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+        {one && (
+          <span className="flex items-center gap-2 rounded-md border border-line bg-surface-2 px-2 py-1 text-sm text-ink-2">
+            One transaction
+            <Button size="sm" variant="ghost" onClick={() => set("txn", "")}>Show all</Button>
+          </span>
+        )}
+        <Select value={filters.card ?? ""} onChange={(e) => set("card", e.target.value)} aria-label="Card or account">
+          <option value="">{meta.cards.some((c) => c.kind === "account") ? "All cards and accounts" : "All cards"}</option>
+          {(["card", "account"] as const).map((kind) => {
+            const list = meta.cards.filter((c) => c.kind === kind);
+            return list.length ? (
+              <optgroup key={kind} label={kind === "card" ? "Cards" : "Accounts"}>
+                {list.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </optgroup>
+            ) : null;
+          })}
         </Select>
         <Select value={filters.person ?? ""} onChange={(e) => set("person", e.target.value)} aria-label="Person">
           <option value="">Everyone</option>
@@ -140,7 +158,7 @@ export function Transactions({ month, meta }: { month: string; meta: Meta }) {
             {table.getRowModel().rows.map((row) => (
               <Fragment key={row.id}>
                 <tr className="cursor-pointer border-b border-line hover:bg-surface-2"
-                    onClick={() => setOpen(open === row.original.id ? null : row.original.id)}>
+                    onClick={() => setOpen({ from: one, id: open === row.original.id ? null : row.original.id })}>
                   {row.getVisibleCells().map((cell) => (
                     <td key={cell.id} className="px-3 py-2 align-top">
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -173,7 +191,7 @@ export function TxnDetailPanel({ id, meta, catName }: { id: number; meta: Meta; 
   const [ruleCat, setRuleCat] = useState("");
   const [note, setNote] = useState("");
   const refresh = () => qc.invalidateQueries();
-  const patch = useMutation({ mutationFn: (b: { category_id?: string; person_id?: string }) => api.patchTransaction(id, b), onSuccess: refresh });
+  const patch = useMutation({ mutationFn: (b: TxnPatch) => api.patchTransaction(id, b), onSuccess: refresh });
   const mkRule = useMutation({
     mutationFn: () => api.createRule({ pattern: rule ?? "", category_id: ruleCat }),
     onSuccess: (r) => { setNote(`Rule saved; ${r.note}.`); setRule(null); },
@@ -222,6 +240,10 @@ export function TxnDetailPanel({ id, meta, catName }: { id: number; meta: Meta; 
           </div>
         )}
         {note && <p className="text-xs text-ink-2">{note}</p>}
+        {(isAccount(meta, d.card_id) || d.transfer.length > 0) && (
+          <WhyPanel d={d} meta={meta} checking={isAccount(meta, d.card_id)}
+                    onPatch={(b) => patch.mutate(b)} busy={patch.isPending} />
+        )}
         {d.reviews.length > 0 && (
           <div className="rounded-md bg-warning-bg p-2 text-xs text-ink">
             {d.reviews.map((r) => <div key={r.id}>Needs review: {r.kind.replace(/_/g, " ")}{r.details.reason ? ` — ${r.details.reason}` : ""}</div>)}
@@ -257,10 +279,79 @@ export function TxnDetailPanel({ id, meta, catName }: { id: number; meta: Meta; 
               </>
             )}
           </>
-        ) : (
+        ) : spending ? (
           <p className="text-xs text-muted">No order or receipt matched{d.merchant_group === "amazon" ? " yet" : ""}.</p>
-        )}
+        ) : null}
       </div>
+    </div>
+  );
+}
+
+function shortDate(iso: string) {
+  return new Date(`${iso}T12:00:00`).toLocaleString("en-US", { month: "short", day: "numeric" });
+}
+
+/** Why a checking row is or isn't spending, the other side of a transfer, and my say on it. */
+function WhyPanel({ d, meta, checking, onPatch, busy }: {
+  d: TxnDetail; meta: Meta; checking: boolean; onPatch: (b: TxnPatch) => void; busy: boolean;
+}) {
+  const [all, setAll] = useState(false);
+  const moneyIn = d.amount_cents < 0;
+  const paidFrom = !checking; // a card payment: the checking row that paid it
+  const linkTo = (x: TxnDetail["transfer"][number]) => (
+    <Link key={x.txn_id} to={`/transactions?txn=${x.txn_id}`} className="text-ink underline underline-offset-2">
+      {paidFrom ? `Paid from ${x.name}` : `${moneyIn ? "Came back from" : "Paid"} ${x.name}`}, {shortDate(x.date)}
+    </Link>
+  );
+  const why: Record<string, string> = {
+    card_payment: d.transfer.length
+      ? "Not spending: those purchases already count on the card."
+      : "A card payment with no matching payment on a card yet. It isn't counted while it waits.",
+    card_payment_other: "A payment to a card you don't track. Those purchases aren't in the ledger, so this may be real spending.",
+    own_transfer: "Money moving between your own accounts: not spending.",
+    investment: "Money to or from an investment account: not spending.",
+  };
+  const flows = meta.bank_type_flows[d.type] ?? [];
+  return (
+    <div className="space-y-2 rounded-md border border-line bg-surface p-2.5 text-xs">
+      {d.transfer.length > 0 && (
+        <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm">
+          {d.transfer.map(linkTo)}
+          {d.transfer[0].method === "amount_only" && (
+            <span className="text-muted">matched on the amount only; the description doesn't say</span>
+          )}
+        </div>
+      )}
+      {checking && (
+        <>
+          <div className="text-ink-2">
+            {d.counts_as_spending ? "Counts as spending." : why[d.flow_kind ?? ""] ?? "Money in: not spending."}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {d.counts_as_spending ? (
+              <Button size="sm" variant="outline" disabled={busy}
+                      onClick={() => onPatch({ type: moneyIn ? "deposit" : "transfer", apply_to_all: all })}>
+                This isn't spending
+              </Button>
+            ) : (
+              <Button size="sm" variant="outline" disabled={busy}
+                      onClick={() => onPatch({ type: moneyIn ? "refund" : "purchase", apply_to_all: all })}>
+                This is spending
+              </Button>
+            )}
+            {flows.length > 1 && (
+              <Select value={d.flow_kind ?? ""} aria-label="What this is" disabled={busy}
+                      onChange={(e) => onPatch({ type: d.type, flow_kind: e.target.value, apply_to_all: all })}>
+                {flows.map((f) => <option key={f ?? ""} value={f ?? ""}>{FLOW_CHOICES[f ?? ""] ?? f}</option>)}
+              </Select>
+            )}
+            <label className="flex items-center gap-1.5 text-ink-2">
+              <input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} />
+              Every row like it
+            </label>
+          </div>
+        </>
+      )}
     </div>
   );
 }

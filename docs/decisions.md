@@ -1035,3 +1035,22 @@ Spec: `docs/SPEC-checking.md`. The bank is "the bank" here and everywhere in the
   The one classifier run with checking rows received 11 plain purchases and no person,
   check, transfer or deposit rows, no names, private words, endings, long digit runs or masked
   account numbers.
+
+## Checking account, Phase B3 (2026-11-15)
+
+- **Money in and out** groups checking rows by posted date, not by `txn_date` like the
+  spending charts, because the statement counts by posted date. On real data July to October
+  reproduce each statement's deposits and withdrawals to the cent; June is incomplete (the
+  export starts mid-month).
+- **Payments to untracked cards** are counted beside the "N of M card payments matched" line,
+  not inside it: they can never link, so they'd read as failures.
+- **One list of what a checking row may be.** `/api/meta` sends `BANK_TYPE_FLOWS`, so the
+  dashboard's "What this is" choices can't drift from what `PATCH` accepts.
+- **"Paid ..." links** open `/transactions?txn=ID`, one row whatever the month; the month
+  picker stays the page's single month control.
+- **Review's one-click choices** store an override, so they survive `fin rebuild`. "Yes, a card
+  payment" on an amount-only match is a hand-typed card payment: it links on the next `fin
+  process` by exact amount to any tracked card. Links refresh on `fin process`, not on the
+  click.
+- **Reconciliation's card-payment count** starts with the first checking row; before it, a card
+  payment couldn't have come from checking.

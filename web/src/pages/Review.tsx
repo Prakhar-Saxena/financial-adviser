@@ -4,7 +4,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { api, type Meta, type ReviewItem } from "@/api";
+import { api, type Meta, type ReviewItem, type TxnPatch } from "@/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,7 +13,13 @@ import { money } from "@/lib/utils";
 import { problemText } from "@/pages/BestCard";
 import { TxnDetailPanel } from "@/pages/Transactions";
 
+// Both transfer kinds share one group (docs/SPEC-checking.md §13).
+const TRANSFER_KINDS = ["unmatched_transfer", "uncertain_transfer"];
+const groupOf = (kind: string) => (TRANSFER_KINDS.includes(kind) ? "card_payments" : kind);
+
 const KIND_TITLES: Record<string, string> = {
+  card_payments: "Card payments to check",
+  bank_balance_gap: "Checking: running balance breaks",
   uncategorized: "Uncategorized",
   low_confidence: "Low-confidence guesses",
   unknown_person: "Unknown cardholder",
@@ -39,10 +45,13 @@ export function Review({ meta }: { meta: Meta }) {
     mutationFn: ({ ids, status }: { ids: number[]; status: "resolved" | "ignored" }) => api.resolveMany(ids, status),
     onSuccess: () => qc.invalidateQueries(),
   });
-  const groups = data.reduce<Record<string, ReviewItem[]>>((acc, r) => {
-    (acc[r.kind] ??= []).push(r);
+  const grouped = data.reduce<Record<string, ReviewItem[]>>((acc, r) => {
+    (acc[groupOf(r.kind)] ??= []).push(r);
     return acc;
   }, {});
+  // Card payments first: they decide what counts as spending at all.
+  const groups = Object.fromEntries(Object.entries(grouped).sort(
+    ([a], [b]) => Number(b === "card_payments") - Number(a === "card_payments")));
   if (!data.length) return <p className="text-sm text-ink-2">Nothing to review.</p>;
   return (
     <div className="space-y-4">
@@ -64,6 +73,11 @@ export function Review({ meta }: { meta: Meta }) {
             </div>
           </CardHeader>
           <CardContent className="divide-y divide-line">
+            {kind === "card_payments" && (
+              <p className="pb-2 text-xs text-muted">
+                A choice here is kept through <code>fin rebuild</code>. Links to card payments refresh on the next <code>fin process</code>.
+              </p>
+            )}
             {items.map((r) => (
               <ReviewRow key={r.id} item={r} meta={meta}
                          onResolve={(status) => resolve.mutate({ id: r.id, status })} />
@@ -92,6 +106,13 @@ function ReviewRow({ item, meta, onResolve }: {
     onSuccess: () => qc.invalidateQueries(),
   });
   const reason = (item.details.reason as string) ?? (item.details.description as string) ?? "";
+  const [all, setAll] = useState(false);
+  const setType = useMutation({
+    mutationFn: (body: TxnPatch) => api.patchTransaction(t!.id, { ...body, apply_to_all: all }),
+    onSuccess: () => qc.invalidateQueries(),
+  });
+  const transfer = t && TRANSFER_KINDS.includes(item.kind);
+  const spending = t && t.amount_cents < 0 ? "refund" : "purchase";
   return (
     <div className="py-2.5">
       <div className="flex flex-wrap items-center gap-3 text-sm">
@@ -141,6 +162,37 @@ function ReviewRow({ item, meta, onResolve }: {
               <option value="" disabled>Set category…</option>
               {meta.categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </Select>
+          )}
+          {transfer && (
+            <>
+              <label className="flex items-center gap-1.5 text-xs text-ink-2">
+                <input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} />
+                Every row like it
+              </label>
+              {item.kind === "uncertain_transfer" ? (
+                <>
+                  <Button size="sm" variant="outline" disabled={setType.isPending}
+                          onClick={() => setType.mutate({ type: "transfer", flow_kind: "card_payment" })}>
+                    Yes, a card payment
+                  </Button>
+                  <Button size="sm" variant="outline" disabled={setType.isPending}
+                          onClick={() => setType.mutate({ type: spending })}>
+                    No, it's spending
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button size="sm" variant="outline" disabled={setType.isPending}
+                          onClick={() => setType.mutate({ type: spending })}>
+                    It's spending
+                  </Button>
+                  <Button size="sm" variant="outline" disabled={setType.isPending}
+                          onClick={() => setType.mutate({ type: "transfer", flow_kind: t!.flow_kind ?? "own_transfer" })}>
+                    Not spending
+                  </Button>
+                </>
+              )}
+            </>
           )}
           {item.kind === "low_confidence" && <Button size="sm" variant="outline" onClick={() => onResolve("resolved")}>Looks right</Button>}
           <Button size="sm" variant="ghost" onClick={() => onResolve("ignored")}>Ignore</Button>

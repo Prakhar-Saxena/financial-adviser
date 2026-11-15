@@ -14,6 +14,14 @@ export type Summary = {
   top_merchants: Row[];
   credits_rewards_cents: number;
   trend: { month: string; cents: number; amazon_cents: number; costco_cents: number }[];
+  cash_flow: CashFlow | null; // checking (docs/SPEC-checking.md §13); null without a bank account
+};
+export type FlowRow = { key: string; cents: number; count: number; spending: boolean };
+export type CashFlow = {
+  month: string; money_in_cents: number; money_out_cents: number;
+  money_in: FlowRow[]; money_out: FlowRow[];
+  card_payments: { rows: number; linked: number; cents: number; other: number }; // other: cards not in cards.json
+  unmatched: number;
 };
 export type Meta = {
   months: string[];
@@ -22,6 +30,7 @@ export type Meta = {
   cards: { id: string; name: string; issuer: string; network: string; art: string | null;
            kind: "card" | "account" }[];
   categories: { id: string; name: string; parent_id: string | null }[];
+  bank_type_flows: Record<string, (string | null)[]>;
 };
 export type Txn = {
   id: number;
@@ -55,7 +64,13 @@ export type TxnDetail = Txn & {
              category_id: string | null; sku: string | null }[];
   };
   reviews: { id: number; kind: string; details: Record<string, unknown> }[];
+  // The other side of a transfer: the card payments a checking row paid, or the checking row
+  // that paid a card payment.
+  transfer: { txn_id: number; card_id: string; name: string; date: string; amount_cents: number;
+              method: "named" | "group" | "amount_only"; days_apart: number; confidence: number }[];
 };
+export type TxnPatch = { category_id?: string; person_id?: string; type?: string;
+                         flow_kind?: string; apply_to_all?: boolean };
 export type ReviewItem = {
   id: number;
   kind: string;
@@ -87,6 +102,17 @@ export type Rule = { id: number; pattern: string; merchant_name: string | null;
 export type Statement = { id: number; card_id: string; period_start: string; period_end: string;
                           new_balance_cents: number; math_ok: boolean;
                           ledger_status: string | null; ledger_delta_cents: number | null };
+export type BankStatement = {
+  id: number; card_id: string; period_start: string; period_end: string; opening_cents: number;
+  deposits_cents: number; withdrawals_cents: number; closing_cents: number; math_ok: boolean;
+  ledger_status: "match" | "mismatch" | "incomplete" | null; ledger_delta_cents: number | null;
+};
+export type BankReconciliation = {
+  accounts: string[]; checking_starts: string | null; statements: BankStatement[];
+  balance: { days: number; gaps: string[] } | null;
+  card_payments: { month: string; card_payments: number; matched: number;
+                   checking_payments: number; checking_linked: number }[];
+};
 export type SourceStatus = { site: string; last_run: string | null; status: string | null;
                              files_imported: number; guard_blocks: number; open_gaps: number };
 
@@ -247,7 +273,7 @@ export const api = {
     return req<Txn[]>(`/api/transactions${q ? `?${q}` : ""}`);
   },
   transaction: (id: number) => req<TxnDetail>(`/api/transactions/${id}`),
-  patchTransaction: (id: number, body: { category_id?: string; person_id?: string }) =>
+  patchTransaction: (id: number, body: TxnPatch) =>
     req<TxnDetail>(`/api/transactions/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   patchItem: (id: number, category_id: string) =>
     req(`/api/order_items/${id}`, { method: "PATCH", body: JSON.stringify({ category_id }) }),
@@ -267,6 +293,7 @@ export const api = {
   resolveMany: (ids: number[], status: "resolved" | "ignored") =>
     req<{ updated: number }>("/api/review/resolve", { method: "POST", body: JSON.stringify({ ids, status }) }),
   reconciliation: () => req<Statement[]>("/api/reconciliation"),
+  bankReconciliation: () => req<BankReconciliation>("/api/reconciliation/bank"),
   sources: () => req<SourceStatus[]>("/api/sources/status"),
   cardProfiles: () => req<CardSummary[]>("/api/cards/profiles"),
   cardProfile: (id: string) => req<CardDetail>(`/api/cards/profiles/${id}`),

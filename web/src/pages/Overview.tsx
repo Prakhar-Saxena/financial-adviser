@@ -2,15 +2,16 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { useQuery } from "@tanstack/react-query";
-import { AreaChart as AreaIcon, BarChart3, ClipboardCheck, Gift, LineChart as LineIcon, ShoppingCart, Wallet } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, AreaChart as AreaIcon, BarChart3, ClipboardCheck, Gift, LineChart as LineIcon, ShoppingCart, Wallet } from "lucide-react";
 import { useState } from "react";
 import {
   Area, AreaChart, Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
-import { useNavigate } from "react-router-dom";
-import { api, type Meta } from "@/api";
+import { Link, useNavigate } from "react-router-dom";
+import { api, type CashFlow, type FlowRow, type Meta } from "@/api";
 import { ChartCard } from "@/components/ChartCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FLOW_LABELS } from "@/lib/flows";
 import { categoryColors, listColors, parentOf } from "@/lib/palette";
 import { cn, money, monthLabel } from "@/lib/utils";
 
@@ -64,6 +65,8 @@ export function Overview({ month, meta }: { month: string; meta: Meta }) {
               icon={ClipboardCheck} tint="var(--cat-7)" />
       </div>
 
+      {data.cash_flow && <MoneyInOut flow={data.cash_flow} />}
+
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <ChartCard id="overview-category" title="Spending by category" onSelect={goCategory}
                    views={["donut", "bar", "treemap", "table"]}
@@ -77,7 +80,7 @@ export function Overview({ month, meta }: { month: string; meta: Meta }) {
                      key: r.key, label: name(meta.people, r.key), cents: r.cents,
                      color: people.color(r.key), slot: people.index(r.key),
                    }))} />
-        <ChartCard id="overview-card" title="By card" views={["bar", "donut", "table"]}
+        <ChartCard id="overview-card" title={data.cash_flow ? "By card or account" : "By card"} views={["bar", "donut", "table"]}
                    items={data.by_card.map((r) => ({
                      key: r.key, label: name(meta.cards, r.key), cents: r.cents,
                      color: cards.color(r.key), slot: cards.index(r.key),
@@ -167,6 +170,61 @@ function TrendCard({ trend }: { trend: { month: string; cents: number }[] }) {
             <tr>{data.map((d) => <td key={d.month} className="text-center tabular">{money(d.cents, { whole: true })}</td>)}</tr>
           </tbody>
         </table>
+      </CardContent>
+    </Card>
+  );
+}
+
+/** Checking for the month, by posted date, as the statement counts it (SPEC-checking §13). */
+function MoneyInOut({ flow }: { flow: CashFlow }) {
+  const side = (title: string, total: number, rows: FlowRow[], Icon: typeof Wallet) => (
+    <div className="min-w-0">
+      <div className="flex items-baseline justify-between border-b border-line pb-1.5">
+        <span className="flex items-center gap-1.5 text-sm font-medium text-ink"><Icon className="h-4 w-4 text-muted" />{title}</span>
+        <span className="tabular text-lg font-semibold text-ink">{money(total)}</span>
+      </div>
+      <table className="mt-1 w-full text-sm">
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.key} className="border-b border-line last:border-0">
+              <td className="py-1.5 text-ink-2">
+                {FLOW_LABELS[r.key] ?? r.key}
+                <span className="ml-1.5 text-xs text-muted">
+                  {r.count} {r.count === 1 ? "row" : "rows"}{r.spending ? " · spending" : ""}
+                </span>
+              </td>
+              <td className="py-1.5 text-right tabular">{money(r.cents)}</td>
+            </tr>
+          ))}
+          {!rows.length && <tr><td className="py-1.5 text-muted">Nothing this month.</td></tr>}
+        </tbody>
+      </table>
+    </div>
+  );
+  const { rows, linked } = flow.card_payments;
+  return (
+    <Card className="mt-4">
+      <CardHeader>
+        <CardTitle>Money in and out</CardTitle>
+        <span className="text-xs text-muted">Checking, by posted date</span>
+      </CardHeader>
+      <CardContent>
+        <p className="mb-3 text-sm text-ink-2">Card payments aren't spending: those purchases already count on each card.</p>
+        <div className="grid gap-6 md:grid-cols-2">
+          {side("Money in", flow.money_in_cents, flow.money_in, ArrowDownLeft)}
+          {side("Money out", flow.money_out_cents, flow.money_out, ArrowUpRight)}
+        </div>
+        {(rows > 0 || flow.card_payments.other > 0 || flow.unmatched > 0) && (
+          <p className="mt-3 text-xs text-ink-2">
+            {rows > 0 && <>{linked} of {rows} card payments matched to a card. </>}
+            {flow.card_payments.other > 0 && <>{flow.card_payments.other} paid cards you don't track. </>}
+            {flow.unmatched > 0 && (
+              <Link to="/review" className="text-ink underline underline-offset-2">
+                {flow.unmatched} to check in Review
+              </Link>
+            )}
+          </p>
+        )}
       </CardContent>
     </Card>
   );
