@@ -40,7 +40,7 @@ Eff Date Description Amount Balance
 10/31/26 Ending Balance $1,850.83
 The average daily balance during this period was $1,712.40
 ACCOUNT SUMMARY
-Previous Balance as of 09/30/26 is $1,500.00
+Previous Balance as of 10/01/26 is $1,500.00
 Total Deposits $2,417.34
 Total Withdrawals $2,066.93
 Total Dividends Earned $0.42
@@ -57,7 +57,7 @@ The average daily balance during this period was $2,499.75
 The Annual Percentage Yield Earned for this account is 0.120%
 The dividend amount earned year to date is $1.10
 ACCOUNT SUMMARY
-Previous Balance as of 09/30/26 is $2,499.75
+Previous Balance as of 10/01/26 is $2,499.75
 Total Deposits $0.00
 Total Withdrawals $0.00
 Total Dividends Earned $0.25

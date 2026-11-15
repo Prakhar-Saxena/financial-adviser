@@ -54,9 +54,17 @@ class ParsedTxn:
     issuer_category: str | None = None
     memo: str | None = None
     member_name: str | None = None
+    # Checking rows only (docs/SPEC-checking.md §8.1): the export's own row type and running
+    # balance. Neither is part of the dedupe key.
+    bank_type: str | None = None
+    balance_cents: int | None = None
 
     def as_dict(self) -> dict[str, Any]:
-        return self.__dict__.copy()
+        d = self.__dict__.copy()
+        for k in ("bank_type", "balance_cents"):  # card rows: keep the goldens as they were
+            if d[k] is None:
+                del d[k]
+        return d
 
 
 def _iso(mdy: str) -> str:
@@ -148,6 +156,7 @@ def insert_transactions(
             description_raw=r.description_raw, description_clean=r.description_clean,
             type=r.type, dedupe_key=key, import_id=imp.id,
             review_status="needs_review" if r.needs_review else "ok",
+            bank_type=r.bank_type, balance_after_cents=r.balance_cents,
         )
         s.add(t)  # needs_review rows get their review item from `fin process`
         inserted += 1

@@ -249,12 +249,18 @@ def _cards_if_configured():
 def detect(path: Path, cards=None) -> tuple[str, str] | None:
     """Content-based type detection for manual drops (§9.6). Returns (site, kind).
 
-    A bank's activity export is recognized by its header once Phase B2 has seen a real one."""
+    A bank's activity export is recognized by its header; with more than one bank site the
+    header can't say which, so `fin import FILE --card` decides."""
+    from fin.ingest.bank import is_bank_export
     from fin.ingest.bank_csv import is_amex_csv, is_chase_csv, is_citi_csv
 
     suffix = path.suffix.lower()
     if suffix == ".csv":
         text = path.read_text(errors="replace")
+        if is_bank_export(text):
+            cards = cards or _cards_if_configured()
+            sites = cards.bank_sites if cards else []
+            return (sites[0], "transactions") if len(sites) == 1 else None
         if is_chase_csv(text):
             return ("chase", "transactions")
         if is_citi_csv(text):
