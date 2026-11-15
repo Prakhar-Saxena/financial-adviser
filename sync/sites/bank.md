@@ -19,10 +19,12 @@ don't open any of the playbook's `## Avoid` items.
 2. **Transactions (export).** Find the site's own download or export for this account's
    activity (often an icon or "Export"/"Download" above the transaction list):
    - format **CSV** if offered (note every format offered in the run report),
-   - date range `transactions_from` to `transactions_to`. Type dates with their slashes or
-     dashes (e.g. 03/04/2025): the guard blocks bare digits here, because they look like an
-     amount. If a date field only takes bare digits, use its calendar picker instead, or note
-     it as a gap. Check in a snapshot that the dates held before downloading. On the first
+   - date range `transactions_from` to `transactions_to`. Type dates in the format the date
+     field takes, with its separators: a native date field takes `YYYY-MM-DD`, as in the run
+     parameters; the playbook says which. The guard blocks bare digits here, because they
+     look like an amount. If a date field only takes bare digits, use its calendar picker
+     instead, or note it as a gap. Check in a snapshot that the dates held before
+     downloading. On the first
      run (`first_run` true) the range is long, so the card payments in the ledger can find
      their checking rows. If the site won't go back that far, use the earliest date it
      accepts and note how far back it reached,
@@ -40,7 +42,8 @@ don't open any of the playbook's `## Avoid` items.
    period_start = the period start if shown, else null.
 
 Go straight to these pages. Don't open single transactions, and don't snapshot the transaction
-list more than the task needs. If one download fails twice, record a gap and move on.
+list more than the task needs. Never take screenshots here: they carry balances and payees as
+images. Use `browser_snapshot`; if a menu won't open, try the keys the playbook names. If one download fails twice, record a gap and move on.
 
 If a page leaves the site's domains (statements often sit on another company's host), the guard
 blocks it. Record the host in the run report and stop that step. The user decides whether it
