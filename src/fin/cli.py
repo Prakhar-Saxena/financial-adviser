@@ -694,6 +694,88 @@ def process(no_ai: Annotated[bool, typer.Option("--no-ai", help="Cache only, no 
 
 
 @app.command()
+def transfers(
+    month: Annotated[str | None, typer.Option(help="Only this month, YYYY-MM")] = None,
+    check: Annotated[bool, typer.Option("--check", help="Invariants and ledger checks; exit 1 "
+                                        "on a failure")] = False,
+) -> None:
+    """Card payments, own transfers and investments out of checking, with what each linked to
+    (docs/SPEC-checking.md §14). Shows card names, dates and amounts, never descriptions."""
+    from collections import defaultdict
+
+    from sqlalchemy import func, select
+
+    from fin.db import models as m
+    from fin.db import session_factory
+    from fin.reconcile.transfers import check_invariants, checking_ids
+
+    settings = load_settings()
+    paths = data_paths(settings)
+    _open_db(paths)
+    cards = load_cards()
+    accounts = checking_ids(cards)
+    if not accounts:
+        typer.echo("No bank account in cards.json.")
+        return
+    with session_factory(paths.db_file)() as s:
+        if check:
+            problems = check_invariants(s, cards, settings)
+            statements = s.scalars(select(m.BankStatement).where(
+                m.BankStatement.card_id.in_(accounts)).order_by(m.BankStatement.period_end)).all()
+            for st in statements:
+                ok = st.math_ok and st.ledger_status in ("match", "incomplete")
+                typer.echo(f"  statement {st.period_end}: math {'ok' if st.math_ok else 'OFF'}, "
+                           f"ledger {st.ledger_status or 'not checked'}")
+                if not ok:
+                    problems.append(f"statement {st.period_end} doesn't balance or tie")
+            gaps = s.scalars(select(m.ReviewItem).where(
+                m.ReviewItem.kind == "bank_balance_gap", m.ReviewItem.status == "open")).all()
+            if gaps:
+                problems.append(f"{len(gaps)} running-balance gaps (see `fin review`)")
+            for line in problems:
+                typer.echo(f"FAIL {line}")
+            typer.echo("Transfers check: " + ("failed" if problems else "passed"))
+            raise typer.Exit(1 if problems else 0)
+
+        links = defaultdict(list)
+        for lk in s.scalars(select(m.TransferLink)):
+            links[lk.bank_txn_id].append(lk)
+        q = select(m.Transaction).where(
+            m.Transaction.card_id.in_(accounts), m.Transaction.type == "transfer")
+        if month:
+            q = q.where(m.Transaction.post_date.like(f"{month}-%"))
+        rows = s.scalars(q.order_by(m.Transaction.post_date, m.Transaction.id)).all()
+        totals: dict[str, int] = defaultdict(int)
+        for t in rows:
+            totals[t.flow_kind or "transfer"] += t.amount_cents
+            if t.flow_kind not in ("card_payment", "card_payment_other"):
+                continue
+            if links.get(t.id):
+                paid = [(s.get(m.Transaction, lk.card_txn_id), lk) for lk in links[t.id]]
+                what = "; ".join(f"{cards.account_name(c.card_id)} {c.post_date} "
+                                 f"({lk.method}, {lk.days_apart:+d} d)" for c, lk in paid)
+            elif t.flow_kind == "card_payment_other":
+                what = "a card that isn't in cards.json"
+            else:
+                what = "UNMATCHED"
+            typer.echo(f"{t.post_date}  {t.amount_cents / 100:>10,.2f}  #{t.id:<6} {what}")
+        for flow, cents in sorted(totals.items()):
+            typer.echo(f"Total {flow}: {cents / 100:,.2f}")
+        card_ids = [c.id for c in cards.cards]
+        linked_cards = {lk.card_txn_id for ls in links.values() for lk in ls}
+        q = select(m.Transaction).where(m.Transaction.card_id.in_(card_ids),
+                                        m.Transaction.type == "payment")
+        if month:
+            q = q.where(m.Transaction.post_date.like(f"{month}-%"))
+        pays = s.scalars(q).all()
+        first = s.scalar(select(func.min(m.Transaction.post_date)).where(
+            m.Transaction.card_id.in_(accounts)))
+        typer.echo(f"Card payments: {sum(p.id in linked_cards for p in pays)} of {len(pays)} "
+                   "matched to checking; the rest came from elsewhere or aren't synced yet."
+                   + (f" Checking starts {first}." if first else ""))
+
+
+@app.command()
 def review() -> None:
     """Terminal summary of open review items."""
     from sqlalchemy import select

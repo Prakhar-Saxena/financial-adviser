@@ -188,3 +188,90 @@ def test_classifier_never_sees_people_transfers_or_deposits(data_dir, example_co
     for word in ("ALEX", "EXAMPLE", "VENMO", "XFER", "PAYROLL", "CHECK"):
         assert word not in text, word
     assert not re.search(r"\d{6,}", text)
+
+
+# ------------------------------------------------------------------ PATCH and fin transfers
+
+
+@pytest.fixture
+def bank_loaded(data_dir, example_config):
+    assert CliRunner().invoke(app, ["init"]).exit_code == 0
+    drop_run(data_dir, "chase", [("activity.csv", CHASE_CSV.encode(), "transactions",
+                                  "chase_prime_visa", "2026-10-01", "2026-11-02")])
+    drop_run(data_dir, "bank", BANK_FILES, run_date="2026-11-03")
+    import_inbox()
+    process_all()
+    return data_paths(load_settings()).db_file
+
+
+def api(db):
+    from fastapi.testclient import TestClient
+
+    from fin.api.app import create_app
+
+    return TestClient(create_app(db, web_dist=None), base_url="http://127.0.0.1")
+
+
+def row_id(db, raw):
+    with session_factory(db)() as s:
+        return s.scalar(select(m.Transaction.id).where(m.Transaction.description_raw == raw))
+
+
+def test_patch_says_what_a_checking_row_is(bank_loaded):
+    db, c = bank_loaded, api(bank_loaded)
+    paid = row_id(db, "CHASE CREDIT CRD  - EPAY")
+    card_row = row_id(db, "CORNER CAFE")
+    assert c.patch(f"/api/transactions/{card_row}", json={"type": "transfer"}).status_code == 422
+    assert c.patch(f"/api/transactions/{paid}", json={"type": "payment"}).status_code == 422
+    assert c.patch(f"/api/transactions/{paid}",
+                   json={"type": "purchase", "flow_kind": "income"}).status_code == 422
+    r = c.patch(f"/api/transactions/{paid}", json={"type": "purchase"})
+    assert r.status_code == 200 and r.json()["counts_as_spending"]
+    process_all()  # my choice holds: no link, still spending
+    with session_factory(db)() as s:
+        t = s.get(m.Transaction, paid)
+        assert (t.type, t.flow_kind) == ("purchase", None)
+        assert s.scalar(select(m.TransferLink).where(m.TransferLink.bank_txn_id == paid)) is None
+
+
+def test_patch_apply_to_all_and_closing_the_review_item(bank_loaded):
+    db, c = bank_loaded, api(bank_loaded)
+    amex = row_id(db, "AMERICAN EXPRESS ACH PMT  - ACH PMT")
+    with session_factory(db)() as s:
+        assert s.scalar(select(m.ReviewItem).where(  # no Amex payment synced: unmatched
+            m.ReviewItem.kind == "unmatched_transfer", m.ReviewItem.ref_id == str(amex),
+            m.ReviewItem.status == "open"))
+    r = c.patch(f"/api/transactions/{amex}", json={"type": "transfer",
+                                                   "flow_kind": "own_transfer",
+                                                   "apply_to_all": True})
+    assert r.status_code == 200 and not r.json()["reviews"]
+    with session_factory(db)() as s:
+        rule = s.scalar(select(m.Rule).where(m.Rule.txn_type.is_not(None)))
+        assert (rule.txn_type, rule.flow_kind, rule.category_id) == \
+            ("transfer", "own_transfer", None)
+        s.add(m.Transaction(card_id="checking", person_id="self", post_date="2026-10-20",
+                            amount_cents=500, description_raw="x",
+                            description_clean=s.get(m.Transaction, amex).description_clean,
+                            type="purchase", dedupe_key="another", import_id=1))
+        s.commit()
+    process_all()
+    with session_factory(db)() as s:
+        other = s.scalar(select(m.Transaction).where(m.Transaction.dedupe_key == "another"))
+        assert (other.type, other.flow_kind) == ("transfer", "own_transfer")
+    assert c.get("/api/rules").status_code == 200
+
+
+def test_fin_transfers_lists_and_checks(bank_loaded):
+    r = CliRunner().invoke(app, ["transfers", "--month", "2026-10"])
+    assert r.exit_code == 0, r.output
+    assert "Chase Prime Visa" in r.output or "Prime" in r.output
+    assert "named" in r.output and "Card payments: 1 of 1 matched" in r.output
+    assert "EPAY" not in r.output and "VENMO" not in r.output  # no descriptions
+    ok = CliRunner().invoke(app, ["transfers", "--check"])
+    assert ok.exit_code == 0, ok.output
+    with session_factory(bank_loaded)() as s:  # break invariant 1 behind fin process's back
+        t = s.get(m.Transaction, row_id(bank_loaded, "CHASE CREDIT CRD  - EPAY"))
+        t.type = "purchase"
+        s.commit()
+    bad = CliRunner().invoke(app, ["transfers", "--check"])
+    assert bad.exit_code == 1 and "FAIL 1:" in bad.output

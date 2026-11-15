@@ -23,6 +23,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from fin.api.routes.cards import cards_router, require_json
 from fin.api.spending import SPENDING_TYPES, months_with_data, summarize, txn_month
 from fin.cards.refresh import abort_stale_runs
+from fin.categorize.rules import NON_SPENDING
 from fin.config import REPO_ROOT, data_paths, load_cards, load_settings, load_taxonomy
 from fin.db import models as m
 from fin.db import session_factory
@@ -37,6 +38,21 @@ WEB_DIST = REPO_ROOT / "web" / "dist"
 class TxnPatch(BaseModel):
     category_id: str | None = None
     person_id: str | None = None
+    # Checking rows only (docs/SPEC-checking.md §13): what the row is, optionally for every
+    # row with the same cleaned description.
+    type: str | None = None
+    flow_kind: str | None = None
+    apply_to_all: bool = False
+
+
+# Types and flow kinds I may give a checking row (SPEC-checking §4, §13). The first flow is the
+# default when only a type is given.
+BANK_TYPE_FLOWS: dict[str, tuple[str | None, ...]] = {
+    "purchase": (None, "check", "atm", "p2p"),
+    "transfer": ("own_transfer", "card_payment", "card_payment_other", "investment"),
+    "deposit": ("other_in", "income", "interest", "reward", "tax_refund", "p2p"),
+    "refund": (None,),
+}
 
 
 class RuleIn(BaseModel):
@@ -224,7 +240,10 @@ def create_app(db_file: Path | None = None, web_dist: Path | None = WEB_DIST) ->
         t = s.get(m.Transaction, txn_id)
         if t is None:
             raise HTTPException(404)
-        changes = body.model_dump(exclude_none=True)
+        if body.type is not None or body.flow_kind is not None:
+            _set_bank_type(s, t, body)
+        changes = body.model_dump(exclude_none=True,
+                                  include={"category_id", "person_id"})
         if "category_id" in changes and changes["category_id"] not in cat_names:
             raise HTTPException(422, "unknown category")
         if "person_id" in changes and changes["person_id"] not in {p.id for p in cards.people}:
@@ -246,6 +265,54 @@ def create_app(db_file: Path | None = None, web_dist: Path | None = WEB_DIST) ->
         _resolve_for(s, t.id, changes)
         s.commit()
         return transaction(txn_id, s)
+
+    def _set_bank_type(s: Session, t: m.Transaction, body: TxnPatch) -> None:
+        """"This is spending" / "This isn't spending" and the like, on a checking row."""
+        import re
+
+        if t.card_id not in {a.id for a in cards.bank_accounts}:
+            raise HTTPException(422, "type and flow_kind are set on checking rows only")
+        typ = body.type or t.type
+        flows = BANK_TYPE_FLOWS.get(typ)
+        if flows is None:
+            raise HTTPException(422, f"type must be one of {sorted(BANK_TYPE_FLOWS)}")
+        flow = body.flow_kind if body.flow_kind is not None else (
+            t.flow_kind if t.flow_kind in flows else flows[0])
+        if flow == "":
+            flow = None
+        if flow not in flows:
+            raise HTTPException(422, f"flow_kind {flow!r} doesn't go with type {typ!r}")
+        for field, value in (("type", typ), ("flow_kind", flow or "")):
+            existing = s.scalar(select(m.UserOverride).where(
+                m.UserOverride.target_type == "transaction",
+                m.UserOverride.stable_key == t.dedupe_key, m.UserOverride.field == field))
+            if existing:
+                existing.value = value
+            else:
+                s.add(m.UserOverride(target_type="transaction", stable_key=t.dedupe_key,
+                                     field=field, value=value))
+        if body.apply_to_all:
+            pattern = f"^{re.escape(t.description_clean)}$"
+            rule = s.scalar(select(m.Rule).where(m.Rule.created_by == "user",
+                                                 m.Rule.pattern == pattern,
+                                                 m.Rule.txn_type.is_not(None)))
+            if rule is None:
+                rule = m.Rule(priority=100, match_field="description_clean", pattern=pattern,
+                              created_by="user")
+                s.add(rule)
+            rule.txn_type, rule.flow_kind = typ, flow
+        t.type, t.flow_kind = typ, flow
+        if typ in NON_SPENDING:
+            t.category_id, t.category_source = None, None
+        if not (typ == "transfer" and flow == "card_payment"):
+            s.query(m.TransferLink).filter(m.TransferLink.bank_txn_id == t.id).delete()
+        kinds = ["unmatched_transfer", "uncertain_transfer"]
+        if typ in NON_SPENDING:
+            kinds += ["uncategorized", "low_confidence"]
+        for r in s.scalars(select(m.ReviewItem).where(
+                m.ReviewItem.status == "open", m.ReviewItem.ref_table == "transactions",
+                m.ReviewItem.ref_id == str(t.id), m.ReviewItem.kind.in_(kinds))):
+            r.status, r.resolved_at = "resolved", utcnow()
 
     def _resolve_for(s: Session, txn_id: int, changes: dict) -> None:
         kinds = []
