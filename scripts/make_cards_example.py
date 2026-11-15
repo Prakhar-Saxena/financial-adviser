@@ -23,7 +23,8 @@ FAKE_PEOPLE = {
 FAKE_BANK = {"name": "Example Bank", "start_url": "https://online.bank.example/",
              "allowed_domains": ["bank.example"]}
 FAKE_ACCOUNT = {"product": "Example Bank Checking", "account_type": "checking",
-                "account_ending": "", "statement_markers": []}
+                "account_ending": "", "statement_markers": [],
+                "debit_rewards": {"points_per_dollar": 1.0, "cents_per_point": 1.0}}
 FIXED_NOTES = [
     "private_words: anything else that would identify you (your bank, your street). The git "
     "hooks refuse any commit or push that contains one.",

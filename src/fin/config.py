@@ -89,6 +89,19 @@ class Card(_Strict):
         )
 
 
+class DebitRewards(_Strict):
+    """What a bank account's debit card earns (docs/SPEC-checking.md Phase B4). Kept in
+    cards.json because the rate could identify the bank. 1 point per $3 is 1/3 point per dollar;
+    `cents_per_point` values each point (1.0 for cash back)."""
+
+    points_per_dollar: float = Field(ge=0, le=10)
+    cents_per_point: float = Field(default=1.0, ge=0, le=10)
+
+    def cents(self, amount_cents: int) -> float:
+        """What a purchase of `amount_cents` earns, in cents."""
+        return amount_cents / 100 * self.points_per_dollar * self.cents_per_point
+
+
 class BankAccount(_Strict):
     """A bank account in the ledger (docs/SPEC-checking.md §5). In the database it's a row in
     `cards` with card_type = account_type and network = "none"."""
@@ -102,6 +115,8 @@ class BankAccount(_Strict):
     statement_markers: list[str] = []
     # URL words unique to this bank that mark a money-moving page (SPEC-checking §7.3 rule 1).
     money_url_words: list[str] = []
+    # Missed rewards on plain debit purchases (Phase B4). None: the debit card earns nothing.
+    debit_rewards: DebitRewards | None = None
 
 
 class CardsConfig(_Strict):

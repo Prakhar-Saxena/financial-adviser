@@ -294,7 +294,6 @@
       ]
     }
   ],
-  "private_words": [],
   "bank_accounts": [
     {
       "id": "checking",
@@ -302,7 +301,12 @@
       "product": "Example Bank Checking",
       "account_type": "checking",
       "account_ending": "",
-      "statement_markers": []
+      "statement_markers": [],
+      "debit_rewards": {
+        "points_per_dollar": 1.0,
+        "cents_per_point": 1.0
+      }
     }
-  ]
+  ],
+  "private_words": []
 }

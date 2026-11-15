@@ -171,7 +171,8 @@ connects to your own Chrome through the Playwright Extension:
 
 - **Best card:** type where you're paying to see your cards ranked by cents back, with the rule,
   its conditions and a link to the exact clause in the card's terms. **Missed rewards** shows
-  what a different card would have earned on your last months of purchases, each statement
+  what a different card would have earned on your last months of purchases (plain debit
+  purchases from checking too, valued at `bank_accounts[].debit_rewards` in `cards.json`), each statement
   credit's use this period, card-linked offers (Amex, Chase and Citi offers) at places you
   shop, and a cheat sheet. Offers are read-only: turn them on with `offers_sites` in
   `config/settings.toml` (or `fin sync amex --offers`); add any you want in the issuer's app

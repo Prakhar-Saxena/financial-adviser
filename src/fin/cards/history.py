@@ -35,6 +35,13 @@ def _day(t: m.Transaction) -> date:
     return date.fromisoformat(t.txn_date or t.post_date)
 
 
+def rewardable():
+    """Purchases a card could have earned on: every card purchase, and plain debit purchases
+    from checking (Phase B4), never person-to-person, check or ATM rows (their flow_kind)."""
+    return (m.Transaction.type == PURCHASE) & (
+        (m.Card.card_type != "checking") | m.Transaction.flow_kind.is_(None))
+
+
 # --------------------------------------------------------------------------- history step
 
 
@@ -58,10 +65,9 @@ def resolve_history(s: Session, paths: DataPaths, settings: Settings, *, use_ai:
 
     sync_seeds(s)
     out = HistoryResult()
-    # Card rows only: debit purchases join in Phase B4 (docs/SPEC-checking.md §12).
+    # Checking rows are already cleaned of names and numbers (SPEC-checking §8.3).
     descs = sorted(set(s.scalars(select(m.Transaction.description_clean).join(
-        m.Card, m.Card.id == m.Transaction.card_id).where(
-        m.Transaction.type == PURCHASE, m.Card.card_type != "checking"))))
+        m.Card, m.Card.id == m.Transaction.card_id).where(rewardable()))))
     out.descriptors = len(descs)
     todo: dict[str, dict[str, str]] = {}
     for d in descs:
@@ -330,20 +336,26 @@ def tips(s: Session, settings: Settings, cards: CardsConfig, profiles: dict[str,
          facts: engine.Facts, months: int, today: date | None = None) -> dict[str, Any]:
     """For purchases in the last `months`: the card used against the best eligible card at
     current terms, grouped by merchant. An estimate: credits and caps are left out, except that
-    a purchase a statement credit pays back on the card used is never a miss."""
+    a purchase a statement credit pays back on the card used is never a miss.
+
+    Plain debit purchases count too (Phase B4), valued at the account's own `debit_rewards`
+    (nothing when it has none)."""
     today = today or date.today()
     facts = earn_only(facts)
     since = today - timedelta(days=round(months * 30.44))
     aliases, merchants = merchant_index(s)
     ecards = [engine.Card(c.id, c.product, c.network) for c in cards.cards]
     by_id = {c.id: c for c in ecards}
-    names = {c.id: c.product for c in cards.cards}
+    accounts = {a.id: a for a in cards.bank_accounts}
+    names = {c.id: c.product for c in cards.cards} | {a.id: a.product for a in accounts.values()}
     groups: dict[str, dict[str, Any]] = {}
     unknown = Counter()
     low = settings.ai.low_confidence
-    for t in s.scalars(select(m.Transaction).where(m.Transaction.type == PURCHASE)):
+    for t in s.scalars(select(m.Transaction).join(m.Card, m.Card.id == m.Transaction.card_id)
+                       .where(rewardable())):
         day = _day(t)
-        if day < since or day > today or t.card_id not in profiles:
+        if day < since or day > today or (t.card_id not in profiles
+                                          and t.card_id not in accounts):
             continue
         mp = merchant_of(t, aliases, merchants)
         if mp is None or mp.reward_category is None:
@@ -351,9 +363,20 @@ def tips(s: Session, settings: Settings, cards: CardsConfig, profiles: dict[str,
             continue
         opts = engine.Options(t.amount_cents, None, False, day)
         merchant = as_engine(mp)
-        used = engine.evaluate(by_id[t.card_id], profiles[t.card_id], merchant, opts, facts)
-        kept = kept_for_credit(t.card_id, profiles[t.card_id], merchant, opts, facts)
-        best = used if kept else engine.rank(merchant, ecards, profiles, opts, facts).results[0]
+        if t.card_id in accounts:
+            rewards = accounts[t.card_id].debit_rewards
+            used_cents, kept = rewards.cents(t.amount_cents) if rewards else 0.0, None
+            ranked = engine.rank(merchant, ecards, profiles, opts, facts).results
+            best_id, best_cents = t.card_id, used_cents
+            if ranked and ranked[0].rule_cents - ranked[0].fee_cents > used_cents:
+                best_id, best_cents = ranked[0].card.id, ranked[0].rule_cents - ranked[0].fee_cents
+        else:
+            used = engine.evaluate(by_id[t.card_id], profiles[t.card_id], merchant, opts, facts)
+            kept = kept_for_credit(t.card_id, profiles[t.card_id], merchant, opts, facts)
+            best = used if kept else engine.rank(merchant, ecards, profiles, opts,
+                                                 facts).results[0]
+            used_cents = used.rule_cents - used.fee_cents
+            best_id, best_cents = best.card.id, best.rule_cents - best.fee_cents
         g = groups.setdefault(mp.key, {
             "merchant": mp.display_name, "key": mp.key, "category": mp.reward_category,
             "unsure": mp.confidence < low, "purchases": 0, "spend_cents": 0,
@@ -364,15 +387,14 @@ def tips(s: Session, settings: Settings, cards: CardsConfig, profiles: dict[str,
         g["purchases"] += 1
         g["spend_cents"] += t.amount_cents
         g["cards_used"][t.card_id] += 1
-        g["better"][best.card.id] += 1
-        g["used_cents"] += used.rule_cents - used.fee_cents
-        g["best_cents"] += best.rule_cents - best.fee_cents
+        g["better"][best_id] += 1
+        g["used_cents"] += used_cents
+        g["best_cents"] += best_cents
         if len(g["examples"]) < 5:
             g["examples"].append({"transaction_id": t.id, "date": day.isoformat(),
                                   "amount_cents": t.amount_cents, "card_id": t.card_id,
-                                  "used_cents": round(used.rule_cents - used.fee_cents, 2),
-                                  "best_card_id": best.card.id,
-                                  "best_cents": round(best.rule_cents - best.fee_cents, 2)})
+                                  "used_cents": round(used_cents, 2),
+                                  "best_card_id": best_id, "best_cents": round(best_cents, 2)})
     rows = []
     for g in groups.values():
         better = g["better"].most_common(1)[0][0]
@@ -387,8 +409,8 @@ def tips(s: Session, settings: Settings, cards: CardsConfig, profiles: dict[str,
             "earned_cents": round(g["used_cents"]), "possible_cents": round(g["best_cents"]),
             "difference_cents": round(diff), "examples": g["examples"],
             "kept_for_credit": sorted(g["kept_for"]),
-            "text": _tip_text(names, better, g["merchant"], g["cards_used"]) if diff >= 1
-            else None})
+            "text": _tip_text(names, better, g["merchant"], g["cards_used"],
+                              set(accounts), diff) if diff >= 1 else None})
     rows.sort(key=lambda r: -r["difference_cents"])
     top = [r for r in rows if r["difference_cents"] >= 1 and not r["unsure"]][:10]
     unsure = [r for r in rows if r["unsure"] and r["difference_cents"] >= 1]
@@ -418,10 +440,14 @@ def kept_for_credit(card_id: str, profile: CardProfile, merchant: engine.Merchan
     return None
 
 
-def _tip_text(names: dict[str, str], better: str, merchant: str, used: Counter) -> str:
+def _tip_text(names: dict[str, str], better: str, merchant: str, used: Counter,
+              accounts: set[str] = frozenset(), diff_cents: float = 0) -> str:
     others = [c for c, _ in used.most_common() if c != better]
     if not others:
         return f"Keep using {names[better]} at {merchant}"
+    if set(used) <= accounts:  # paid only from checking (SPEC-checking Phase B4)
+        return (f"You paid {merchant} from {' / '.join(names[c] for c in others)}; "
+                f"{names[better]} would have earned ${diff_cents / 100:,.2f} more")
     n_other = sum(used[c] for c in others)
     if better in used:
         on = " / ".join(names[c] for c in others)

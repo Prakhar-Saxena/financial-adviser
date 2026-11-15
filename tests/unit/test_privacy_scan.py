@@ -360,7 +360,9 @@ def test_make_cards_example_writes_none_of_the_bank():
                 {"person": "casey", "card_ending": "98765"}]}],
             "bank_accounts": [{**CARDS["bank_accounts"][0], "account_type": "checking",
                                "statement_markers": ["HARBORVIEW REWARDS CHECKING SUMMARY"],
-                               "money_url_words": ["harborpay"]}]}
+                               "money_url_words": ["harborpay"],
+                               "debit_rewards": {"points_per_dollar": 0.37,
+                                                 "cents_per_point": 0.83}}]}
     text = json.dumps(make.make_example(real)).lower()
     words, endings = scan.site_terms(real)
     names, _ = scan.people_terms(real)
@@ -368,6 +370,7 @@ def test_make_cards_example_writes_none_of_the_bank():
         assert w.lower() not in text, w
     example = json.loads(text)
     assert example["bank_accounts"][0]["product"] == "example bank checking"
+    assert "0.37" not in text and "0.83" not in text  # the real debit rate could name the bank
     assert {"bank.example"} == {d for s in example["issuers"] for d in s["allowed_domains"]
                                 if s["id"] == "bank"}
     # A config with no bank still gets the fictional one, so the example shows the shape.

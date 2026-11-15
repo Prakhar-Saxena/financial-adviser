@@ -240,3 +240,90 @@ def test_api_tips_credits_cheatsheet(env, client):
     assert next(r for r in got if r["name"] == "Dining credit")["how"] == "posted"
     with env.S() as s:
         assert not s.scalars(select(m.CardFact).where(m.CardFact.kind == "credit_used")).all()
+
+
+def add_checking(env, rows):
+    """A fictional checking account earning 1 point per $2 at 1¢ (Phase B4), with rows
+    (days ago, cents, flow_kind, cleaned descriptor). Returns the config with the account."""
+    from fin.config import BankAccount, DebitRewards, Site
+
+    cards = env.cards.model_copy(update={
+        "issuers": [*env.cards.issuers, Site(id="bank", name="Example Bank",
+                                             start_url="https://online.bank.example/",
+                                             allowed_domains=["bank.example"])],
+        "bank_accounts": [BankAccount(id="checking", site="bank", product="Example Checking",
+                                      account_type="checking",
+                                      debit_rewards=DebitRewards(points_per_dollar=0.5))]})
+    with env.S() as s:
+        s.merge(m.Card(id="checking", issuer="bank", product="Example Checking",
+                       network="none", card_type="checking"))
+        imp = s.scalar(select(m.Import.id))
+        for i, (ago, cents, flow, desc) in enumerate(rows):
+            day = (TODAY - timedelta(days=ago)).isoformat()
+            s.add(m.Transaction(card_id="checking", post_date=day, txn_date=day,
+                                amount_cents=cents, description_raw=desc, description_clean=desc,
+                                type="purchase", flow_kind=flow, dedupe_key=f"bank{i}",
+                                import_id=imp))
+        s.commit()
+    return cards
+
+
+def test_debit_purchases_in_missed_rewards(env):
+    """Phase B4: plain debit purchases at the account's own rate; never p2p, check or ATM."""
+    setup(env)
+    cards = add_checking(env, [
+        (3, 9_000, None, "CHEVRON"),       # plain debit purchase
+        (4, 2_500, "p2p", "VENMO"),        # person to person: never a miss
+        (5, 3_000, "check", "CHECK"),
+        (6, 4_000, "atm", "ATM WITHDRAWAL"),
+    ])
+    with env.S() as s:
+        resolve_history(s, env.paths, env.settings)
+        out = tips(s, env.settings, cards, active_profiles(s),
+                   load_facts(s, env.settings, cards), months=3)
+    gas = next(r for r in out["merchants"] if r["key"] == "gas_station")
+    # Chevron $40 on Everyday: 40¢, could be 80¢ (above). Chevron $90 from checking: 1 point per
+    # $2 at 1¢ = 45¢; the Travel Card's 2% = 180¢. Together: earned 85¢, possible 260¢.
+    assert (gas["earned_cents"], gas["possible_cents"], gas["difference_cents"]) == \
+        (85, 260, 175)
+    assert {c["card_id"]: c["product"] for c in gas["cards_used"]}["checking"] == \
+        "Example Checking"
+    debit = next(x for x in gas["examples"] if x["card_id"] == "checking")
+    assert (debit["used_cents"], debit["best_card_id"], debit["best_cents"]) == \
+        (45, "example_travel", 180)
+    seen = {x["transaction_id"] for r in out["merchants"] for x in r["examples"]}
+    with env.S() as s:
+        held = set(s.scalars(select(m.Transaction.id).where(m.Transaction.flow_kind.is_not(None))))
+    assert not seen & held
+
+
+def test_debit_only_merchant_says_paid_from_checking(env):
+    setup(env)
+    cards = add_checking(env, [(3, 9_000, None, "SHELL OIL 0000")])
+    with env.S() as s:
+        resolve_history(s, env.paths, env.settings)
+        out = tips(s, env.settings, cards, active_profiles(s),
+                   load_facts(s, env.settings, cards), months=3)
+    row = next(r for r in out["merchants"] if r["cards_used"][0]["card_id"] == "checking")
+    assert row["text"] == (f"You paid {row['merchant']} from Example Checking; "
+                           f"{row['better_product']} would have earned "
+                           f"${row['difference_cents'] / 100:,.2f} more")
+
+
+def test_history_sends_plain_debit_descriptors_and_no_names(env):
+    """Phase B4 acceptance: no person's name in a merchant_profile input. p2p, check and ATM
+    descriptors never go; a plain debit one does (already cleaned by SPEC-checking §8.3)."""
+    setup(env)
+    add_checking(env, [(3, 1_500, None, "QWZX DEBIT SHOP"),
+                       (4, 2_500, "p2p", "VENMO PAT EXAMPLE"),
+                       (5, 3_000, "check", "CHECK 1042 ROBIN EXAMPLE"),
+                       (6, 4_000, "atm", "ATM SAM Q EXAMPLE")])
+    with env.S() as s:
+        r = resolve_history(s, env.paths, env.settings)
+    assert r.asked == 2  # ZZQX STORE (card) and QWZX DEBIT SHOP (checking)
+    sent = json.dumps([json.loads(p.read_text())["records"]
+                       for p in env.paths.ai_runs.glob("*merchant_profile/input.json")])
+    assert "QWZX DEBIT SHOP" in sent
+    names = [w for p in env.cards.people for w in [p.full_name, *p.name_aliases]]
+    for word in ["VENMO", "CHECK", "ATM", *names, *(n.split()[-1] for n in names)]:
+        assert word.upper() not in sent.upper(), word

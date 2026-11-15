@@ -1054,3 +1054,20 @@ Spec: `docs/SPEC-checking.md`. The bank is "the bank" here and everywhere in the
   click.
 - **Reconciliation's card-payment count** starts with the first checking row; before it, a card
   payment couldn't have come from checking.
+
+## Checking account, Phase B4 (2026-11-15)
+
+- **Which rows.** Plain debit purchases (`type = purchase`, no flow kind) join the history step
+  and Missed rewards; person-to-person, check and ATM rows never do. Their descriptors are the
+  §8.3-cleaned ones, so the merchant lookup gets no names (tested; on real data the one call
+  received 12 descriptors and no names, private words, endings, long digit runs or amounts).
+- **The debit side's value** is `bank_accounts[].debit_rewards` in `cards.json`
+  (`points_per_dollar`, `cents_per_point`), not settings.toml, because the rate could name the
+  bank. No entry means the debit card earns nothing. `make_cards_example.py` always writes the
+  fictional 1 point per $1, whatever the real one is.
+- **The best card** for a debit purchase is the top-ranked card, and a debit row is never a
+  miss when its own earn is at least that. A merchant paid only from checking reads "You paid X
+  from <account>; <card> would have earned $N more".
+- **First real run:** 7 merchants paid from checking; 5 rows reproduce by hand. The estimate
+  assumes the merchant takes a credit card at no fee: a biller that doesn't (a mortgage
+  servicer, a tax payment) needs its acceptance corrected with `fin cards merchant`.
