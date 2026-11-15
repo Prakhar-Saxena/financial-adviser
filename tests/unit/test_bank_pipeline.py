@@ -293,6 +293,18 @@ def test_money_in_and_out_reproduces_the_statement(bank_loaded):
                for r in flow["not_money_in"])
     out = {r["key"]: r for r in flow["money_out"]}
     assert out["card_payment"]["spending"] is False and out["p2p"]["spending"] is True
+    # Each line opens its rows: the same count and cents, by posted date and direction.
+    for side, direction in (("money_in", "in"), ("not_money_in", "in"), ("money_out", "out")):
+        for line in flow[side]:
+            rows = c.get("/api/transactions", params={
+                "month": "2026-10", "card": "checking", "flow": line["key"],
+                "direction": direction, "posted": "true"}).json()
+            assert (len(rows), sum(abs(r["amount_cents"]) for r in rows)) == \
+                (line["count"], line["cents"]), line["key"]
+    every_in = ",".join(r["key"] for r in flow["money_in"])
+    assert sum(-r["amount_cents"] for r in c.get("/api/transactions", params={
+        "month": "2026-10", "card": "checking", "flow": every_in, "direction": "in",
+        "posted": "true"}).json()) == flow["money_in_cents"]
     assert flow["card_payments"]["linked"] == 1
     assert c.get("/api/summary", params={"month": "2026-09"}).json()["cash_flow"][
         "money_in"] == []

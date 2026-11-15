@@ -18,7 +18,7 @@ export type Summary = {
 };
 export type FlowRow = { key: string; cents: number; count: number; spending: boolean };
 export type CashFlow = {
-  month: string; money_in_cents: number; money_out_cents: number;
+  month: string; accounts: string[]; money_in_cents: number; money_out_cents: number;
   money_in: FlowRow[]; money_out: FlowRow[];
   // Came in but isn't income: my own transfers, card payments back, merchant refunds.
   not_money_in_cents: number; not_money_in: FlowRow[];

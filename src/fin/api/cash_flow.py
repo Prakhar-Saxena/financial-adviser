@@ -56,6 +56,7 @@ def cash_flow(s: Session, account_ids: list[str], month: str) -> dict | None:
 
     return {
         "month": month,
+        "accounts": account_ids,
         "money_in_cents": sum(r["cents"] for r in sides["in"].values()),
         "money_out_cents": sum(r["cents"] for r in sides["out"].values()),
         "money_in": ordered(sides["in"]),

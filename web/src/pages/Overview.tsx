@@ -185,16 +185,28 @@ const NOT_IN_LABELS: Record<string, string> = {
 
 /** Checking for the month, by posted date (SPEC-checking §13). Money in is income only. */
 function MoneyInOut({ flow }: { flow: CashFlow }) {
-  const side = (title: string, total: number, rows: FlowRow[], Icon: typeof Wallet) => (
+  const nav = useNavigate();
+  // Opens the rows behind a line, as the spending charts open a category.
+  const open = (direction: "in" | "out", kinds?: string[]) => {
+    const q = new URLSearchParams({ direction, posted: "1" });
+    if (flow.accounts.length === 1) q.set("card", flow.accounts[0]);
+    if (kinds?.length) q.set("flow", kinds.join(","));
+    nav(`/transactions?${q}`);
+  };
+  const side = (title: string, total: number, rows: FlowRow[], Icon: typeof Wallet, direction: "in" | "out") => (
     <div className="min-w-0">
-      <div className="flex items-baseline justify-between border-b border-line pb-1.5">
+      <button className="flex w-full items-baseline justify-between border-b border-line pb-1.5 text-left hover:opacity-80"
+              title={`Show these transactions`}
+              onClick={() => open(direction, direction === "in" ? rows.map((r) => r.key) : undefined)}>
         <span className="flex items-center gap-1.5 text-sm font-medium text-ink"><Icon className="h-4 w-4 text-muted" />{title}</span>
         <span className="tabular text-lg font-semibold text-ink">{money(total)}</span>
-      </div>
+      </button>
       <table className="mt-1 w-full text-sm">
         <tbody>
           {rows.map((r) => (
-            <tr key={r.key} className="border-b border-line last:border-0">
+            <tr key={r.key} className="cursor-pointer border-b border-line last:border-0 hover:bg-surface-2"
+                onClick={() => open(direction, [r.key])} title="Show these transactions" tabIndex={0}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(direction, [r.key]); } }}>
               <td className="py-1.5 text-ink-2">
                 {FLOW_LABELS[r.key] ?? r.key}
                 <span className="ml-1.5 text-xs text-muted">
@@ -221,12 +233,20 @@ function MoneyInOut({ flow }: { flow: CashFlow }) {
           Money in is income: pay and deposits. Card payments aren't spending: those purchases already count on each card.
         </p>
         <div className="grid gap-6 md:grid-cols-2">
-          {side("Money in", flow.money_in_cents, flow.money_in, ArrowDownLeft)}
-          {side("Money out", flow.money_out_cents, flow.money_out, ArrowUpRight)}
+          {side("Money in", flow.money_in_cents, flow.money_in, ArrowDownLeft, "in")}
+          {side("Money out", flow.money_out_cents, flow.money_out, ArrowUpRight, "out")}
         </div>
         {flow.not_money_in.length > 0 && (
           <p className="mt-3 text-xs text-ink-2">
-            Not counted as money in: {flow.not_money_in.map((r) => `${money(r.cents)} ${(NOT_IN_LABELS[r.key] ?? FLOW_LABELS[r.key] ?? r.key).toLowerCase()}`).join(", ")}.
+            Not counted as money in:{" "}
+            {flow.not_money_in.map((r, i) => (
+              <span key={r.key}>
+                {i > 0 && ", "}
+                <button className="text-ink underline underline-offset-2" onClick={() => open("in", [r.key])}>
+                  {money(r.cents)} {(NOT_IN_LABELS[r.key] ?? FLOW_LABELS[r.key] ?? r.key).toLowerCase()}
+                </button>
+              </span>
+            ))}.
           </p>
         )}
         {(rows > 0 || flow.card_payments.other > 0 || flow.unmatched > 0) && (

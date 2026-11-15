@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
-import { excludedLabel, FLOW_CHOICES, isAccount } from "@/lib/flows";
+import { excludedLabel, FLOW_CHOICES, FLOW_LABELS, isAccount } from "@/lib/flows";
 import { categoryColors } from "@/lib/palette";
 import { cn, money } from "@/lib/utils";
 
@@ -32,6 +32,15 @@ export function Transactions({ month, meta }: { month: string; meta: Meta }) {
     group: params.get("group") ?? undefined,
     type: params.get("type") ?? undefined,
     review: params.get("review") ?? undefined,
+    // From a "Money in and out" line: what the rows are, in or out, month by posted date.
+    flow: params.get("flow") ?? undefined,
+    direction: params.get("direction") ?? undefined,
+    posted: params.get("posted") ?? undefined,
+  };
+  const clearFlow = () => {
+    const next = new URLSearchParams(params);
+    for (const k of ["flow", "direction", "posted"]) next.delete(k);
+    setParams(next);
   };
   // ?txn=ID shows that one row, whatever its month: where a transfer's "Paid ..." link lands.
   const one = params.get("txn");
@@ -96,6 +105,16 @@ export function Transactions({ month, meta }: { month: string; meta: Meta }) {
   return (
     <div>
       <div className="mb-3 flex flex-wrap items-center gap-2">
+        {(filters.flow || filters.direction) && !one && (
+          <span className="flex items-center gap-2 rounded-md border border-line bg-surface-2 px-2 py-1 text-sm text-ink-2">
+            {filters.direction === "in" ? "Money in" : filters.direction === "out" ? "Money out" : ""}
+            {filters.flow && filters.direction ? ": " : ""}
+            {filters.flow && (filters.flow.includes(",") ? `${filters.flow.split(",").length} kinds`
+              : FLOW_LABELS[filters.flow] ?? filters.flow)}
+            {filters.posted && <span className="text-xs text-muted">(by posted date)</span>}
+            <Button size="sm" variant="ghost" onClick={clearFlow}>Clear</Button>
+          </span>
+        )}
         {one && (
           <span className="flex items-center gap-2 rounded-md border border-line bg-surface-2 px-2 py-1 text-sm text-ink-2">
             One transaction

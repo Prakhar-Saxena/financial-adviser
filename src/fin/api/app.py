@@ -186,7 +186,11 @@ def create_app(db_file: Path | None = None, web_dist: Path | None = WEB_DIST) ->
                      person: str | None = None, category: str | None = None,
                      group: str | None = None, type: str | None = None,
                      review: bool = False, id: int | None = None,
-                     s: Session = Depends(db)):
+                     flow: str | None = None, direction: str | None = None,
+                     posted: bool = False, s: Session = Depends(db)):
+        """`flow`, `direction` and `posted` open the rows behind a "Money in and out" line:
+        flow kinds (or types, for rows without one), comma-separated; in or out; and the month
+        by posted date, as that card counts it."""
         q = (select(m.Transaction, m.Merchant)
              .outerjoin(m.Merchant, m.Merchant.id == m.Transaction.merchant_id)
              .order_by(func.coalesce(m.Transaction.txn_date, m.Transaction.post_date).desc(),
@@ -194,7 +198,16 @@ def create_app(db_file: Path | None = None, web_dist: Path | None = WEB_DIST) ->
         if id is not None:  # one row, whatever its month: the other side of a transfer
             return [txn_row(t, mer) for t, mer in s.execute(q.where(m.Transaction.id == id))]
         if month:
-            q = q.where(txn_month() == month)
+            q = q.where((func.substr(m.Transaction.post_date, 1, 7) if posted else txn_month())
+                        == month)
+        if flow:
+            kinds = [k.strip() for k in flow.split(",") if k.strip()]
+            q = q.where(m.Transaction.flow_kind.in_(kinds)
+                        | (m.Transaction.flow_kind.is_(None) & m.Transaction.type.in_(kinds)))
+        if direction == "in":
+            q = q.where(m.Transaction.amount_cents < 0)
+        elif direction == "out":
+            q = q.where(m.Transaction.amount_cents > 0)
         if card:
             q = q.where(m.Transaction.card_id == card)
         if person:
