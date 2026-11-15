@@ -22,7 +22,8 @@ CREDIT = re.compile(r"\b(STATEMENT CREDIT|CREDIT)\b")
 
 
 def to_cents(text: str) -> int:
-    t = text.strip().replace("$", "").replace(",", "")
+    # Citi writes "$ 12.34" and "-$ 1,234.56": drop the space the "$" leaves behind.
+    t = re.sub(r"\s+", "", text).replace("$", "").replace(",", "")
     neg = t.startswith("(") and t.endswith(")")
     t = t.strip("()")
     try:

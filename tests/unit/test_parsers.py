@@ -77,6 +77,7 @@ def test_unexpected_money_in_needs_review():
 def test_to_cents():
     assert to_cents("$1,114.41") == 111441 and to_cents("-$482.15") == -48215
     assert to_cents("(13.75)") == -1375
+    assert to_cents("$ 99.99") == 9999 and to_cents(" -$ 2,416.09") == -241609
     with pytest.raises(ValueError):
         to_cents("1.234")
 
@@ -286,6 +287,31 @@ def test_citi_csv_credits_and_pending():
     assert pending == 1
     assert [(r.amount_cents, r.type) for r in rows] == [(-87346, "payment"), (-1375, "credit")]
 
+
+
+def test_citi_csv_dollar_amounts():
+    """The second export's layout: "$ " amounts, and an unquoted thousands comma that splits
+    one amount over two columns, on either side."""
+    from fin.ingest.bank_csv import parse_citi_csv
+
+    rows, pending = parse_citi_csv((FIXTURES / "citi/activity_dollar_amounts.csv").read_text())
+    assert pending == 1
+    assert [(r.amount_cents, r.type, r.member_name) for r in rows] == [
+        (18763, "purchase", "ALEX EXAMPLE"), (-241609, "payment", "ALEX EXAMPLE"),
+        (130258, "purchase", "SAM Q EXAMPLE"), (4107, "purchase", "ALEX EXAMPLE"),
+        (-2314, "credit", "ALEX EXAMPLE")]
+
+
+@pytest.mark.parametrize("line", [
+    "Cleared,10/24/2026,X,$ 1,302.58,$ 5.00,ALEX EXAMPLE",  # neither side empty
+    "Cleared,10/24/2026,X,,$ 1,302,,ALEX EXAMPLE",          # both sides empty
+    "Cleared,10/24/2026,X,$ 1.00,ALEX EXAMPLE",             # a column missing
+])
+def test_citi_csv_unreadable_rows_refused(line):
+    from fin.ingest.bank_csv import parse_citi_csv
+
+    with pytest.raises(ValueError, match="line 2"):
+        parse_citi_csv("Status,Date,Description,Debit,Credit,Member Name\n" + line + "\n")
 
 # -------------------------------------------------------------------- amex
 

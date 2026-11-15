@@ -205,12 +205,18 @@ def parse_citi_csv(text: str) -> tuple[list[ParsedTxn], int]:
       (sign as exported is normalized: always money in).
     - Status "Pending" rows are dropped.
     - Member Name names the cardholder.
+    - The 2026-10-27 export wrote amounts as `$ 99.99` and `-$ 9,999.99`, the latter unquoted,
+      so its thousands comma splits it over two columns (`_citi_fields` joins it back).
     """
-    reader = csv.DictReader(io.StringIO(text.lstrip("\ufeff")))
-    if [c.strip() for c in reader.fieldnames or []] != CITI_HEADER:
-        raise ValueError(f"not a Citi activity CSV; header was {reader.fieldnames}")
+    reader = csv.reader(io.StringIO(text.lstrip("\ufeff")))
+    header = next(reader, [])
+    if [c.strip() for c in header] != CITI_HEADER:
+        raise ValueError(f"not a Citi activity CSV; header was {header}")
     rows, pending = [], 0
-    for r in reader:
+    for n, fields in enumerate(reader, 2):
+        if not any(f.strip() for f in fields):
+            continue
+        r = _citi_fields(fields, n)
         if (r.get("Status") or "").strip().lower() == "pending":
             pending += 1
             continue
@@ -230,6 +236,22 @@ def parse_citi_csv(text: str) -> tuple[list[ParsedTxn], int]:
             member_name=(r.get("Member Name") or "").strip() or None,
         ))
     return rows, pending
+
+
+def _citi_fields(fields: list[str], line: int) -> dict[str, str]:
+    """A row as a dict. When an unquoted thousands comma split Debit or Credit, the extra
+    fields sit between Description and Member Name; one of Debit and Credit is always empty,
+    so the empty field tells which side the pieces belong to."""
+    if len(fields) == len(CITI_HEADER):
+        return dict(zip(CITI_HEADER, fields, strict=True))
+    middle = fields[3:-1]
+    if len(fields) < len(CITI_HEADER) or [i for i, f in enumerate(middle) if not f.strip()] not in (
+            [0], [len(middle) - 1]):
+        raise ValueError(f"Citi CSV line {line}: expected {len(CITI_HEADER)} fields, "
+                         f"got {len(fields)}")
+    amount = ",".join(f for f in middle if f.strip())
+    debit, credit = ("", amount) if not middle[0].strip() else (amount, "")
+    return dict(zip(CITI_HEADER, [*fields[:3], debit, credit, fields[-1]], strict=True))
 
 
 @register("citi", "transactions")
