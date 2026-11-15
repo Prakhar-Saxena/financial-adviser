@@ -6,6 +6,8 @@ watching the browser window and the terminal.
 ## Never
 - Never pay, transfer, buy, enroll, activate, redeem, accept offers, or change settings.
   If the task seems to need any of that, stop and tell the user.
+- On a bank's site also never use Zelle, bill pay, wires, external transfers, check deposit,
+  stop payment, card controls or direct deposit setup, and never reveal a full account number.
 - Never type into login, username, email, password, PIN, passcode, one-time-code,
   verification-code or SSN fields. The user does every login.
 - Never try to get past bot detection or a CAPTCHA. Stop and tell the user.

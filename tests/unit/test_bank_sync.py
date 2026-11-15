@@ -16,7 +16,7 @@ from fin.db import models as m
 from fin.db import session_factory, upgrade
 from fin.db.seed import sync_reference
 from fin.ingest import inbox
-from fin.sync import launcher, params
+from fin.sync import launcher, params, playbooks
 
 EXAMPLE = json.loads((CONFIG_DIR / "cards.example.json").read_text())
 
@@ -55,6 +55,20 @@ def test_bank_site_gets_the_generic_site_file_and_money_mode(tmp_path, monkeypat
     chase = launcher.plan_session(DataPaths(tmp_path / "data"), Settings(), cards.site("chase"),
                                   cards=cards)
     assert not chase.money_site and chase.site_file.name == "chase.md"
+
+
+def test_real_bank_site_file_reaches_the_prompt(tmp_path, Session, monkeypatch):
+    """sync/sites/bank.md uses every parameter an account gets, and base_rules adds §2.5's line."""
+    monkeypatch.setattr(playbooks, "CONFIG_DIR", tmp_path)  # no cards.json: no private playbook
+    site_text = launcher.BANK_SITE_FILE.read_text()
+    with Session() as s:
+        p, _, _ = params.run_params(s, bank_cards(), Settings(), "mybank", date(2026, 11, 13))
+    for key in p["accounts"][0]:
+        assert f"`{key}`" in site_text, key
+    plan = launcher.plan_session(DataPaths(tmp_path / "data"), Settings(),
+                                 bank_cards().site("mybank"), cards=bank_cards())
+    prompt = launcher.build_prompt(plan)
+    assert "# Site: the bank" in prompt and "On a bank's site also never use Zelle" in prompt
 
 
 @pytest.mark.parametrize("settings", [

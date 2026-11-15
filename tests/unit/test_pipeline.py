@@ -14,7 +14,7 @@ from typer.testing import CliRunner
 
 from fin.categorize.allocate import largest_remainder, split_by_category
 from fin.cli import app
-from fin.config import data_paths, load_cards, load_settings, load_taxonomy
+from fin.config import CONFIG_DIR, data_paths, load_cards, load_settings, load_taxonomy
 from fin.db import models as m
 from fin.db import session_factory
 from fin.pipeline import process
@@ -195,12 +195,16 @@ def test_largest_remainder():
     assert split_by_category(10, [("a", 1), ("a", 1), ("b", 2)]) == {"a": 5, "b": 5}
 
 
-def test_weekly_runs_sites_in_order_then_process(loaded, monkeypatch):
+def test_weekly_runs_sites_in_order_then_process(loaded, monkeypatch, tmp_path):
+    cfg = tmp_path / "config"  # the example's fictional bank, not whatever cards.json holds
+    cfg.mkdir()
+    shutil.copy(CONFIG_DIR / "cards.example.json", cfg / "cards.json")
+    monkeypatch.setattr("fin.cli.CONFIG_DIR", cfg)
     calls = []
     monkeypatch.setattr("fin.cli.sync_site", lambda site, **kw: calls.append(site) or 0)
     r = CliRunner().invoke(app, ["weekly", "--no-ai", "--no-open"])
     assert r.exit_code == 0, r.output
-    assert calls == ["chase", "citi", "amex", "amazon", "costco"]
+    assert calls == ["chase", "citi", "amex", "bank", "amazon", "costco"]
     assert list((loaded / "backups").glob("finance-*.sqlite"))
 
 
