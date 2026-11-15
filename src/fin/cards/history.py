@@ -58,8 +58,10 @@ def resolve_history(s: Session, paths: DataPaths, settings: Settings, *, use_ai:
 
     sync_seeds(s)
     out = HistoryResult()
-    descs = sorted(set(s.scalars(select(m.Transaction.description_clean).where(
-        m.Transaction.type == PURCHASE))))
+    # Card rows only: debit purchases join in Phase B4 (docs/SPEC-checking.md §12).
+    descs = sorted(set(s.scalars(select(m.Transaction.description_clean).join(
+        m.Card, m.Card.id == m.Transaction.card_id).where(
+        m.Transaction.type == PURCHASE, m.Card.card_type != "checking"))))
     out.descriptors = len(descs)
     todo: dict[str, dict[str, str]] = {}
     for d in descs:

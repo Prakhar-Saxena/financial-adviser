@@ -682,6 +682,13 @@ def process(no_ai: Annotated[bool, typer.Option("--no-ai", help="Cache only, no 
     typer.echo(f"Costco: {co.matched} receipts matched, {co.unmatched_charges} warehouse charges "
                f"without a receipt, {co.unmatched_receipts} receipts without a charge.")
     typer.echo(f"Ledger: {r.ledger}. Unexpected merchants on dedicated cards: {r.unexpected}.")
+    tr, bk = r.transfers, r.bank
+    if tr.classified:
+        typer.echo(f"Checking: {tr.classified} rows ({dict(tr.by_flow)}). Card payments linked: "
+                   f"{dict(tr.linked) or 'none'}; {tr.uncertain} uncertain, {tr.unmatched} "
+                   "unmatched (see `fin transfers`).")
+        typer.echo(f"Checking statements: {bk.statements or 'none'}. Running balance: "
+                   f"{bk.balance_days} days, {len(bk.balance_gaps)} gaps.")
     typer.echo(f"Open review items: {r.reviews_open or 'none'} "
                f"(auto-resolved this run: {r.reviews_closed}).")
 

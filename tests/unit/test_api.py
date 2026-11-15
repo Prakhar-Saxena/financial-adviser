@@ -246,7 +246,7 @@ def example_cards(monkeypatch):
 def test_transfers_and_deposits_never_count_as_spending(client, example_cards):
     c, db = client
     before = c.get("/api/summary", params={"month": "2026-09"}).json()
-    add_checking_rows(db, [(51290, "transfer", "card_payment", "EXAMPLE CARD AUTOPAY"),
+    add_checking_rows(db, [(51290, "transfer", "card_payment", "CHASE CREDIT CRD EPAY"),
                            (-250000, "deposit", "income", "EXAMPLE CORP PAYROLL"),
                            (-1200, "transfer", "own_transfer", "TRANSFER FROM SAVINGS")])
     run(db.parent.parent)  # fin process, now with checking rows in the ledger
@@ -259,8 +259,9 @@ def test_transfers_and_deposits_never_count_as_spending(client, example_cards):
     assert all(not r["counts_as_spending"] and r["category_id"] is None for r in rows)
     assert {r["flow_kind"] for r in rows} == {"card_payment", "income", "own_transfer"}
     refs = {str(r["id"]) for r in rows}
-    assert not [i for i in c.get("/api/review").json()
-                if i["ref_table"] == "transactions" and i["ref_id"] in refs]
+    # Only the card payment's "no matching card payment" item: nothing to categorize.
+    assert {i["kind"] for i in c.get("/api/review").json()
+            if i["ref_table"] == "transactions" and i["ref_id"] in refs} == {"unmatched_transfer"}
     card_rows = c.get("/api/transactions", params={"month": "2026-09"}).json()
     assert all(r["counts_as_spending"] == (r["type"] in ("purchase", "refund", "fee", "interest"))
                for r in card_rows)

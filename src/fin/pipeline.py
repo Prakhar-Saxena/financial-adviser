@@ -1,7 +1,8 @@
 # Copyright (C) 2026 Prakhar Saxena
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-"""`fin process`: link → rules → AI → match → allocate → reconcile → review items (SPEC §16).
+"""`fin process`: link → checking types and transfers → rules → AI → match → allocate →
+reconcile → review items (SPEC §16, docs/SPEC-checking.md §12).
 
 Idempotent: every step recomputes from the stored data, so running it twice changes nothing.
 """
@@ -18,21 +19,31 @@ from fin.cards.history import HistoryResult, resolve_history
 from fin.cards.offers import OffersResult, extract_offers
 from fin.cards.rewards import fill_statement_rewards
 from fin.categorize.ai import AIResult, Runner, categorize_items, categorize_transactions
-from fin.categorize.rules import apply_overrides, apply_rules, load_seed_rules
+from fin.categorize.rules import HELD, apply_overrides, apply_rules, load_seed_rules
 from fin.config import CardsConfig, DataPaths, Settings, Taxonomy
 from fin.db import models as m
 from fin.db.seed import sync_categories
 from fin.match.amazon import MatchResult, allocate_matched, amazon_on_other_cards, match_amazon
 from fin.match.costco import CostcoResult, match_costco
+from fin.normalize.bank import load_bank_rules
+from fin.reconcile.bank import BankCheckResult, bank_checks
 from fin.reconcile.dedicated_cards import unexpected_merchants
 from fin.reconcile.link import LinkResult, link_statements
 from fin.reconcile.statements import ledger_check
+from fin.reconcile.transfers import (
+    TransferResult,
+    checking_ids,
+    classify_checking,
+    link_transfers,
+)
 from fin.review import ReviewSet
 
 
 @dataclass
 class ProcessResult:
     link: LinkResult
+    transfers: TransferResult = field(default_factory=TransferResult)
+    bank: BankCheckResult = field(default_factory=BankCheckResult)
     rule_matched: int = 0
     ai_merchants: AIResult = field(default_factory=AIResult)
     ai_items: AIResult = field(default_factory=AIResult)
@@ -64,7 +75,16 @@ def process(
     res = ProcessResult(link=link)
     sync_categories(s, taxonomy)
     load_seed_rules(s, taxonomy)
+    # Checking rows get their real types before anything reads them, and card payments out of
+    # checking are excluded before rules or AI see them (docs/SPEC-checking.md §9, §10).
+    classes = classify_checking(s, cards, load_bank_rules(cards))
+    res.transfers = link_transfers(s, cards, settings, reviews, classes, today)
     res.rule_matched, leftovers = apply_rules(s)
+    for t in s.scalars(select(m.Transaction).where(
+            m.Transaction.card_id.in_(checking_ids(cards)),
+            m.Transaction.flow_kind.in_(HELD), m.Transaction.category_id == "uncategorized")):
+        reviews.flag("uncategorized", "transactions", t.id,
+                     reason="a payment to a person or a check: say what it was")
     s.commit()
 
     res.ai_merchants = categorize_transactions(s, paths, settings, leftovers, reviews,
@@ -88,6 +108,7 @@ def process(
     for st in s.scalars(select(m.Statement)).all():
         status = ledger_check(s, st, reviews)
         res.ledger[status] = res.ledger.get(status, 0) + 1
+    res.bank = bank_checks(s, checking_ids(cards), reviews)
     res.unexpected = unexpected_merchants(s, cards, reviews)
     res.amazon_elsewhere = amazon_on_other_cards(s, cards)
     for t in s.scalars(select(m.Transaction).where(m.Transaction.person_id.is_(None))).all():

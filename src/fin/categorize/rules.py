@@ -25,6 +25,9 @@ RULES_PATH = CONFIG_DIR / "rules.yaml"
 # Excluded from spending (§13): they get no category. Every other type is in
 # fin.api.spending.SPENDING_TYPES; a test checks that each type is in exactly one.
 NON_SPENDING = {"payment", "credit", "reward", "adjustment", "transfer", "deposit"}
+# Checking flows that never go to AI (docs/SPEC-checking.md §9): uncategorized plus a review
+# item until a rule of mine says what they are.
+HELD = ("p2p", "check")
 
 
 @dataclass(frozen=True)
@@ -93,6 +96,10 @@ def apply_rules(s: Session) -> tuple[int, list[m.Transaction]]:
         if t.category_source == "user":
             continue  # matching re-applies item splits after this step
         r = first_rule(rules, t.description_clean)
+        if t.flow_kind in HELD and (r is None or r.created_by != "user"):
+            # A person or a check isn't a merchant: no AI, no seed rule; a rule I make decides.
+            t.category_id, t.category_source = "uncategorized", None
+            continue
         if r is not None:
             merchant = merchant_for(s, r.merchant_name or t.description_clean, r.merchant_group,
                                     r.category_id, cache)
