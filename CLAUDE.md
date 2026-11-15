@@ -127,6 +127,7 @@ make privacy-audit            # same, plus every lone amount that equals a real 
 uv run fin sync selftest      # USER runs this: browsing setup check against example.com
 uv run python scripts/ai_spike.py --sizes 3,50   # §14.3 spike on fake records
 uv run python scripts/make_cards_example.py      # regenerate cards.example.json
+uv run fin transfers [--check]   # checking card payments and links; --check: §10.6 invariants
 uv run fin cards status       # card optimizer knowledge base (docs/SPEC-cards.md)
 uv run fin cards refresh --card ID   # one card: discover, download, extract (real claude -p)
 uv run fin cards offers       # card-linked offers read from synced offers pages (Phase C4)

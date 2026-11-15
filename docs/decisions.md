@@ -989,3 +989,49 @@ Spec: `docs/SPEC-checking.md`. The bank is "the bank" here and everywhere in the
   fills, 1 select, 1 hover); read-only tools never ask. Choosing "don't ask again" wrote
   `inbox/<site>/.claude/settings.local.json`, which applies for the rest of that session only:
   sessions run with `--setting-sources ""`, so the next one starts in approve mode again.
+
+## Checking account, Phase B2 (2026-11-14)
+
+- **Import** (`ingest/bank.py`). The export's columns are documented in the module docstring
+  under the export's own generic labels. Amounts flip to SPEC §8 signs; non-posted rows drop;
+  rows go in with a provisional type by sign, and `fin process` sets the real one. The
+  statement parser reads only the account's section of a statement covering every account:
+  money in is Total Deposits plus Total Dividends (dividends are reported apart, as the
+  savings sections showed), and the period comes from the section's Beginning and Ending
+  Balance dates. "Previous Balance as of" carries the period's first day. A checking statement
+  never creates transactions.
+- **Registration with classification.** The bank parsers register in the same commit that
+  wires classification into `fin process`, so no commit could import a card payment that
+  counts as spending (§0 rule 7).
+- **Cleaning.** Built from the real rows, tested with fictional ones: whole names first (so a
+  middle initial goes with them), then name words; private words also inside a word (one real
+  payee's name contained one); masked account numbers, dates, long digit runs and
+  letter-digit IDs of 8+ characters; ACH name and ID fields; a trailing country after a run of
+  spaces.
+- **Classification.** One real pattern problem: a transfer from my own savings carried my own
+  memo naming a card issuer and became a card payment. Own-transfer patterns now come first in
+  `bank_rules.yaml`. `tax_refund` also matches income tax (money in only). The export's own
+  type (§9 step 4) decides overdraft-protection deposits and own transfers (own_transfer),
+  check rows (check) and point-of-sale rows (purchase).
+- **My rules for checking rows** need a flow as well as a type: migration 0010 adds
+  `rules.flow_kind`. Category matching skips those type-only rules, so "this is spending, for
+  all rows like it" never clears a row's category.
+- **First real run** (counts and days only): 134 rows, 31 naming a tracked card's issuer and 5
+  an untracked card. 23 linked by name, none by group or by amount alone. The 8 unlinked: 2
+  from before the first synced card payment, 4 newer than the last card sync (inside the
+  grace days), and 2 whose card side is missing (one issuer's latest card export fails to
+  parse, a card-side problem outside this phase). 23 of 24 card payments in the checking
+  period matched a checking row. Four statements tie to the ledger; the first is
+  `incomplete` because the export starts mid-period. The running balance has no gaps over 74
+  days.
+- **Window.** Every named link had the checking date 1 to 4 days after the card date.
+  `transfer_window_days` is now `[-2, 6]`: two days of margin each way, the low edge for a
+  bill-pay payment that leaves checking before the card shows it (not seen yet). Same links
+  as with `[-10, 6]`.
+- **Acceptance on real data.** Card spending, credits and types per month, card and category
+  identical to the cent before and after (snapshots in the data dir's `debug/`). Importing the
+  same files again: 6 duplicates, no rows. `fin process` twice, and `fin rebuild` then
+  `fin process`: identical types, links and monthly totals. `fin transfers --check` passes.
+  The one classifier run with checking rows received 11 plain purchases and no person,
+  check, transfer or deposit rows, no names, private words, endings, long digit runs or masked
+  account numbers.
