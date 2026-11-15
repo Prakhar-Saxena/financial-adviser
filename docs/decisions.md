@@ -948,3 +948,44 @@ Spec: `docs/SPEC-checking.md`. The bank is "the bank" here and everywhere in the
   failed a foreign key until `init` ran again. `fin process` now merges `categories.json` into
   the table first (`seed.sync_categories`, also used by `sync_reference`). Test included; it
   fails without the fix.
+
+## Checking account, Phase B1 (2026-11-14)
+
+- **Site file.** `sync/sites/bank.md` serves any site in `bank_accounts`, names no bank, and
+  follows `citi.md`; the bank's layout lives in its private playbook. `base_rules.md` gains
+  SPEC §2.5's bank line.
+- **First run, answers to §7.2** (shapes and counts only):
+  - The export offers CSV, OFX, QFX and QBO; CSV used. It reached `transactions_from` (the
+    earliest card transaction, about 5 months back); the date fields accept about two years.
+  - The export has no posted-only option, but the file held only posted rows (`Posting Status`
+    has one value). Pending rows show in a separate section on screen.
+  - CSV: 14 columns, every field quoted, CRLF, newest row first, dates `M/D/YYYY` without zero
+    padding, amounts and balances with 5 decimals (always `000` past the cents), debits
+    negative. A running `Balance` column agrees with the amounts on every row.
+    `Transaction Type` is Debit/Credit/Check; `Type` is ACH/Deposit/Transfer/Debit Card or
+    empty for checks; `Extended Description` holds the row's kind (External Withdrawal,
+    External Deposit, Withdrawal, Deposit, Point Of Sale Withdrawal, Overdraft Protection
+    Deposit, Returned Check # N). ACH descriptions read `PAYEE  - CODE` (two spaces).
+  - Export name `ExportedTransactions.csv`. Statements download as one PDF per month, named
+    by month and year; each covers **every account** held there (share, savings, checking),
+    one section per account, so the parser must pick the checking section. Statement lines
+    read `MM/DD/YY <kind> <description> -$1,234.56 $9,876.54`, sometimes wrapping a word
+    onto the next line; each section has an `ACCOUNT SUMMARY`. The statement prints no period
+    line: the section's Beginning and Ending Balance dates give it.
+  - The statement list's period selector offers up to 84 months (the public pages say 24 are
+    kept); how far back statements really exist wasn't checked, since the run needed 5.
+  - Every page stayed on the bank's own host. `guard.log`: no money page, no block.
+- **Fixtures.** `tests/fixtures/bank/` copies that layout with invented values: the October
+  rows appear in both the CSV and the statement, and both add up. The user accepted them without
+  comparing them against the real files (2026-11-14).
+- **Corrections from the run.** The date fields were native date inputs that wanted
+  `YYYY-MM-DD` and refused slashes, so the site file now says to use the field's own format.
+  The agent took 7 screenshots (allowed everywhere, but they carry balances as images); the
+  site file now forbids them on a bank site. The statements print the account under a product
+  name that `cards.json` didn't have, so the agent couldn't match `product` and fell back to
+  the only checking account, as the site file allows. The user's `cards.json` now carries that
+  name and its distinctive word is in `private_words`.
+- **Approve mode in practice.** The run needed 29 approvals (22 clicks, 3 key presses, 2 form
+  fills, 1 select, 1 hover); read-only tools never ask. Choosing "don't ask again" wrote
+  `inbox/<site>/.claude/settings.local.json`, which applies for the rest of that session only:
+  sessions run with `--setting-sources ""`, so the next one starts in approve mode again.

@@ -1,0 +1,65 @@
+Example Bank
+PO Box 0000
+Springfield, IL 62701
+Member Number XXXXXX0000
+Page 1 of 3
+ALEX EXAMPLE
+100 MAIN ST
+SPRINGFIELD IL 62701
+SUMMARY OF ACCOUNTS
+ACCOUNTS ACCOUNT NUMBER BALANCE YTD DIV
+Membership Share Account XXXXXX0001 $5.00 $0.00
+Example Bank Personal Savings XXXXXX0002 $2,500.00 $1.10
+Example Bank Checking XXXXXX0003 $1,850.83 $3.25
+TOTAL ACCOUNTS $4,355.83 $4.35
+Membership Share Account: XXXXXX0001
+Eff Date Description Amount Balance
+10/01/26 Beginning Balance $5.00
+10/31/26 Ending Balance $5.00
+The average daily balance during this period was $5.00
+Example Bank Checking: XXXXXX0003
+Eff Date Description Amount Balance
+10/01/26 Beginning Balance $1,500.00
+10/01/26 External Deposit EXAMPLE EMPLOYER INC - PAYROLL $2,400.00 $3,900.00
+10/02/26 External Withdrawal CHASE CREDIT CRD - EPAY -$612.45 $3,287.55
+10/03/26 Point Of Sale Withdrawal MAIN ST MARKET SPRINGFIELD IL -$42.18 $3,245.37
+10/06/26 External Withdrawal AMERICAN EXPRESS ACH PMT - ACH -$1,034.20 $2,211.17
+PMT
+10/08/26 External Withdrawal VENMO - PAYMENT -$40.00 $2,171.17
+10/09/26 Withdrawal Web Xfer To ******0001 Transfer 00000001 at ONLINE BANK, WEB -$100.00 $2,071.17
+End of Page 1
+Member Number: XXXXXX0000
+PAGE 2 of 3
+Example Bank Checking: XXXXXX0003 (Continued)
+Eff Date Description Amount Balance
+10/14/26 Returned Check # 00000101 -$150.00 $1,921.17
+10/15/26 External Deposit CITI AUTOPAY - PMT RFND $12.34 $1,933.51
+10/20/26 External Withdrawal SPRINGFIELD POWER - ENERGYBILL -$88.10 $1,845.41
+10/31/26 External Deposit CARD REWARDS - REWARD $5.00 $1,850.41
+10/31/26 Deposit Dividend Earned $0.42 $1,850.83
+10/31/26 Ending Balance $1,850.83
+The average daily balance during this period was $1,712.40
+ACCOUNT SUMMARY
+Previous Balance as of 09/30/26 is $1,500.00
+Total Deposits $2,417.34
+Total Withdrawals $2,066.93
+Total Dividends Earned $0.42
+Ending Balance as of 10/31/26 is $1,850.83
+End of Page 2
+Member Number: XXXXXX0000
+PAGE 3 of 3
+Example Bank Personal Savings: XXXXXX0002
+Eff Date Description Amount Balance
+10/01/26 Beginning Balance $2,499.75
+10/31/26 Deposit Dividend Earned $0.25 $2,500.00
+10/31/26 Ending Balance $2,500.00
+The average daily balance during this period was $2,499.75
+The Annual Percentage Yield Earned for this account is 0.120%
+The dividend amount earned year to date is $1.10
+ACCOUNT SUMMARY
+Previous Balance as of 09/30/26 is $2,499.75
+Total Deposits $0.00
+Total Withdrawals $0.00
+Total Dividends Earned $0.25
+Ending Balance as of 10/31/26 is $2,500.00
+End of Statement
