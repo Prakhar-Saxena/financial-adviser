@@ -20,6 +20,8 @@ export type FlowRow = { key: string; cents: number; count: number; spending: boo
 export type CashFlow = {
   month: string; money_in_cents: number; money_out_cents: number;
   money_in: FlowRow[]; money_out: FlowRow[];
+  // Came in but isn't income: my own transfers, card payments back, merchant refunds.
+  not_money_in_cents: number; not_money_in: FlowRow[];
   card_payments: { rows: number; linked: number; cents: number; other: number }; // other: cards not in cards.json
   unmatched: number;
 };

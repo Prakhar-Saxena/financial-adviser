@@ -278,12 +278,19 @@ def test_fin_transfers_lists_and_checks(bank_loaded):
 
 
 def test_money_in_and_out_reproduces_the_statement(bank_loaded):
-    """Phase B3: the month's money in and out are the statement's deposits and withdrawals."""
+    """Phase B3: money in (income only) plus what came in otherwise is the statement's deposits;
+    money out is its withdrawals."""
     c = api(bank_loaded)
     flow = c.get("/api/summary", params={"month": "2026-10"}).json()["cash_flow"]
     with session_factory(bank_loaded)() as s:
         st = s.scalar(select(m.BankStatement))
-    assert (flow["money_in_cents"], flow["money_out_cents"]) == (st.deposits, st.withdrawals)
+    assert flow["money_in_cents"] + flow["not_money_in_cents"] == st.deposits
+    assert flow["money_out_cents"] == st.withdrawals
+    assert {r["key"] for r in flow["money_in"]} <= {
+        "income", "other_in", "interest", "reward", "tax_refund", "p2p"}
+    assert flow["money_in"] and flow["not_money_in"]
+    assert all(r["key"] in ("own_transfer", "card_payment", "investment", "refund")
+               for r in flow["not_money_in"])
     out = {r["key"]: r for r in flow["money_out"]}
     assert out["card_payment"]["spending"] is False and out["p2p"]["spending"] is True
     assert flow["card_payments"]["linked"] == 1

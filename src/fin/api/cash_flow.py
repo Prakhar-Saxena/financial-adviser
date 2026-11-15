@@ -4,8 +4,10 @@
 """Checking on the dashboard (docs/SPEC-checking.md §13): money in and out, the transfer a row
 is part of, and the checking side of Reconciliation. Cents everywhere; GET never calls Claude.
 
-Money in and out groups rows by posted date, as the bank's statement does, so a month's totals
-reproduce by hand from that month's statement (its deposits and withdrawals).
+Money in and out groups rows by posted date, as the bank's statement does. Money in is income
+only: `deposit` rows (pay, check deposits, refunds of tax and the like). Money from my own
+accounts, card payments coming back and merchant refunds are listed apart (`not_money_in`), so
+money in plus those is the statement's deposits, and money out is its withdrawals.
 """
 
 from __future__ import annotations
@@ -34,9 +36,9 @@ def cash_flow(s: Session, account_ids: list[str], month: str) -> dict | None:
     rows = s.scalars(select(m.Transaction).where(
         m.Transaction.card_id.in_(account_ids),
         func.substr(m.Transaction.post_date, 1, 7) == month)).all()
-    sides: dict[str, dict[str, dict]] = {"in": {}, "out": {}}
+    sides: dict[str, dict[str, dict]] = {"in": {}, "out": {}, "not_in": {}}
     for t in rows:
-        side = sides["in" if t.amount_cents < 0 else "out"]
+        side = sides["out" if t.amount_cents > 0 else "in" if t.type == "deposit" else "not_in"]
         row = side.setdefault(flow_key(t), {"key": flow_key(t), "cents": 0, "count": 0,
                                             "spending": t.type in SPENDING_TYPES})
         row["cents"] += abs(t.amount_cents)
@@ -58,6 +60,9 @@ def cash_flow(s: Session, account_ids: list[str], month: str) -> dict | None:
         "money_out_cents": sum(r["cents"] for r in sides["out"].values()),
         "money_in": ordered(sides["in"]),
         "money_out": ordered(sides["out"]),
+        # Money in that isn't income: my own transfers, card payments back, merchant refunds.
+        "not_money_in_cents": sum(r["cents"] for r in sides["not_in"].values()),
+        "not_money_in": ordered(sides["not_in"]),
         "card_payments": {"rows": len(payments), "linked": sum(t.id in linked for t in payments),
                           "cents": sum(t.amount_cents for t in payments), "other": len(other)},
         "unmatched": unmatched or 0,

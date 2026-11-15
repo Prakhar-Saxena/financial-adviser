@@ -175,7 +175,15 @@ function TrendCard({ trend }: { trend: { month: string; cents: number }[] }) {
   );
 }
 
-/** Checking for the month, by posted date, as the statement counts it (SPEC-checking §13). */
+// Money that came in but isn't income, in words for the footnote.
+const NOT_IN_LABELS: Record<string, string> = {
+  own_transfer: "from your own accounts",
+  card_payment: "card payments coming back",
+  investment: "from investments",
+  refund: "merchant refunds",
+};
+
+/** Checking for the month, by posted date (SPEC-checking §13). Money in is income only. */
 function MoneyInOut({ flow }: { flow: CashFlow }) {
   const side = (title: string, total: number, rows: FlowRow[], Icon: typeof Wallet) => (
     <div className="min-w-0">
@@ -209,11 +217,18 @@ function MoneyInOut({ flow }: { flow: CashFlow }) {
         <span className="text-xs text-muted">Checking, by posted date</span>
       </CardHeader>
       <CardContent>
-        <p className="mb-3 text-sm text-ink-2">Card payments aren't spending: those purchases already count on each card.</p>
+        <p className="mb-3 text-sm text-ink-2">
+          Money in is income: pay and deposits. Card payments aren't spending: those purchases already count on each card.
+        </p>
         <div className="grid gap-6 md:grid-cols-2">
           {side("Money in", flow.money_in_cents, flow.money_in, ArrowDownLeft)}
           {side("Money out", flow.money_out_cents, flow.money_out, ArrowUpRight)}
         </div>
+        {flow.not_money_in.length > 0 && (
+          <p className="mt-3 text-xs text-ink-2">
+            Not counted as money in: {flow.not_money_in.map((r) => `${money(r.cents)} ${(NOT_IN_LABELS[r.key] ?? FLOW_LABELS[r.key] ?? r.key).toLowerCase()}`).join(", ")}.
+          </p>
+        )}
         {(rows > 0 || flow.card_payments.other > 0 || flow.unmatched > 0) && (
           <p className="mt-3 text-xs text-ink-2">
             {rows > 0 && <>{linked} of {rows} card payments matched to a card. </>}

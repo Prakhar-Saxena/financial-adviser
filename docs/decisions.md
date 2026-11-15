@@ -1042,6 +1042,10 @@ Spec: `docs/SPEC-checking.md`. The bank is "the bank" here and everywhere in the
   spending charts, because the statement counts by posted date. On real data July to October
   reproduce each statement's deposits and withdrawals to the cent; June is incomplete (the
   export starts mid-month).
+- **Money in is income only** (my call, 2026-11-15): `deposit` rows, so pay and check
+  deposits (and tax refunds, interest, money received). Money from my own accounts, card
+  payments coming back and merchant refunds aren't income; the card lists them in a footnote,
+  and money in plus that footnote is still the statement's deposits.
 - **Payments to untracked cards** are counted beside the "N of M card payments matched" line,
   not inside it: they can never link, so they'd read as failures.
 - **One list of what a checking row may be.** `/api/meta` sends `BANK_TYPE_FLOWS`, so the
