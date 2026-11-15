@@ -160,6 +160,19 @@ def test_csv_row_replaces_statement_copy(loaded):
         assert [(t.source, t.post_date) for t in rows] == [("csv", "2026-09-02")]
 
 
+@pytest.mark.parametrize(("csv_desc", "line", "same"), [
+    ("MOBILE PAYMENT - THANK YOU", "JANE EXAMPLE MOBILE PAYMENT - THANK YOU", True),
+    ("MICROSOFT*MICROSOFT 36", "MICROSOFT*MICROSOFT 365 P", True),
+    ("THANK YOU", "JANE EXAMPLE THANK YOU", False),  # too short to tell
+    ("MOBILE PAYMENT - THANK YOU", "AUTOPAY PAYMENT - THANK YOU", False),
+])
+def test_statement_line_matches_its_csv_row(csv_desc, line, same):
+    """A payment line with the cardholder's name in front is the CSV row, not a second one."""
+    from fin.reconcile.link import _similar
+
+    assert _similar(csv_desc, line) is same
+
+
 def test_extra_csv_row_breaks_ledger(loaded):
     run(loaded)
     csv = ("Transaction Date,Post Date,Description,Category,Type,Amount,Memo\n"

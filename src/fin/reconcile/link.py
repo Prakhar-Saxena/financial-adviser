@@ -48,6 +48,9 @@ def _similar(csv_desc: str, line_desc: str) -> bool:
     a, b = normalize_raw(csv_desc), normalize_raw(line_desc)
     if b.startswith(a[:12]) or a.startswith(b[:12]):
         return True
+    # Amex statements put the cardholder's name before a payment ("<NAME> MOBILE PAYMENT").
+    if min(len(a), len(b)) >= 12 and (a.endswith(b) or b.endswith(a)):
+        return True
     return clean_description(csv_desc) == clean_description(line_desc)
 
 
