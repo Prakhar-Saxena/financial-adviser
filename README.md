@@ -21,13 +21,17 @@ item for Amazon and Costco, and checks every number against your bank statements
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/overview-dark.png">
-  <img alt="Overview: spending by category as a donut, the 3-month trend, and spending by person, card, merchant and subcategory" src="docs/screenshots/overview.png">
+  <img alt="Overview: checking money in and out, spending by category as a donut, the 3-month trend, and spending by person, card or account, merchant and subcategory" src="docs/screenshots/overview.png">
 </picture>
 
 <details>
 <summary>More screenshots</summary>
 
-**Transactions**: filters, category dots, item splits
+**Best card**: your cards ranked for where you're paying, with the terms behind each rate
+
+![Best card page](docs/screenshots/best-card.png)
+
+**Transactions**: cards and the checking account together, filters, category dots, item splits
 
 ![Transactions page](docs/screenshots/transactions.png)
 
@@ -35,14 +39,23 @@ item for Amazon and Costco, and checks every number against your bank statements
 
 ![Costco receipts page](docs/screenshots/orders.png)
 
-**Reconciliation**: every statement balances and matches the ledger
+**Review**: card payments to check, low-confidence guesses, uncategorized rows
+
+![Review page](docs/screenshots/review.png)
+
+**Reconciliation**: checking and card statements balance and match the ledger; card payments
+are matched to checking
 
 ![Reconciliation page](docs/screenshots/reconciliation.png)
 
+**Rules**: your own rules, which win over the seed rules
+
+![Rules page](docs/screenshots/rules.png)
+
 </details>
 
-<sub>Screenshots use mock data: a fictional household, made-up merchants and products
-(`make screenshots` regenerates them).</sub>
+<sub>Screenshots use mock data: a fictional household and bank, made-up merchants, products and
+card terms (`make screenshots` regenerates them).</sub>
 
 ## Supported sources
 

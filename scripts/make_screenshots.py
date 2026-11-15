@@ -201,7 +201,9 @@ def build(db_file: Path) -> None:
     rng = random.Random(7)  # noqa: S311 - mock data, not security
     upgrade(db_file)
     s = session_factory(db_file)()
-    sync_reference(s, load_cards(CONFIG_DIR / "cards.example.json"), load_taxonomy())
+    cfg = load_cards(CONFIG_DIR / "cards.example.json")
+    taxonomy = load_taxonomy()
+    sync_reference(s, cfg, taxonomy)
 
     imports: dict[str, m.Import] = {}
 
@@ -230,7 +232,8 @@ def build(db_file: Path) -> None:
             s.flush()
         return merchants[name]
 
-    issuer = {"amex_platinum": "amex", "amex_gold": "amex", "citi_costco": "citi"}
+    issuer = {"amex_platinum": "amex", "amex_gold": "amex", "citi_costco": "citi",
+              "checking": "bank"}
     seq = iter(range(1, 10**6))
 
     def txn(
@@ -423,7 +426,8 @@ def build(db_file: Path) -> None:
     # Monthly statements that balance, with each card paid in full the next month.
     from fin.db.models import Statement, Transaction
 
-    for card in [c.id for c in s.scalars(select(m.Card))]:
+    payments: list[m.Transaction] = []
+    for card in [c.id for c in cfg.cards]:
         prev = cents(rng.uniform(250, 900))
         for month in MONTHS:
             y, mo = map(int, month.split("-"))
@@ -468,6 +472,12 @@ def build(db_file: Path) -> None:
             for t in rows:
                 t.statement_id = st.id
             prev = st.new_balance
+            if pay:
+                payments.append(pay)
+
+    checking(s, rng, txn, day, payments)
+    card_terms(s, cfg)
+    rules(s, taxonomy)
 
     # A few things for the Review page.
     last = MONTHS[-1]
@@ -509,7 +519,8 @@ def build(db_file: Path) -> None:
         )
     )
 
-    for site, files in [("chase", 9), ("amex", 6), ("citi", 3), ("amazon", 16), ("costco", 8)]:
+    for site, files in [("chase", 9), ("amex", 6), ("citi", 3), ("bank", 4), ("amazon", 16),
+                        ("costco", 8)]:
         s.add(
             m.SyncRun(
                 site=site,
@@ -524,6 +535,131 @@ def build(db_file: Path) -> None:
         )
     s.commit()
     s.close()
+
+
+CHECKING_PAY = {  # how the checking account names a payment to each issuer
+    "amex": "AMEX EPAYMENT ACH PMT",
+    "chase": "CHASE CREDIT CRD EPAY",
+    "citi": "CITI CARD ONLINE PAYMENT",
+}
+
+
+def checking(s, rng, txn, day, payments) -> None:
+    """The Example Bank checking account: pay in; rent, bills and cash out; every card paid
+    from it and linked to the card's payment; statements that balance; a running balance."""
+    from fin.db import models as m
+
+    rows: list[m.Transaction] = []
+
+    def bank(date, amount, raw, type_, flow, name=None, category=None) -> m.Transaction:
+        t = txn("checking", date, amount, name, category, type_=type_, raw=raw)
+        t.flow_kind = flow
+        rows.append(t)
+        return t
+
+    for month in MONTHS:
+        for d in ("01", "15"):
+            bank(f"{month}-{d}", -421500, "EXAMPLE CORP PAYROLL", "deposit", "income")
+        bank(f"{month}-02", 185000, "OAKVIEW APARTMENTS RENT", "purchase", None,
+             "Oakview Apartments", "housing.rent")
+        bank(day(month, 8, 12), cents(rng.uniform(38, 64)), "CITY WATER UTILITY", "purchase",
+             None, "City Water", "bills.utilities")
+        bank(day(month), 10000, "ATM WITHDRAWAL", "purchase", "atm", None, "cash.atm")
+        bank(f"{month}-16", 50000, "ONLINE TRANSFER TO SAV", "transfer", "own_transfer")
+    bank("2026-08-19", -25000, "MOBILE DEPOSIT", "deposit", "other_in")
+    other = bank("2026-09-14", 6412, "DISCOVER E-PAYMENT", "transfer", "card_payment_other")
+    s.add(m.ReviewItem(kind="unmatched_transfer", ref_table="transactions", ref_id=str(other.id),
+                       details_json='{"reason": "A payment to a card you don\'t track."}'))
+    issuer = {"amex_platinum": "amex", "amex_gold": "amex", "citi_costco": "citi"}
+    for p in payments:
+        b = bank(f"{p.post_date[:8]}21", -p.amount_cents,
+                 CHECKING_PAY[issuer.get(p.card_id, "chase")], "transfer", "card_payment")
+        s.add(m.TransferLink(bank_txn_id=b.id, card_txn_id=p.id, method="named", days_apart=-1,
+                             confidence=1.0))
+
+    balance = 640000
+    for month in MONTHS:
+        opening, ins, outs = balance, 0, 0
+        for t in sorted((t for t in rows if t.post_date.startswith(month)),
+                        key=lambda t: (t.post_date, t.id)):
+            balance -= t.amount_cents
+            t.balance_after_cents = balance
+            ins += max(-t.amount_cents, 0)
+            outs += max(t.amount_cents, 0)
+        y, mo = map(int, month.split("-"))
+        s.add(m.BankStatement(
+            card_id="checking", period_start=f"{month}-01",
+            period_end=f"{month}-{calendar.monthrange(y, mo)[1]:02d}", opening_balance=opening,
+            deposits=ins, withdrawals=outs, closing_balance=balance, pdf_path="demo",
+            parse_method="regex", math_ok=True, ledger_status="match", ledger_delta_cents=0))
+
+
+def card_terms(s, cfg) -> None:
+    """Card terms for Best card. The rates are made up for the screenshots; no document is
+    quoted."""
+    from fin.cards.compose import content_hash
+    from fin.cards.models import CardProfile
+    from fin.db import models as m
+    from fin.db.models import utcnow
+
+    ev = [{"doc": "D1", "quote": "Mock terms for the README screenshots."}]
+
+    def rule(rate, cats=(), merchants=(), **kw) -> dict:
+        return {"rate": rate, "categories": list(cats), "merchants": list(merchants),
+                "evidence": ev, **kw}
+
+    def base(rate) -> dict:
+        return {"rate": rate, "is_base": True, "evidence": ev}
+
+    yearly = {"period": "calendar_year", "rate_after": 1}
+    prime = [{"kind": "membership", "name": "Prime membership"}]
+    terms = {  # card: currency, its name, annual fee, earn rules
+        "amex_platinum": ("amex_mr", "Membership Rewards points", 69500, [
+            base(1), rule(5, ["airlines"], channel="direct"),
+            rule(5, ["hotels"], channel="issuer_portal", portal="Amex Travel")]),
+        "amex_gold": ("amex_mr", "Membership Rewards points", 32500, [
+            base(1), rule(4, ["dining"]), rule(3, ["airlines"], channel="direct"),
+            rule(4, ["supermarkets"], geography="us",
+                 cap={"amount_cents": 2500000, **yearly})]),
+        "chase_sapphire_reserve": ("chase_ur", "Ultimate Rewards points", 79500, [
+            base(1), rule(3, ["dining"]), rule(4, ["airlines", "hotels"], channel="direct")]),
+        "chase_freedom_unlimited": ("chase_ur", "Ultimate Rewards points", 0, [
+            base(1.5), rule(3, ["dining"]), rule(3, ["drugstores"])]),
+        "chase_prime_visa": ("cash_back", "cash back", 0, [
+            base(1), rule(5, merchants=["amazon", "whole_foods"], requirements=prime),
+            rule(2, ["dining", "gas_stations", "transit"])]),
+        "citi_costco": ("cash_back", "cash back", 0, [
+            base(1), rule(3, ["dining"]), rule(2, merchants=["costco_warehouse", "costco_online"]),
+            rule(4, ["gas_stations"], cap={"amount_cents": 700000, **yearly})]),
+    }
+    domains = {i.id: i.allowed_domains[0] for i in cfg.issuers}
+    for card in cfg.cards:
+        currency, name, fee, earn = terms[card.id]
+        p = CardProfile.model_validate({
+            "card_id": card.id, "currency": currency, "currency_name": name,
+            "annual_fee_cents": {"value": fee, "evidence": ev},
+            "foreign_txn_fee_pct": {"value": 0, "evidence": ev}, "earn_rules": earn})
+        s.add(m.CardProfileVersion(card_id=card.id, version=1, status="active",
+                                   profile_json=p.model_dump_json(), content_hash=content_hash(p),
+                                   decided_at=utcnow()))
+        s.add(m.CardDocument(card_id=card.id, url=f"https://www.{domains[card.issuer]}/mock",
+                             doc_type="rewards_terms", title="Rewards terms (mock)",
+                             last_checked_at=utcnow()))
+
+
+def rules(s, taxonomy) -> None:
+    """The seed rules, plus a few of my own for the Rules page."""
+    from fin.categorize.rules import load_seed_rules
+    from fin.db import models as m
+
+    load_seed_rules(s, taxonomy)
+    for pattern, name, category in [
+        ("OAKVIEW APARTMENTS", "Oakview Apartments", "housing.rent"),
+        ("CITY WATER", "City Water", "bills.utilities"),
+        ("LANTERN HALL", "Lantern Hall", "entertainment.events"),
+    ]:
+        s.add(m.Rule(priority=10, pattern=pattern, merchant_name=name, category_id=category,
+                     created_by="user"))
 
 
 def serve(db_file: Path):
@@ -552,9 +688,12 @@ def serve(db_file: Path):
 SHOTS = [  # file, path, theme, height
     ("overview.png", "/", "light", 1510),
     ("overview-dark.png", "/", "dark", 1510),
+    ("best-card.png", "/best-card?q=whole+foods", "light", 900),
     ("transactions.png", "/transactions", "light", 860),
     ("orders.png", "/orders?merchant=costco", "light", 740),
-    ("reconciliation.png", "/reconciliation", "light", 860),
+    ("review.png", "/review", "light", 780),
+    ("reconciliation.png", "/reconciliation", "light", 1180),
+    ("rules.png", "/rules", "light", 760),
 ]
 
 
