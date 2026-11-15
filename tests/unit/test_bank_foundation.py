@@ -69,7 +69,8 @@ def test_bad_bank_rules_refused(tmp_path, rule):
 
 def test_transfer_settings():
     m = load_settings().match
-    assert m.transfer_window_days == (-10, 6) and m.transfer_grace_days == 10
+    assert m.transfer_window_days == (-2, 6) and m.transfer_grace_days == 10  # tightened in B2
+    assert Settings().match.transfer_window_days == (-10, 6)  # the untuned default
     with pytest.raises(ValidationError):
         Settings.model_validate({"match": {"transfer_window_days": [6, -10]}})
 
