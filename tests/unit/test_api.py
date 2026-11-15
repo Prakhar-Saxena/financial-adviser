@@ -285,3 +285,15 @@ def test_meta_names_accounts_next_to_cards(client, example_cards):
     assert kinds["checking"] == "account" and kinds["amex_gold"] == "card"
     assert next(x for x in meta["cards"] if x["id"] == "checking")["name"] == \
         "Example Bank Checking"
+
+
+def test_no_bank_account_no_money_in_and_out(client, monkeypatch):
+    """Without a bank account the Overview has no "Money in and out" card to show."""
+    from fin.config import CONFIG_DIR, load_cards
+
+    _, db = client
+    cards = load_cards(CONFIG_DIR / "cards.example.json").model_copy(update={"bank_accounts": []})
+    monkeypatch.setattr("fin.api.app.load_cards", lambda: cards)
+    c = TestClient(create_app(db, web_dist=None), base_url="http://127.0.0.1")
+    assert c.get("/api/summary", params={"month": "2026-09"}).json()["cash_flow"] is None
+    assert c.get("/api/reconciliation/bank").json()["accounts"] == []

@@ -20,6 +20,7 @@ from sqlalchemy import exists, func, or_, select
 from sqlalchemy.orm import Session
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
+from fin.api.cash_flow import bank_reconciliation, cash_flow, transfer_of
 from fin.api.routes.cards import cards_router, require_json
 from fin.api.spending import SPENDING_TYPES, months_with_data, summarize, txn_month
 from fin.cards.refresh import abort_stale_runs
@@ -145,6 +146,8 @@ def create_app(db_file: Path | None = None, web_dist: Path | None = WEB_DIST) ->
                          "art": None, "kind": "account"} for a in cards.bank_accounts],
             "categories": [{"id": c.id, "name": c.name, "parent_id": c.parent_id}
                            for c in taxonomy.categories],
+            # What a checking row may be set to (SPEC-checking §13); null = a plain purchase.
+            "bank_type_flows": BANK_TYPE_FLOWS,
         }
 
     # ---------------------------------------------------------- summary
@@ -158,6 +161,7 @@ def create_app(db_file: Path | None = None, web_dist: Path | None = WEB_DIST) ->
         out = summarize(s, month, trend)
         for row in out["by_category"] + out["by_subcategory"]:
             row["name"] = cat_names.get(row["key"], row["key"])
+        out["cash_flow"] = cash_flow(s, [a.id for a in cards.bank_accounts], month)
         return out
 
     # ----------------------------------------------------- transactions
@@ -181,11 +185,14 @@ def create_app(db_file: Path | None = None, web_dist: Path | None = WEB_DIST) ->
     def transactions(month: str | None = None, card: str | None = None,
                      person: str | None = None, category: str | None = None,
                      group: str | None = None, type: str | None = None,
-                     review: bool = False, s: Session = Depends(db)):
+                     review: bool = False, id: int | None = None,
+                     s: Session = Depends(db)):
         q = (select(m.Transaction, m.Merchant)
              .outerjoin(m.Merchant, m.Merchant.id == m.Transaction.merchant_id)
              .order_by(func.coalesce(m.Transaction.txn_date, m.Transaction.post_date).desc(),
                        m.Transaction.id.desc()))
+        if id is not None:  # one row, whatever its month: the other side of a transfer
+            return [txn_row(t, mer) for t, mer in s.execute(q.where(m.Transaction.id == id))]
         if month:
             q = q.where(txn_month() == month)
         if card:
@@ -233,6 +240,7 @@ def create_app(db_file: Path | None = None, web_dist: Path | None = WEB_DIST) ->
                               m.ReviewItem.status == "open",
                               m.ReviewItem.ref_table == "transactions",
                               m.ReviewItem.ref_id == str(t.id)))]
+        row["transfer"] = transfer_of(s, t, cards)
         return row
 
     @app.patch("/api/transactions/{txn_id}")
@@ -536,6 +544,10 @@ def create_app(db_file: Path | None = None, web_dist: Path | None = WEB_DIST) ->
                  "ledger_delta_cents": st.ledger_delta_cents}
                 for st in s.scalars(select(m.Statement).order_by(m.Statement.card_id,
                                                                  m.Statement.period_end))]
+
+    @app.get("/api/reconciliation/bank")
+    def reconciliation_bank(s: Session = Depends(db)):
+        return bank_reconciliation(s, cards)
 
     @app.get("/api/sources/status")
     def sources_status(s: Session = Depends(db)):

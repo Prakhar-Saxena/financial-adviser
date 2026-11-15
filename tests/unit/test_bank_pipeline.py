@@ -275,3 +275,63 @@ def test_fin_transfers_lists_and_checks(bank_loaded):
         s.commit()
     bad = CliRunner().invoke(app, ["transfers", "--check"])
     assert bad.exit_code == 1 and "FAIL 1:" in bad.output
+
+
+def test_money_in_and_out_reproduces_the_statement(bank_loaded):
+    """Phase B3: the month's money in and out are the statement's deposits and withdrawals."""
+    c = api(bank_loaded)
+    flow = c.get("/api/summary", params={"month": "2026-10"}).json()["cash_flow"]
+    with session_factory(bank_loaded)() as s:
+        st = s.scalar(select(m.BankStatement))
+    assert (flow["money_in_cents"], flow["money_out_cents"]) == (st.deposits, st.withdrawals)
+    out = {r["key"]: r for r in flow["money_out"]}
+    assert out["card_payment"]["spending"] is False and out["p2p"]["spending"] is True
+    assert flow["card_payments"]["linked"] == 1
+    assert c.get("/api/summary", params={"month": "2026-09"}).json()["cash_flow"][
+        "money_in"] == []
+
+
+def test_a_card_payment_shows_both_sides(bank_loaded):
+    db, c = bank_loaded, api(bank_loaded)
+    paid = row_id(db, "CHASE CREDIT CRD  - EPAY")
+    with session_factory(db)() as s:
+        card_row = s.scalar(select(m.Transaction.id).where(
+            m.Transaction.card_id == "chase_prime_visa", m.Transaction.type == "payment"))
+    there = c.get(f"/api/transactions/{paid}").json()["transfer"]
+    assert [(x["txn_id"], x["card_id"], x["method"]) for x in there] == [
+        (card_row, "chase_prime_visa", "named")]
+    back = c.get(f"/api/transactions/{card_row}").json()["transfer"]
+    assert [x["txn_id"] for x in back] == [paid] and back[0]["name"]
+    one = c.get("/api/transactions", params={"id": card_row, "month": "2026-01"}).json()
+    assert [t["id"] for t in one] == [card_row]  # the link opens it whatever the month
+    assert c.get(f"/api/transactions/{row_id(db, 'CORNER CAFE')}").json()["transfer"] == []
+
+
+def test_bank_reconciliation(bank_loaded):
+    r = api(bank_loaded).get("/api/reconciliation/bank").json()
+    assert r["accounts"] == ["checking"]
+    [st] = r["statements"]
+    assert st["math_ok"] and st["ledger_status"] == "match"
+    assert st["opening_cents"] + st["deposits_cents"] - st["withdrawals_cents"] \
+        == st["closing_cents"]
+    assert r["balance"]["days"] > 0 and r["balance"]["gaps"] == []
+    assert {"month": "2026-10", "card_payments": 1, "matched": 1, "checking_payments": 3,
+            "checking_linked": 1} in r["card_payments"]
+
+
+def test_a_dashboard_correction_survives_rebuild(bank_loaded):
+    """Phase B3 acceptance: "This is spending" on a card payment, then fin rebuild."""
+    db, c = bank_loaded, api(bank_loaded)
+    paid = row_id(db, "CHASE CREDIT CRD  - EPAY")
+    key = c.get(f"/api/transactions/{paid}").json()
+    assert not key["counts_as_spending"]
+    assert c.patch(f"/api/transactions/{paid}", json={"type": "purchase"}).status_code == 200
+    with session_factory(db)() as s:
+        dedupe = s.get(m.Transaction, paid).dedupe_key
+        rebuild(s)
+    process_all()
+    with session_factory(db)() as s:
+        t = s.scalar(select(m.Transaction).where(m.Transaction.dedupe_key == dedupe))
+        assert (t.type, t.flow_kind) == ("purchase", None)
+        assert t.id in {ln.txn_id for ln in spending_lines(s)}
+        assert s.scalar(select(m.TransferLink).where(m.TransferLink.bank_txn_id == t.id)) is None
