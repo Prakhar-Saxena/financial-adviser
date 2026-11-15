@@ -134,6 +134,8 @@ class Rule(Base):
     merchant_group: Mapped[str | None]
     category_id: Mapped[str | None] = mapped_column(ForeignKey("categories.id"))
     txn_type: Mapped[str | None]
+    # A checking row's flow (docs/SPEC-checking.md §9 step 2), with txn_type; NULL otherwise.
+    flow_kind: Mapped[str | None]
     created_by: Mapped[str]
     created_at: Mapped[str] = mapped_column(default=utcnow)
 

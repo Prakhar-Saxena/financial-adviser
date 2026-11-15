@@ -53,7 +53,9 @@ def load_seed_rules(s: Session, taxonomy: Taxonomy, path: Path = RULES_PATH) -> 
 
 
 def compiled_rules(s: Session) -> list[CompiledRule]:
-    rows = s.scalars(select(m.Rule).order_by(
+    """Merchant and category rules. Rules that only say what a checking row is (txn_type set)
+    are read by fin.reconcile.transfers.classify_checking instead."""
+    rows = s.scalars(select(m.Rule).where(m.Rule.txn_type.is_(None)).order_by(
         (m.Rule.created_by != "user"), m.Rule.priority, m.Rule.id)).all()
     return [CompiledRule(r.id, re.compile(r.pattern, re.IGNORECASE), r.merchant_name,
                          r.merchant_group, r.category_id, r.created_by) for r in rows]

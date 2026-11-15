@@ -22,6 +22,8 @@ from fin.db.models import utcnow
 PROCESS_KINDS = (
     "unmatched_charge", "unmatched_order_charge", "unexpected_merchant", "statement_mismatch",
     "low_confidence", "uncategorized", "unknown_person",
+    # Checking (docs/SPEC-checking.md §10, §11).
+    "unmatched_transfer", "uncertain_transfer", "bank_balance_gap",
 )
 
 
