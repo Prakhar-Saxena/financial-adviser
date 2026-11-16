@@ -22,6 +22,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from fin.api.cash_flow import bank_reconciliation, cash_flow, transfer_of
 from fin.api.routes.cards import cards_router, require_json
+from fin.api.routes.utilities import utilities_router
 from fin.api.spending import SPENDING_TYPES, months_with_data, summarize, txn_month
 from fin.cards.refresh import abort_stale_runs
 from fin.categorize.rules import NON_SPENDING
@@ -148,6 +149,9 @@ def create_app(db_file: Path | None = None, web_dist: Path | None = WEB_DIST) ->
                            for c in taxonomy.categories],
             # What a checking row may be set to (SPEC-checking §13); null = a plain purchase.
             "bank_type_flows": BANK_TYPE_FLOWS,
+            # docs/SPEC-utilities.md §9
+            "utility_accounts": [{"id": u.id, "service": u.service, "provider": u.provider}
+                                 for u in cards.utility_accounts],
         }
 
     # ---------------------------------------------------------- summary
@@ -585,6 +589,7 @@ def create_app(db_file: Path | None = None, web_dist: Path | None = WEB_DIST) ->
     with Session_() as s:
         abort_stale_runs(s)
     app.include_router(cards_router(db, settings, cards, paths))
+    app.include_router(utilities_router(db, settings, cards))
 
     # --------------------------------------------------------- web app
 

@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import json
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import date
@@ -124,26 +123,21 @@ def trends(
 @utilities_app.command()
 def unassigned() -> None:
     """Payments in a bills category that match no account, with their transaction ids."""
-    from sqlalchemy import String, select
+    from sqlalchemy import select
 
     from fin.db import models as m
+    from fin.utilities.views import unassigned as rows_of
 
-    cards = load_cards()
     with _session() as s:
-        rows = s.execute(select(m.Transaction, m.ReviewItem.details_json).join(
-            m.ReviewItem, m.ReviewItem.ref_id == m.Transaction.id.cast(String)).where(
-            m.ReviewItem.kind == "utility_unassigned", m.ReviewItem.status == "open")
-            .order_by(m.Transaction.txn_date, m.Transaction.id)).all()
+        rows = rows_of(s, load_cards())
         accounts = ", ".join(s.scalars(select(m.UtilityAccount.id).where(
             m.UtilityAccount.in_config)))
     if not rows:
         typer.echo("No unassigned utility payments.")
         return
-    for t, details in rows:
-        reason = json.loads(details or "{}").get("reason", "")
-        paid_from = _name(cards, t.card_id)
-        typer.echo(f"  {t.id:>6}  {t.txn_date or t.post_date}  {_money(t.amount_cents):>10}  "
-                   f"{paid_from:<28.28}  {t.description_clean:<40.40}  {reason}")
+    for r in rows:
+        typer.echo(f"  {r['transaction_id']:>6}  {r['date']}  {_money(r['amount_cents']):>10}  "
+                   f"{r['paid_from']:<28.28}  {r['description']:<40.40}  {r['reason']}")
     typer.echo(f"\nAssign each: `fin utilities assign ID ACCOUNT` (accounts: {accounts}), "
                "or `none` if it isn't a utility. Add --all-from-merchant for every payment "
                "like it.")
@@ -167,38 +161,21 @@ def assign(
 ) -> None:
     """A correction (docs/SPEC-utilities.md §7). It survives `fin rebuild`."""
     from fin.db import models as m
-    from fin.utilities.payments import (
-        LINKED_TYPES,
-        NOT_A_UTILITY,
-        merchant_key,
-        row_merchant,
-    )
+    from fin.utilities.corrections import CorrectionError, set_covers
+    from fin.utilities.corrections import assign as correct
+    from fin.utilities.payments import NOT_A_UTILITY
     from fin.utilities.series import relink
 
     settings = load_settings()
     with _session() as s:
-        t = s.get(m.Transaction, txn_id)
-        if t is None or t.type not in LINKED_TYPES:
-            typer.echo(f"No purchase or refund with id {txn_id}.")
-            raise typer.Exit(2)
-        if account != NOT_A_UTILITY and s.get(m.UtilityAccount, account) is None:
-            typer.echo(f"Unknown utility account {account!r}.")
-            raise typer.Exit(2)
-        if covers is not None and not 1 <= covers <= 24:
-            typer.echo("--covers must be 1 to 24 months.")
-            raise typer.Exit(2)
-        if all_from_merchant:
-            merchants = {t.merchant_id: s.get(m.Merchant, t.merchant_id).name} \
-                if t.merchant_id else {}
-            key = row_merchant(t, merchants)
-            _set(s, "merchant", key, "utility_account", account)
-            _clear(s, "transaction", t.dedupe_key, "utility_account")
-            what = f"every payment from {merchant_key(key)}"
-        else:
-            _set(s, "transaction", t.dedupe_key, "utility_account", account)
-            what = f"transaction {txn_id}"
-        if covers is not None:
-            _set(s, "transaction", t.dedupe_key, "utility_covers_months", str(covers))
+        try:
+            what = correct(s, txn_id, account, all_from_merchant)
+            if covers is not None:
+                set_covers(s, txn_id, covers)
+        except CorrectionError as e:
+            s.rollback()
+            typer.echo(str(e))
+            raise typer.Exit(2) from None
         s.commit()
         res, _ = relink(s, load_cards(), settings)
         link = s.get(m.UtilityPayment, txn_id)
@@ -208,30 +185,6 @@ def assign(
         typer.echo(f"Assigned {what} to {account}"
                    + (f", covering {link.covers_months} month(s)." if link else "."))
     typer.echo(f"Utilities: {res.total} payments linked, {res.unassigned} unassigned.")
-
-
-def _set(s: Session, target: str, key: str, field: str, value: str) -> None:
-    from sqlalchemy import select
-
-    from fin.db import models as m
-
-    row = s.scalar(select(m.UserOverride).where(
-        m.UserOverride.target_type == target, m.UserOverride.stable_key == key,
-        m.UserOverride.field == field))
-    if row:
-        row.value = value
-    else:
-        s.add(m.UserOverride(target_type=target, stable_key=key, field=field, value=value))
-
-
-def _clear(s: Session, target: str, key: str, field: str) -> None:
-    from sqlalchemy import delete
-
-    from fin.db import models as m
-
-    s.execute(delete(m.UserOverride).where(
-        m.UserOverride.target_type == target, m.UserOverride.stable_key == key,
-        m.UserOverride.field == field))
 
 
 @utilities_app.command()
