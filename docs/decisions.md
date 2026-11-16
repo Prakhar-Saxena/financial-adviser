@@ -1123,3 +1123,48 @@ everywhere in the repo (§1.1).
   month, card and category (246 cells), credits by month (4) and types by month (27) identical
   to the cent (`debug/u0-spending-before.json`, `u0-spending-after.json`). `fin doctor` green;
   `make privacy-check` clean.
+
+## Utilities, Phase U1 (2026-11-15)
+
+- **Reality vs. spec: patterns also read `description_raw`.** §5 runs payment patterns on
+  `description_clean`, but checking rows are cleaned of `private_words` (SPEC-checking §8.3),
+  inside words too, and §1.1 puts a provider's short form there. After the next rebuild the
+  electric payments' cleaned text no longer held the pattern's word (5 of 5 on real data), so
+  they would have stopped linking. Patterns now match the cleaned or the raw description; the
+  raw text is the export's own, already in the local ledger, so nothing new leaves the Mac.
+  The fictional fixtures hit the same thing: the example people are "… Example", so "EXAMPLE
+  POWER" cleans to "POWER".
+- **Adding private words re-categorizes on the next rebuild.** The rebuild re-cleans checking
+  descriptions; the AI cache is keyed by the cleaned text, so rows that lost a word come back
+  uncategorized until `fin process` runs with AI (real data: 14 rows, 1 haiku call for 3
+  descriptors, spending back to identical). `--no-ai` alone leaves them uncategorized.
+- **Engine choices the spec left open** (`src/fin/utilities/engine.py`):
+  - Largest remainder with equal weights: the extra cents go to the earliest months.
+  - Drift moves a payment only into an empty month inside the account's own history (first to
+    last payment month); the previous month is tried first.
+  - A **first payment** is one that starts an account: 45+ days after the paying card's or
+    account's history starts in the ledger, or within 60 days after `active_from`. The first
+    payment a ledger happens to hold is ordinary. The insight shows while the account has
+    fewer than 3 payments.
+  - **Flat bill changed**: the latest payment that starts a run of `step_min_payments` within
+    `step_min_cents` of each other, differing by that much from the payment before it; the old
+    level is the run just before it, or, when that's a one-off spike, the median of the 6
+    payments before. Amounts are per month (amount ÷ covers).
+  - **Unusual payment**: seasonal accounts compare with the same months a year earlier (the
+    series, so quarterly spreads compare like with like); flat ones with the median of the 6
+    payments before (at least 2), times covers. Only payments above the baseline.
+  - **Year over year and seasonality** are per service (a provider switch keeps one line), on
+    the latest month with payments up to the window's last month. Seasonality reports the
+    5-month span carrying the largest share of the last 12 months, when it's 50% or more.
+  - **Provider switch**: a new account's first payment within 45 days of the last payment of an
+    older account with the same service.
+  - Ranking ties: severity, then kind, account and period.
+- **CLI.** `fin utilities assign` also takes `--covers N` (prepaid or catch-up payments; §15
+  asks me to say which were prepaid, and there was no command for it). An assign relinks at
+  once, without the rest of `fin process`. `check` without a snapshot reports SKIP, not FAIL.
+- **Real data (counts only).** 17 rows in the bills categories: 12 linked by pattern (5
+  electric, 5 gas, 2 quarterly water spread over 6 months), 5 unassigned phone payments from
+  two carriers. Snapshot before the new code, `fin process`, `fin utilities check`: all PASS,
+  spending identical to the cent. `fin rebuild` then `fin process` (with AI, see above): the
+  same 12 links, spending identical to the U1 snapshot. Cadences 29, 30 and 96 days. No
+  insights yet: under a year of history (year over year from April 2027 by payment month).
