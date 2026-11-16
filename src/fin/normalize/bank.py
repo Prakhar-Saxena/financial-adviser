@@ -55,7 +55,7 @@ def load_bank_rules(cards: CardsConfig, path: Path = BANK_RULES_PATH) -> list[Ba
             raise ValueError(f"bank_rules.yaml rule {i}: issuer is for card_payment rules only")
         if flow == "card_payment" and issuer not in card_issuers:
             raise ValueError(f"bank_rules.yaml rule {i}: card_payment needs the issuer id of a "
-                             f"card in cards.json, got {issuer!r}")
+                             f"card in accounts.json, got {issuer!r}")
         try:
             regex = re.compile(str(r.get("pattern") or ""), re.IGNORECASE)
         except re.error as e:
@@ -101,7 +101,7 @@ TRAILING_COUNTRY = re.compile(r"\s{2,}US$")
 
 @dataclass(frozen=True)
 class CleanTerms:
-    """What must never survive cleaning: names, private words and endings from cards.json."""
+    """What must never survive cleaning: names, private words and endings from accounts.json."""
 
     names: re.Pattern | None
     private: re.Pattern | None

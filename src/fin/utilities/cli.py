@@ -55,7 +55,7 @@ def status() -> None:
         unassigned = unassigned_count(s)
         views = utilities(s, settings).accounts
     if not rows:
-        typer.echo("No utility accounts. Add them to config/cards.json under utility_accounts "
+        typer.echo("No utility accounts. Add them to config/accounts.json under utility_accounts "
                    "(docs/SPEC-utilities.md §5), then run `fin init`.")
         return
 
@@ -75,7 +75,7 @@ def status() -> None:
         typer.echo(f"  {name:<{width}}  {r.service:<8}  {r.provider:<{pw}}  {r.payments:>8}  "
                    f"{last:<22}  {months:>6}  {cadence:>7}  {nxt:<13}  {r.open_items:>10}")
     if any(not r.in_config for r in rows):
-        typer.echo("\n* no longer in config/cards.json; its past payments stay.")
+        typer.echo("\n* no longer in config/accounts.json; its past payments stay.")
     if not any(r.payments for r in rows):
         typer.echo("\nNo payments linked to these accounts yet.")
     else:

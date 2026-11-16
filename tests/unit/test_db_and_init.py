@@ -39,7 +39,7 @@ def test_migration_matches_models(db):
 
 
 def test_seed_is_idempotent(db):
-    cards, tax = load_cards(CONFIG_DIR / "cards.example.json"), load_taxonomy()
+    cards, tax = load_cards(CONFIG_DIR / "accounts.example.json"), load_taxonomy()
     Session = session_factory(db)
     for _ in range(2):
         with Session() as s:
@@ -52,7 +52,7 @@ def test_seed_is_idempotent(db):
 def test_constraints(db):
     Session = session_factory(db)
     with Session() as s:
-        sync_reference(s, load_cards(CONFIG_DIR / "cards.example.json"), load_taxonomy())
+        sync_reference(s, load_cards(CONFIG_DIR / "accounts.example.json"), load_taxonomy())
     with Session() as s:
         s.add(models.ReviewItem(kind="not_a_kind"))
         with pytest.raises(IntegrityError):
@@ -78,6 +78,20 @@ def test_fin_init(data_dir, monkeypatch, tmp_path):
     assert stat.S_IMODE(db_file.stat().st_mode) == 0o600
     # Idempotent
     assert CliRunner().invoke(app, ["init"]).exit_code == 0
+
+
+def test_fin_init_renames_the_old_config(data_dir, monkeypatch, tmp_path):
+    """config/cards.json was the name until 2026-11-15; `fin init` moves it, contents intact."""
+    import fin.cli as cli
+
+    monkeypatch.setattr("fin.cli.REPO_ROOT", tmp_path / "not-a-repo")
+    old = cli.CONFIG_DIR / "cards.json"
+    old.write_bytes((cli.CONFIG_DIR / "accounts.example.json").read_bytes())
+    result = CliRunner().invoke(app, ["init"])
+    assert result.exit_code == 0 and "Renamed config/cards.json" in result.output
+    assert not old.exists()
+    assert (cli.CONFIG_DIR / "accounts.json").read_bytes() == (
+        cli.CONFIG_DIR / "accounts.example.json").read_bytes()
 
 
 def test_fin_init_refuses_icloud(monkeypatch, tmp_path):
@@ -205,7 +219,7 @@ def test_migration_0009_keeps_every_row_and_widens_the_checks(tmp_path):
 
 
 def test_seed_adds_bank_accounts_as_cards_rows(db):
-    cards, tax = load_cards(CONFIG_DIR / "cards.example.json"), load_taxonomy()
+    cards, tax = load_cards(CONFIG_DIR / "accounts.example.json"), load_taxonomy()
     with session_factory(db)() as s:
         counts = sync_reference(s, cards, tax)
         row = s.get(models.Card, "checking")
@@ -220,7 +234,7 @@ def test_transfer_link_cascades_with_its_transactions(db):
     link left from the last run must not block that (SPEC-checking §6)."""
     Session = session_factory(db)
     with Session() as s:
-        sync_reference(s, load_cards(CONFIG_DIR / "cards.example.json"), load_taxonomy())
+        sync_reference(s, load_cards(CONFIG_DIR / "accounts.example.json"), load_taxonomy())
         s.add(models.Import(id=1, source="x", kind="transactions", file_path="x", sha256="h",
                             status="ok"))
         for i, (card, amt, typ) in enumerate([("checking", 5000, "transfer"),

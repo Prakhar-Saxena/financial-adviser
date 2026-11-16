@@ -20,7 +20,7 @@ from fin.reconcile.bank import balance_walk, bank_checks
 from fin.reconcile.transfers import check_invariants, classify_checking, link_transfers
 from fin.review import ReviewSet
 
-CARDS = CardsConfig.model_validate(json.loads((CONFIG_DIR / "cards.example.json").read_text()))
+CARDS = CardsConfig.model_validate(json.loads((CONFIG_DIR / "accounts.example.json").read_text()))
 RULES = load_bank_rules(CARDS)
 TODAY = date(2026, 11, 20)
 _keys = itertools.count()

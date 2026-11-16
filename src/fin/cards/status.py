@@ -36,7 +36,7 @@ class CardStatus:
 
 def card_status(s: Session, cards: CardsConfig, refresh_days: int,
                 now: datetime | None = None) -> list[CardStatus]:
-    """One row per card in cards.json order. A card is stale when its documents' last
+    """One row per card in accounts.json order. A card is stale when its documents' last
     successful check is older than `refresh_days`, or it has never been checked."""
     now = now or datetime.now(UTC)
     cutoff = (now - timedelta(days=refresh_days)).strftime("%Y-%m-%dT%H:%M:%SZ")

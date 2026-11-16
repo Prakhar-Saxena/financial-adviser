@@ -5,7 +5,7 @@
 """Keep your own data out of git (SPEC §7). Stdlib only, Python 3.9+.
 
 The repo is public. This checks what is about to be committed or pushed against your own
-data: the ledger in the data dir (opened read-only) and config/cards.json. A finding says
+data: the ledger in the data dir (opened read-only) and config/accounts.json. A finding says
 where it is and what kind of thing it is, never the value.
 
     privacy_scan.py staged          pre-commit: the lines being added
@@ -18,7 +18,7 @@ where it is and what kind of thing it is, never the value.
                                     numbers read as cents, unless chance easily explains it
 
 What counts as yours:
-- From config/cards.json: the names of everyone but you (full names, aliases, first names,
+- From config/accounts.json: the names of everyone but you (full names, aliases, first names,
   ids), card and account endings next to words like "ending" or "****", `private_words`, the
   bank's names, and the provider of every utility account not marked `"private": false`.
 - From the ledger: order and reference numbers, reference codes and phone or ID numbers in
@@ -33,7 +33,7 @@ or when one place (a file, or the lines a commit adds to it) holds more of your 
 chance explains. Chance is estimated from your own ledger: how many of its amounts sit near
 each value with the same cents. Amounts under $10 and whole-dollar amounts are ignored.
 
-When config/cards.json holds real values but the ledger can't be read, the check fails: it
+When config/accounts.json holds real values but the ledger can't be read, the check fails: it
 can't tell what is yours. There is no inline way to skip it.
 
 Exit codes: 0 nothing found, 1 something found or the check couldn't run, 2 usage.
@@ -75,8 +75,8 @@ GENERIC_NAMES = {
 }
 
 KINDS = {
-    "name": "a name from config/cards.json",
-    "word": "a private word from config/cards.json",
+    "name": "a name from config/accounts.json",
+    "word": "a private word from config/accounts.json",
     "ending": "a card or account ending of yours",
     "order": "an order or reference number from your ledger",
     "code": "a reference code from your ledger's descriptions",
@@ -171,7 +171,7 @@ class Amount:
 class Terms:
     """Everything that counts as yours. Built fresh on every run; never written anywhere."""
 
-    real: bool = False                     # config/cards.json holds real values
+    real: bool = False                     # config/accounts.json holds real values
     problem: str | None = None          # why the check can't run
     ledger: Path | None = None
     names: list[str] = field(default_factory=list)
@@ -241,7 +241,7 @@ def term_regex(terms: Iterable[str], min_len: int,
 
 
 def git_dir_root(root: Path) -> Path | None:
-    """The main worktree, where config/cards.json lives when `root` is a linked worktree."""
+    """The main worktree, where config/accounts.json lives when `root` is a linked worktree."""
     try:
         out = subprocess.run(["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
                              cwd=root, capture_output=True, text=True, timeout=20)
@@ -250,19 +250,31 @@ def git_dir_root(root: Path) -> Path | None:
     return Path(out.stdout.strip()).parent if out.returncode == 0 and out.stdout.strip() else None
 
 
+CONFIG_NAMES = ("accounts.json", "cards.json")  # cards.json: its name until 2026-11-15
+EXAMPLE_NAMES = ("accounts.example.json", "cards.example.json")
+
+
+def config_file(root: Path) -> Path | None:
+    for name in CONFIG_NAMES:
+        if (root / "config" / name).exists():
+            return root / "config" / name
+    return None
+
+
 def read_cards(root: Path) -> tuple[dict, bool, str | None]:
     """(cards, real, problem). The example config and a missing file hold nothing of yours."""
-    path = root / "config" / "cards.json"
-    if not path.exists():
+    path = config_file(root)
+    if path is None:
         main = git_dir_root(root)
-        if main and (main / "config" / "cards.json").exists():
-            root, path = main, main / "config" / "cards.json"
-        else:
+        path = config_file(main) if main else None
+        if path is None:
             return {}, False, None
+        root = main
     raw = path.read_bytes()
-    example = root / "config" / "cards.example.json"
-    if example.exists() and example.read_bytes() == raw:
-        return {}, False, None
+    for name in EXAMPLE_NAMES:
+        example = root / "config" / name
+        if example.exists() and example.read_bytes() == raw:
+            return {}, False, None
     try:
         cards = json.loads(raw)
     except ValueError:

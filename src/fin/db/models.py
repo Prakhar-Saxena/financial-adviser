@@ -340,7 +340,7 @@ class BankStatement(Base):
 
 
 class UtilityAccount(Base):
-    """A utility account from cards.json (docs/SPEC-utilities.md §6), mirrored by `fin init`
+    """A utility account from accounts.json (docs/SPEC-utilities.md §6), mirrored by `fin init`
     and `fin process`. One removed from config keeps its row with in_config = false, so its
     payments still have an account. Kept by `fin rebuild`."""
 

@@ -17,7 +17,7 @@ math, matching and reconciliation tests still mean something.
    locations.
 3. Make the numbers agree (lines sum to the totals, charges match their orders), then
    regenerate the files in `tests/golden/` and run `uv run pytest`.
-4. Commit. The git hooks check the new lines against your ledger and `config/cards.json`
+4. Commit. The git hooks check the new lines against your ledger and `config/accounts.json`
    first, and pre-push checks again before anything leaves your Mac.
 
 A binary fixture (a PDF) needs a text source next to it, such as `name.src.html`, because the
@@ -26,7 +26,7 @@ hooks can't read binary files.
 ## Conventions
 
 - People: Alex Example (self), Sam Q Example (spouse), Pat Example, Robin Example, as in
-  `config/cards.example.json`.
+  `config/accounts.example.json`.
 - Card endings `0000`. Phone numbers end in `0000` or use 555. Places: Springfield, Main St.
 - Amazon order numbers keep the `114-` shape with made-up digits; seller and product names are
   invented.

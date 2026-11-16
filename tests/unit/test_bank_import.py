@@ -32,7 +32,7 @@ STATEMENT = BANK / "statement_checking_2026-10-31.txt"
 
 
 def example_cards(**changes) -> CardsConfig:
-    d = json.loads((CONFIG_DIR / "cards.example.json").read_text())
+    d = json.loads((CONFIG_DIR / "accounts.example.json").read_text())
     d.update(changes)
     return CardsConfig.model_validate(d)
 

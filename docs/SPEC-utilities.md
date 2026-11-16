@@ -16,7 +16,7 @@ Starting Phase U0 is my approval of the changes in §3.
 1. Everything in SPEC §0 and CLAUDE.md still applies: one phase at a time, tests passing and acceptance checks run at the end of each, then stop for my review. Decisions and verified facts go in `docs/decisions.md`. Free dependencies with permissive licences are pre-approved; record each one. New source files get the copyright and SPDX header.
 2. **The hard rules (SPEC §2) don't change.** No new site to sync, no network host, no AI role, no new kind of file to import. If the work seems to need one, stop and ask. §3 lists the only spec changes; copy them into `docs/SPEC.md` and `CLAUDE.md` in Phase U0.
 3. **Everything comes from the ledger.** Utility payments are already there, on the cards and the checking account, categorized by the existing classifier. This feature links them to utility accounts and compares them over time. Nothing is downloaded from a provider.
-4. **The repo is public, and my providers are private** (§1.1). Their names, my account numbers and address, and the places I live appear only in `config/cards.json`, `private/` and the data dir. Everywhere else, including `docs/decisions.md`, tests and commit messages, it's "the electric utility", "the phone carrier" or an account id (§5). No payment data goes in the repo either: record shapes and counts ("5 monthly payments, one quarterly account"), never amounts or dates.
+4. **The repo is public, and my providers are private** (§1.1). Their names, my account numbers and address, and the places I live appear only in `config/accounts.json`, `private/` and the data dir. Everywhere else, including `docs/decisions.md`, tests and commit messages, it's "the electric utility", "the phone carrier" or an account id (§5). No payment data goes in the repo either: record shapes and counts ("5 monthly payments, one quarterly account"), never amounts or dates.
 5. **Spending doesn't move.** Linking a payment to a utility never changes its type, category or amount. Overview's totals stay the same to the cent at every commit.
 6. You may run `fin process` and `fin rebuild` on real data, as CLAUDE.md allows.
 7. Tests never call a model, the network or a browser.
@@ -42,19 +42,19 @@ My electric, gas and water providers say where I live: each serves one area, and
 **Private, wherever it appears:** provider names, account numbers, service addresses and place names.
 
 **Where it may appear:**
-- `config/cards.json` (gitignored): `utility_accounts` and `private_words` (§5).
-- `private/utility-notes.md` (gitignored): the real `cards.json` entries and what the ledger showed.
+- `config/accounts.json` (gitignored): `utility_accounts` and `private_words` (§5).
+- `private/utility-notes.md` (gitignored): the real `accounts.json` entries and what the ledger showed.
 - The data dir, as for everything else.
 
 **Generic in the repo:**
 - Account ids are the service: `electric`, `gas`, `water`, `internet`, `phone`, and `phone_old` for an earlier carrier. They name nothing, so they're safe in commands, settings and commit messages. Code never hard-codes them.
-- Payment patterns name providers, so they live in `cards.json` (`payment_patterns`) or in my corrections in the database, never in `rules.yaml` or `bank_rules.yaml`.
+- Payment patterns name providers, so they live in `accounts.json` (`payment_patterns`) or in my corrections in the database, never in `rules.yaml` or `bank_rules.yaml`.
 - Fixtures use fictional providers ("Example Power", "Example Gas", "Example Water", "Example Fiber", "Example Wireless").
 
 **Checks that catch a slip:**
 - `scripts/hooks/privacy_scan.py` adds each utility account's `provider` to the private words, unless the account sets `"private": false`. That's for a national carrier whose name is already in the repo's seed files (`config/merchant_profiles.yaml`, `scripts/ai_spike.py`) and says nothing about where I live.
 - My street and town go in `private_words`, as for the bank.
-- `make_cards_example.py` writes fictional utility accounts, never mine.
+- `make_accounts_example.py` writes fictional utility accounts, never mine.
 
 ## 2. How it works
 
@@ -72,7 +72,7 @@ My electric, gas and water providers say where I live: each serves one area, and
 Principles (they extend SPEC §4):
 - **Payments are the data.** They're already spending. The tab regroups them by service and provider and compares them over time; nothing is added to spending or taken out of it.
 - **Code counts.** Insights are computed, then worded by templates. No AI.
-- **Generic code, private config.** Everything that names a provider or a place lives in `cards.json`.
+- **Generic code, private config.** Everything that names a provider or a place lives in `accounts.json`.
 - **My corrections win** and survive `fin rebuild`.
 
 ## 3. Changes to the spec
@@ -81,7 +81,7 @@ Add these to `docs/SPEC.md` and `CLAUDE.md` as worded here. None of them names a
 
 **SPEC §6 (repo layout), add:** `private/` also holds `utility-notes.md`.
 
-**SPEC §7 (repo hygiene), add:** utility providers, account numbers, service addresses and place names appear only in `config/cards.json`, `private/` and the data dir. A payment pattern that names a provider never goes in `rules.yaml` or `bank_rules.yaml`.
+**SPEC §7 (repo hygiene), add:** utility providers, account numbers, service addresses and place names appear only in `config/accounts.json`, `private/` and the data dir. A payment pattern that names a provider never goes in `rules.yaml` or `bank_rules.yaml`.
 
 **SPEC §8:** add the tables and review kinds in §6.
 
@@ -104,7 +104,7 @@ Add these to `docs/SPEC.md` and `CLAUDE.md` as worded here. None of them names a
 
 ## 5. Config
 
-**`config/cards.json`** (gitignored) gains one list. The values below are the fictional ones `config/cards.example.json` will carry. The real ones are in `private/utility-notes.md`, and they go only in `cards.json`.
+**`config/accounts.json`** (gitignored) gains one list. The values below are the fictional ones `config/accounts.example.json` will carry. The real ones are in `private/utility-notes.md`, and they go only in `accounts.json`.
 
 ```json
 "utility_accounts": [
@@ -143,7 +143,7 @@ default_months = 24             # the tab's range
 
 | Table | Key columns |
 |---|---|
-| `utility_accounts` | id (PK), service, provider, bill_every_months, paid_in_advance, active_from NULL, active_to NULL, in_config. Mirrored from `cards.json` by `fin init` and `fin process`, like `seed.sync_categories`. An account removed from config keeps its row with `in_config = false` |
+| `utility_accounts` | id (PK), service, provider, bill_every_months, paid_in_advance, active_from NULL, active_to NULL, in_config. Mirrored from `accounts.json` by `fin init` and `fin process`, like `seed.sync_categories`. An account removed from config keeps its row with `in_config = false` |
 | `utility_payments` | transaction_id (PK) → transactions ON DELETE CASCADE, account_id → utility_accounts, method (`override`/`merchant`/`pattern`), covers_months |
 
 Also:
@@ -255,7 +255,7 @@ Make target: `make utilities`.
 | Where | Why |
 |---|---|
 | `config.py` | `UtilityAccount`; `utility_accounts` on `CardsConfig`; unique ids (§5); a `utility_account` helper |
-| `scripts/make_cards_example.py` | Fictional utility accounts, whatever the real ones are |
+| `scripts/make_accounts_example.py` | Fictional utility accounts, whatever the real ones are |
 | `scripts/hooks/privacy_scan.py` | §1.1: providers of private accounts join the private words |
 | `db/models.py`, migration 0011 | §6. Autogenerate doesn't compare CHECKs, so write those by hand, as in 0009 |
 | `db/seed.py` | Mirror utility accounts from config, in `fin init` and `fin process` |
@@ -281,10 +281,10 @@ Already fine, and worth a test: `api/spending.py` and the Overview totals (linki
 
 **Accept**
 1. `uv run pytest` and `make check` pass, and `fin doctor` is green or explains each failure.
-2. Privacy tests: a provider name from a test `cards.json` is refused in a staged line and in a commit message. An account with `"private": false` adds no word.
-3. `make_cards_example.py`, run on a test `cards.json` holding realistic utilities, writes none of their words.
+2. Privacy tests: a provider name from a test `accounts.json` is refused in a staged line and in a commit message. An account with `"private": false` adds no word.
+3. `make_accounts_example.py`, run on a test `accounts.json` holding realistic utilities, writes none of their words.
 4. With the new code and no utilities in config, `fin process` on real data changes no spending number to the cent: a before and after snapshot by month, card and category, kept in `debug/`.
-5. Then I add the real entries from `private/utility-notes.md` to `cards.json` and run `fin init`, and `fin doctor` finds no private word in tracked files or commit messages.
+5. Then I add the real entries from `private/utility-notes.md` to `accounts.json` and run `fin init`, and `fin doctor` finds no private word in tracked files or commit messages.
 
 ### Phase U1: Payments and trends (terminal)
 
@@ -317,7 +317,7 @@ SPEC §18 applies: no model, network or browser in tests.
 - **Fixtures:** fictional only. Unit tests build ledger rows directly. The end-to-end test imports a small fictional checking export and card export with utility rows (`tests/fixtures/utilities/`).
 - **Linking:** precedence (transaction override, merchant override, patterns), two accounts matching, active dates, unassigned, covers-months backward and forward, and `transactions` unchanged (a hash).
 - **Engine golden table,** at least 20 scenarios with the expected series and insight texts, to the cent: spreading with largest remainder, the drift move both ways, refunds, quarterly, prepaid, year over year with and without history, a flat bill change with a one-time spike ignored, an unusual payment, missing (and not missing past `active_to`), a double payment, a provider switch, a first payment, a budget plan, seasonality.
-- **Privacy:** §1.1's words, `"private": false`, and `make_cards_example.py`.
+- **Privacy:** §1.1's words, `"private": false`, and `make_accounts_example.py`.
 - **API:** no GET calls `claude` or the network; 415 without JSON.
 - **Rebuild:** corrections and accounts stay; the links are identical.
 - **End to end:** import the fixtures, run `fin process --no-ai`, and assert that spending equals the run without utilities in config and that the series and insights match the goldens.
@@ -325,7 +325,7 @@ SPEC §18 applies: no model, network or browser in tests.
 ## 15. Manual steps (me)
 
 - Approve §3 by starting Phase U0.
-- After U0, copy the real entries from `private/utility-notes.md` into `config/cards.json` (never `cards.example.json`), add my street and town to `private_words`, and run `fin init`.
+- After U0, copy the real entries from `private/utility-notes.md` into `config/accounts.json` (never `accounts.example.json`), add my street and town to `private_words`, and run `fin init`.
 - In U1, sort the unassigned payments, and say which payments were prepaid for several months.
 - In U2, check one month on the tab by hand.
 

@@ -15,7 +15,7 @@ from fin.ingest import inbox
 from fin.ingest.manifest import validate_run
 from fin.sync import params
 
-CARDS = load_cards(CONFIG_DIR / "cards.example.json")
+CARDS = load_cards(CONFIG_DIR / "accounts.example.json")
 TODAY = date(2026, 10, 6)
 
 

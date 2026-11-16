@@ -74,7 +74,7 @@ card terms (`make screenshots` regenerates them).</sub>
 | American Express | activity CSV, statement PDFs | statement credits kept separate from spending |
 | Amazon | printable invoices, Your Payments → Transactions | charges matched by order number |
 | Costco | warehouse receipts | uses your own Chrome via the Playwright Extension |
-| A checking account | transaction export, statement PDFs | named only in your `cards.json`; stays in approve mode |
+| A checking account | transaction export, statement PDFs | named only in your `accounts.json`; stays in approve mode |
 
 A checking account adds the spending that never touches a card (debit purchases, bills, checks,
 Zelle) without counting anything twice: a payment from checking to a card is linked to the payment
@@ -121,7 +121,7 @@ The browsing agent works on logged-in bank sessions, so it is boxed in on severa
 - **The classifier sees as little as possible.** It runs as `claude -p` with Claude haiku and no
   tools. It only sees cleaned merchant names, amounts, dates and item titles.
 - **Your data stays out of git.** Git hooks check every commit and push against your own ledger and
-  `config/cards.json`, and refuse anything of yours (names, card endings, order numbers, item
+  `config/accounts.json`, and refuse anything of yours (names, card endings, order numbers, item
   titles, amounts, words you list as private) without printing it. Test fixtures are fictional.
 
 This is defense in depth, not a guarantee. Watch the browser while a sync runs.
@@ -138,13 +138,13 @@ This is defense in depth, not a guarantee. Watch the browser while a sync runs.
 
 ```bash
 uv sync
-cp config/cards.example.json config/cards.json   # then edit: your people, cards and sites
+cp config/accounts.example.json config/accounts.json   # then edit: your people, cards and sites
 uv run fin init        # data dir (~/FinancialAdviserData, mode 700), database, git hook
 uv run fin doctor      # FileVault, Claude auth, Chrome, Node, permissions
 uv run fin sync selftest   # checks the browsing setup against example.com
 ```
 
-`config/cards.json` is gitignored. Your data directory (set with `FIN_DATA_DIR`) must not live
+`config/accounts.json` is gitignored. Your data directory (set with `FIN_DATA_DIR`) must not live
 under iCloud-synced folders.
 
 ## Everyday use
@@ -168,7 +168,7 @@ All `make` targets run in the foreground. Other commands:
   paid; `--check` runs the no-double-counting checks.
 - `fin utilities` (or `make utilities`) lists your utility accounts: last payment, months
   covered, cadence, the next expected payment. Utility payments come from the ledger (no new
-  logins); accounts and payment patterns go in `cards.json` under `utility_accounts`, and their
+  logins); accounts and payment patterns go in `accounts.json` under `utility_accounts`, and their
   providers stay out of the repo like your bank.
   - `trends [--account ID] [--months 24]`: price changes on flat bills, year over year once a
     year of payments exists, unusual, missing or doubled payments, provider switches.
@@ -202,7 +202,7 @@ connects to your own Chrome through the Playwright Extension:
 - **Best card:** type where you're paying to see your cards ranked by cents back, with the rule,
   its conditions and a link to the exact clause in the card's terms. **Missed rewards** shows
   what a different card would have earned on your last months of purchases (plain debit
-  purchases from checking too, valued at `bank_accounts[].debit_rewards` in `cards.json`), each statement
+  purchases from checking too, valued at `bank_accounts[].debit_rewards` in `accounts.json`), each statement
   credit's use this period, card-linked offers (Amex, Chase and Citi offers) at places you
   shop, and a cheat sheet. Offers are read-only: turn them on with `offers_sites` in
   `config/settings.toml` (or `fin sync amex --offers`); add any you want in the issuer's app

@@ -7,7 +7,7 @@ Build spec for Claude Code. Version 2, 2026-10-06.
 - Data is pulled once a week with `fin weekly`.
 - Scripted Playwright scrapers moved to Phase 6, for later.
 
-**How to start:** put this file and `cards.json` in an empty folder, open Claude Code there, and say:
+**How to start:** put this file and `accounts.json` in an empty folder, open Claude Code there, and say:
 *"Read SPEC.md end to end, then start Phase 0. Stop at the end of each phase and show me the acceptance checks."*
 
 ---
@@ -18,7 +18,7 @@ Build spec for Claude Code. Version 2, 2026-10-06.
    - `CLAUDE.md`, under about 100 lines. It holds §2 (Hard constraints) and §7 (Security rules) verbatim, the repo layout and the common commands.
    - `docs/SPEC.md`, which is this file, moved there.
    - `docs/decisions.md`, a dated log of what you discover and decide: export formats, exact tool names, verified CLI flags, pinned versions.
-   - `config/cards.json`, moved from `cards.json` and gitignored, plus a generated `config/cards.example.json` with fake values.
+   - `config/accounts.json`, moved from `accounts.json` and gitignored, plus a generated `config/accounts.example.json` with fake values.
 2. Build one phase at a time (§17). End each phase with tests passing and the acceptance checks run. Then give a short summary and stop for my review.
 3. Don't read my real data directory while developing unless I say so. That's `$FIN_DATA_DIR`, default `~/FinancialAdviserData`. Write parsers against the fixtures in `tests/fixtures/`, which are fictional (§18). When you need to see a real file's layout, ask me for a redacted copy (`scripts/redact.py` writes it into the data dir), then build a fictional fixture in that layout.
 4. Never start `fin sync`, `fin weekly` or any browsing session yourself. They open a browser where I log in to my accounts. Ask me to run them and paste the output.
@@ -48,7 +48,7 @@ A local expense tracker for 6 credit cards and 4 cardholders. It shows where the
    - All of them follow §14.1–14.2: clean environment, subscription auth check, `--no-session-persistence`, `--safe-mode`, strict MCP config, the run folder as cwd, and an audit trail in `ai-runs/`.
 3. **Local only.** Everything runs and is stored on my Mac. The only network traffic is to the sites being synced (Chase, Amex, Citi, Amazon, Costco, Gmail API) and to Claude on my subscription. §7 describes what Claude sees.
    - Card research reads public, logged-out pages and documents on the allowlisted domains (SPEC-cards §15): the issuers' sites, co-brand partners' card pages and the CFPB's credit card agreement database. Python downloads them with no cookies and an honest User-Agent, and keeps them in the data dir. WebSearch runs on Anthropic's search backend. WebFetch downloads from my Mac with no cookies; Claude reads the result like any tool output, and the hostname goes to Anthropic's safety check.
-   - The bank in `config/cards.json` (`bank_accounts`) is one of the sites being synced. It's named only there, in `private/` and in the data dir.
+   - The bank in `config/accounts.json` (`bank_accounts`) is one of the sites being synced. It's named only there, in `private/` and in the data dir.
 4. **Open-source dependencies only.** Prefer MIT, BSD or Apache-2.0. The one exception is the Google Chrome browser already on my Mac (§5).
 5. **Read-only toward every financial site.** The agent navigates, reads, downloads and saves pages. It never pays, transfers, buys, enrolls in offers, redeems points or changes settings. The only forms it uses are search, filter and date-range controls. I do the logins (rule 6).
    - This covers the card optimizer too (`docs/SPEC-cards.md`). The dashboard tells me what to do; it never enrolls, activates, adds offers, redeems or applies.
@@ -58,7 +58,7 @@ A local expense tracker for 6 credit cards and 4 cardholders. It shows where the
 
 ## 3. Accounts, cards and people
 
-- `config/cards.json` (provided) defines the people, issuers, item sources and cards. Validate it with pydantic at startup.
+- `config/accounts.json` (provided) defines the people, issuers, item sources and cards. Validate it with pydantic at startup.
 - There are 3 issuers (Amex, Chase, Citi) and 6 cards. Every card has me plus 3 authorized users: Sam Q Example (spouse), Pat Example (father) and Robin Example (mother).
 - Two cards are dedicated to one merchant:
   - **Prime Visa (Chase)** is for Amazon and Whole Foods. It is cross-checked against Amazon order data.
@@ -123,8 +123,8 @@ financial-adviser/
   docs/SPEC.md  docs/decisions.md  docs/ai-cli-notes.md
   pyproject.toml  uv.lock  .gitignore
   config/
-    cards.json            # real, gitignored
-    cards.example.json    # fake, committed
+    accounts.json            # real, gitignored (named cards.json until 2026-11-15)
+    accounts.example.json    # fake, committed
     categories.json       # taxonomy (§13)
     rules.yaml            # seed merchant rules (§10)
     settings.toml         # history_months=3, statements_per_card=3, sync_model, sync_overlap_days=14,
@@ -180,15 +180,15 @@ financial-adviser/
 ## 7. Security and privacy rules (standing)
 
 **Repo hygiene.** The repo is public on GitHub. Nothing from my real data goes into it: not in code, fixtures, tests, docs, comments or commit messages.
-- Set up `.gitignore` before the first commit. It must cover `config/cards.json`, `.env`, `*.sqlite`, real `*.pdf/*.csv/*.qfx/*.html` outside `tests/fixtures/`, anything named `browser-profiles`, and `private/` (notes that would identify me).
+- Set up `.gitignore` before the first commit. It must cover `config/accounts.json`, `.env`, `*.sqlite`, real `*.pdf/*.csv/*.qfx/*.html` outside `tests/fixtures/`, anything named `browser-profiles`, and `private/` (notes that would identify me).
 - Git hooks in `scripts/hooks/`, installed by `fin init`:
-  - `pre-commit` blocks files matching those patterns, copies of `cards.json` and files larger than 1 MB. Then `privacy_scan.py` checks the lines being added against my ledger (opened read-only) and `cards.json`: names, card endings, `private_words`, order and reference numbers, item titles, merchant descriptions and amounts.
+  - `pre-commit` blocks files matching those patterns, copies of `accounts.json` and files larger than 1 MB. Then `privacy_scan.py` checks the lines being added against my ledger (opened read-only) and `accounts.json`: names, card endings, `private_words`, order and reference numbers, item titles, merchant descriptions and amounts.
   - `commit-msg` checks the message the same way. `pre-push` checks every commit about to be pushed, so it also catches a commit made without the other hooks.
   - Findings give the place and the kind, never the value. Nothing bypasses them: no `--no-verify`, no `-n`, no `core.hooksPath` change. `.claude/settings.json` denies those to Claude.
-- `cards.json` `private_words`: anything else that would identify me (my bank, my street). The hooks refuse them too.
+- `accounts.json` `private_words`: anything else that would identify me (my bank, my street). The hooks refuse them too.
 - Fixtures are fictional (§18). Card documents live only in the data dir (`card-docs/`).
-- The bank is named only in `config/cards.json`, `private/` and the data dir. Checking data never goes in docs, playbooks, fixtures, test names or commit messages (`docs/SPEC-checking.md` §1.1).
-- Utility providers, account numbers, service addresses and place names appear only in `config/cards.json`, `private/` and the data dir. A payment pattern that names a provider never goes in `rules.yaml` or `bank_rules.yaml` (`docs/SPEC-utilities.md` §1.1).
+- The bank is named only in `config/accounts.json`, `private/` and the data dir. Checking data never goes in docs, playbooks, fixtures, test names or commit messages (`docs/SPEC-checking.md` §1.1).
+- Utility providers, account numbers, service addresses and place names appear only in `config/accounts.json`, `private/` and the data dir. A payment pattern that names a provider never goes in `rules.yaml` or `bank_rules.yaml` (`docs/SPEC-utilities.md` §1.1).
 
 **`fin doctor` checks**
 - FileVault is on (`fdesetup status`).
@@ -270,7 +270,7 @@ The tables below are indicative. Refine them in Phase 0 and record the changes i
 | `review_items` | id, kind, ref_table, ref_id, details_json, status (`open`/`resolved`/`ignored`), created_at, resolved_at |
 | `transfer_links` | id, bank_txn_id, card_txn_id UNIQUE, method (`named`/`group`/`amount_only`), days_apart, confidence. Both ids ON DELETE CASCADE |
 | `bank_statements` | id, card_id, import_id, period_start, period_end, opening_balance, deposits, withdrawals, closing_balance, pdf_path, parse_method, math_ok, ledger_status, ledger_delta_cents. UNIQUE(card_id, period_end) |
-| `utility_accounts` | id, service, provider, bill_every_months, paid_in_advance, active_from NULL, active_to NULL, in_config. Mirrored from `cards.json` (`docs/SPEC-utilities.md` §6) |
+| `utility_accounts` | id, service, provider, bill_every_months, paid_in_advance, active_from NULL, active_to NULL, in_config. Mirrored from `accounts.json` (`docs/SPEC-utilities.md` §6) |
 | `utility_payments` | transaction_id (PK) → transactions ON DELETE CASCADE, account_id → utility_accounts, method (`override`/`merchant`/`pattern`), covers_months |
 | `emails` (Phase 4) | id, gmail_id UNIQUE, from_addr, subject, sent_at, merchant, parsed_total_cents, parsed_json, raw_path, linked_transaction_id |
 
@@ -388,7 +388,7 @@ It's defense in depth, not a hard wall: the model writes the target description 
 - money movement on these sites takes several confirmation steps
 
 What the hook checks:
-- **Navigation:** block any tool input carrying a URL (for example `browser_navigate` or `browser_tabs`) to a host outside the site's `allowed_domains` in `cards.json`. Login and SSO hosts recorded in the site's playbook are also allowed.
+- **Navigation:** block any tool input carrying a URL (for example `browser_navigate` or `browser_tabs`) to a host outside the site's `allowed_domains` in `accounts.json`. Login and SSO hosts recorded in the site's playbook are also allowed.
 - **After every action:** read the page URL from the tool result. If it's off-site, tell the agent to go back and stop.
 - **Clicks and typing:** block when the target description matches the deny list:
   - make, schedule or submit payment; pay now, pay bill, pay balance; transfer; autopay; send money; Zelle
@@ -903,7 +903,7 @@ Replace each site's browsing session with a plain Playwright (Python) script. Ke
 ## 18. Testing
 
 - **Fixtures are fictional.** Each one keeps a real file's layout (columns, sections, wording, page breaks) with made-up values: amounts, merchants, store numbers, places, order and reference numbers, item titles, names, card endings, balances, limits, rates and points. Totals still add up. Never a redacted copy of a real file: redaction leaves amounts, merchants, item titles, store numbers and locations, and the repo is public. How to make one: `tests/fixtures/README.md`.
-- `scripts/redact.py` writes a redacted copy into the data dir (`debug/redacted/`, never the repo) so a layout can be studied. It replaces names from `cards.json`, card endings and long digit runs, and removes address blocks, on CSV, HTML and PDF text.
+- `scripts/redact.py` writes a redacted copy into the data dir (`debug/redacted/`, never the repo) so a layout can be studied. It replaces names from `accounts.json`, card endings and long digit runs, and removes address blocks, on CSV, HTML and PDF text.
 - **Golden tests.** For each parser: fixture → expected JSON.
 - **Unit tests**
   - Signs per issuer.

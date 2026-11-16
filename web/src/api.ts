@@ -22,7 +22,7 @@ export type CashFlow = {
   money_in: FlowRow[]; money_out: FlowRow[];
   // Came in but isn't income: my own transfers, card payments back, merchant refunds.
   not_money_in_cents: number; not_money_in: FlowRow[];
-  card_payments: { rows: number; linked: number; cents: number; other: number }; // other: cards not in cards.json
+  card_payments: { rows: number; linked: number; cents: number; other: number }; // other: cards not in accounts.json
   unmatched: number;
 };
 export type Meta = {

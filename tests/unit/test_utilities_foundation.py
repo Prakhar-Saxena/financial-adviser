@@ -23,8 +23,8 @@ from fin.config import (
     load_settings,
 )
 
-EXAMPLE = json.loads((CONFIG_DIR / "cards.example.json").read_text())
-CARDS = load_cards(CONFIG_DIR / "cards.example.json")
+EXAMPLE = json.loads((CONFIG_DIR / "accounts.example.json").read_text())
+CARDS = load_cards(CONFIG_DIR / "accounts.example.json")
 
 
 def mutate(fn):
@@ -321,7 +321,7 @@ def test_doctor_utilities(tmp_path):
     from fin.doctor import check_utilities
 
     def run(fn=lambda d: None):
-        p = tmp_path / "cards.json"
+        p = tmp_path / "accounts.json"
         p.write_text(json.dumps(mutate(fn)))
         return {r.name: r for r in check_utilities(p)}
 

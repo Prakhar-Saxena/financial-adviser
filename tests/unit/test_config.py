@@ -19,11 +19,11 @@ from fin.config import (
     load_taxonomy,
 )
 
-EXAMPLE = json.loads((CONFIG_DIR / "cards.example.json").read_text())
+EXAMPLE = json.loads((CONFIG_DIR / "accounts.example.json").read_text())
 
 
 def test_example_and_settings_load():
-    cards = load_cards(CONFIG_DIR / "cards.example.json")
+    cards = load_cards(CONFIG_DIR / "accounts.example.json")
     assert len(cards.cards) == 6 and len(cards.people) == 4
     assert {i.id for i in cards.issuers} == {"amex", "chase", "citi", "bank"}
     assert cards.bank_sites == ["bank"]
@@ -80,7 +80,7 @@ def test_blank_endings_allowed():
 
 
 def test_expected_groups_family():
-    cards = load_cards(CONFIG_DIR / "cards.example.json")
+    cards = load_cards(CONFIG_DIR / "accounts.example.json")
     costco, prime, csr = (cards.card(i) for i in
                           ("citi_costco", "chase_prime_visa", "chase_sapphire_reserve"))
     assert costco.expects_group("costco_gas") and costco.expects_group("costco_warehouse")
@@ -116,3 +116,16 @@ def test_icloud_risk():
     assert icloud_risk(home / "Desktop")
     assert icloud_risk(home / "Library" / "Mobile Documents" / "x")
     assert icloud_risk(home / "FinancialAdviserData") is None
+
+
+def test_accounts_file_and_its_old_name(tmp_path, monkeypatch):
+    """config/accounts.json was config/cards.json until 2026-11-15 (docs/decisions.md)."""
+    from fin.config import accounts_path
+
+    monkeypatch.setattr("fin.config.CONFIG_DIR", tmp_path)
+    assert accounts_path() == tmp_path / "accounts.json"  # neither: the new name
+    (tmp_path / "cards.json").write_text(json.dumps(EXAMPLE))
+    assert accounts_path() == tmp_path / "cards.json"     # only the old one: still read
+    assert len(load_cards().cards) == 6
+    (tmp_path / "accounts.json").write_text(json.dumps(EXAMPLE))
+    assert accounts_path() == tmp_path / "accounts.json"  # both: the new one wins

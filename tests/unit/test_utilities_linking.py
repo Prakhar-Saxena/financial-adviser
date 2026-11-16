@@ -18,7 +18,7 @@ from fin.review import ReviewSet
 from fin.utilities.check import transactions_hash
 from fin.utilities.payments import link_payments
 
-EXAMPLE = json.loads((CONFIG_DIR / "cards.example.json").read_text())
+EXAMPLE = json.loads((CONFIG_DIR / "accounts.example.json").read_text())
 
 
 def cards_with(fn=lambda d: None) -> CardsConfig:

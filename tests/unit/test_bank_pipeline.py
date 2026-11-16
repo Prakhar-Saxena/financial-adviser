@@ -45,8 +45,8 @@ BANK_FILES = [
 @pytest.fixture
 def example_config(tmp_path, monkeypatch):
     cfg = tmp_path / "config"
-    shutil.copytree(CONFIG_DIR, cfg, ignore=shutil.ignore_patterns("cards.json"))
-    shutil.copy(cfg / "cards.example.json", cfg / "cards.json")
+    shutil.copytree(CONFIG_DIR, cfg, ignore=shutil.ignore_patterns("accounts.json"))
+    shutil.copy(cfg / "accounts.example.json", cfg / "accounts.json")
     monkeypatch.setattr("fin.config.CONFIG_DIR", cfg)
     monkeypatch.setattr("fin.cli.CONFIG_DIR", cfg)
     monkeypatch.setattr("fin.cli.REPO_ROOT", tmp_path / "no-repo")

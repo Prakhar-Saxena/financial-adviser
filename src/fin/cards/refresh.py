@@ -3,7 +3,7 @@
 
 """`fin cards refresh` (docs/SPEC-cards.md §7): discover, fetch, extract, verify, compose.
 
-Card by card in cards.json order, committing after each, so an interruption or a usage limit
+Card by card in accounts.json order, committing after each, so an interruption or a usage limit
 loses at most one card's work and the next run picks up where this one stopped. One refresh
 at a time (locks/cards-refresh.lock); AI calls one at a time (locks/claude.lock).
 """

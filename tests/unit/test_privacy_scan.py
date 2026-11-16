@@ -114,10 +114,10 @@ def ledger(data_dir):
 
 @pytest.fixture
 def setup_repo(tmp_path):
-    """A repo dir whose config/cards.json is 'real'."""
+    """A repo dir whose config/accounts.json is 'real'."""
     r = tmp_path / "repo"
     (r / "config").mkdir(parents=True)
-    (r / "config" / "cards.json").write_text(json.dumps(CARDS))
+    (r / "config" / "accounts.json").write_text(json.dumps(CARDS))
     return r
 
 
@@ -166,7 +166,7 @@ def test_real_cards_without_ledger_fails_closed(setup_repo, data_dir):
 
 
 def test_example_cards_hold_nothing_of_yours(setup_repo, data_dir):
-    (setup_repo / "config" / "cards.example.json").write_text(json.dumps(CARDS))
+    (setup_repo / "config" / "accounts.example.json").write_text(json.dumps(CARDS))
     t = scan.load_terms(setup_repo, data_dir)
     assert not t.real and t.problem is None and not t.names and not t.words
 
@@ -301,8 +301,8 @@ def hook_repo(tmp_path, ledger):
                  ("user.name", "T")):
         git(r, "config", k, v, env=env)
     (r / "config").mkdir()
-    (r / "config" / "cards.json").write_text(json.dumps(CARDS))
-    (r / ".gitignore").write_text("config/cards.json\n/private/\n")
+    (r / "config" / "accounts.json").write_text(json.dumps(CARDS))
+    (r / ".gitignore").write_text("config/accounts.json\n/private/\n")
     git(r, "add", ".gitignore", "scripts", env=env)
     proc = git(r, "commit", "-q", "-m", "Hooks", env=env, check=False)
     assert proc.returncode == 0, proc.stderr
@@ -328,7 +328,7 @@ def test_precommit_refuses_your_data(hook_repo):
     assert "Harborview" not in proc.stderr and "58.71" not in proc.stderr
 
 
-@pytest.mark.parametrize("name", ["private/bank-notes.md", "config/cards.json.bak"])
+@pytest.mark.parametrize("name", ["private/bank-notes.md", "config/accounts.json.bak"])
 def test_precommit_blocks_private_paths(hook_repo, name):
     proc = commit(hook_repo, {name: "nothing in here"})
     assert proc.returncode != 0 and "blocked" in proc.stderr
@@ -341,7 +341,7 @@ def test_precommit_blocks_private_paths(hook_repo, name):
 def test_precommit_refuses_a_bank_site_without_private_words(hook_repo, line):
     """The bank's words come from bank_accounts and its issuer entry, not only private_words."""
     r, _ = hook_repo
-    (r / "config" / "cards.json").write_text(json.dumps({**CARDS, "private_words": []}))
+    (r / "config" / "accounts.json").write_text(json.dumps({**CARDS, "private_words": []}))
     proc = commit(hook_repo, {"docs/notes.md": f"x\n{line}\n"}, "Add notes")
     assert proc.returncode != 0 and "docs/notes.md:2: a private word" in proc.stderr
     assert "harborview" not in proc.stderr.lower()
@@ -349,8 +349,8 @@ def test_precommit_refuses_a_bank_site_without_private_words(hook_repo, line):
     assert proc.returncode != 0 and "harborview" not in proc.stderr.lower()
 
 
-def test_make_cards_example_writes_none_of_the_bank():
-    make = load_script("make_cards_example")
+def test_make_accounts_example_writes_none_of_the_bank():
+    make = load_script("make_accounts_example")
     real = {**CARDS, "_notes": ["Real config for Jordan at Harborview Bank"],
             "issuers": CARDS["issuers"] + [{"id": "chase", "name": "Chase",
                                              "start_url": "https://www.chase.com/",
@@ -395,7 +395,7 @@ UTILITIES = [
 ])
 def test_precommit_refuses_a_utility_provider(hook_repo, line):
     r, _ = hook_repo
-    (r / "config" / "cards.json").write_text(json.dumps(
+    (r / "config" / "accounts.json").write_text(json.dumps(
         {**CARDS, "private_words": [], "utility_accounts": UTILITIES}))
     proc = commit(hook_repo, {"docs/notes.md": f"x\n{line}\n"}, "Add notes")
     assert proc.returncode != 0 and "docs/notes.md:2: a private word" in proc.stderr
@@ -407,7 +407,7 @@ def test_precommit_refuses_a_utility_provider(hook_repo, line):
 
 def test_a_public_carrier_adds_no_word(hook_repo):
     r, _ = hook_repo
-    (r / "config" / "cards.json").write_text(json.dumps(
+    (r / "config" / "accounts.json").write_text(json.dumps(
         {**CARDS, "private_words": [], "utility_accounts": UTILITIES}))
     words, _ = scan.site_terms({"utility_accounts": UTILITIES})
     assert words == ["Ridgeline Electric Cooperative", "Ogdenville Water Authority"]
@@ -428,7 +428,7 @@ def test_short_words_count_only_when_chosen():
 
 def test_precommit_refuses_a_three_letter_private_word(hook_repo):
     r, _ = hook_repo
-    (r / "config" / "cards.json").write_text(json.dumps(
+    (r / "config" / "accounts.json").write_text(json.dumps(
         {**CARDS, "private_words": ["OWA"], "utility_accounts": UTILITIES}))
     proc = commit(hook_repo, {"docs/notes.md": "x\nThe OWA bill.\n"}, "Add notes")
     assert proc.returncode != 0 and "docs/notes.md:2: a private word" in proc.stderr
@@ -437,8 +437,8 @@ def test_precommit_refuses_a_three_letter_private_word(hook_repo):
     assert proc.returncode == 0, proc.stderr
 
 
-def test_make_cards_example_writes_none_of_the_utilities():
-    make = load_script("make_cards_example")
+def test_make_accounts_example_writes_none_of_the_utilities():
+    make = load_script("make_accounts_example")
     real = {**CARDS, "private_words": ["Maplewood Lane", "Ogdenville"],
             "issuers": CARDS["issuers"] + [{"id": "chase", "name": "Chase",
                                              "start_url": "https://www.chase.com/",

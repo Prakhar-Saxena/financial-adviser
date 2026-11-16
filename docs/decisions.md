@@ -1203,3 +1203,19 @@ everywhere in the repo (§1.1).
   monthly totals and rows equal the engine's. Light and dark checked on the screenshots. On
   real data the API for the current month matches `fin utilities status` and `trends` for
   every account (last payment, months covered, cadence, next expected; no insights yet).
+
+## `config/cards.json` is now `config/accounts.json` (2026-11-15, user)
+
+- The file had grown to hold people, cards, the bank account, utility accounts and private
+  words. The user chose `accounts.json`; the example is `accounts.example.json` and its
+  generator `scripts/make_accounts_example.py`. Earlier entries in this log keep the old name.
+- **The old name still works.** `fin.config.accounts_path()` returns `accounts.json`, or
+  `cards.json` while only that one exists; every reader goes through it, the privacy scan looks
+  for either (and either example), `fin init` renames an old `cards.json` once, and `fin doctor`
+  warns about an old file left behind. `.gitignore`, `pre-commit` and doctor's gitignore check
+  cover both names, and copies of either.
+- Internal names (`load_cards`, `CardsConfig`, `--card` options) are unchanged: they're code, not
+  the file, and renaming them would touch most modules for no user-visible gain.
+- **Tests never touch the real config.** `fin init` now moves a file, so an autouse fixture points
+  the CLI's config folder at a copy of `config/` without the real file. Before, three tests ran
+  `fin init` against the real folder; it only copied the example when the file was missing.

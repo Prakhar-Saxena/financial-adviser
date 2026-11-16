@@ -124,7 +124,7 @@ def process(
     res.amazon_elsewhere = amazon_on_other_cards(s, cards)
     for t in s.scalars(select(m.Transaction).where(m.Transaction.person_id.is_(None))).all():
         reviews.flag("unknown_person", "transactions", t.id,
-                     reason="the cardholder name matches nobody in cards.json")
+                     reason="the cardholder name matches nobody in accounts.json")
     for t in s.scalars(select(m.Transaction).where(m.Transaction.review_status ==
                                                    "needs_review")).all():
         reviews.flag("low_confidence", "transactions", t.id,

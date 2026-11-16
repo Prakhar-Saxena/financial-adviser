@@ -108,7 +108,7 @@ PAGE_DENY = re.compile(
 
 # ------------------------------------------------- money sites (SPEC-checking §7.3)
 # Rule 1: pages that move money, by URL path, query or fragment. Generic words only: a word
-# unique to one bank comes from cards.json through guard_config.json's money_url_words.
+# unique to one bank comes from accounts.json through guard_config.json's money_url_words.
 MONEY_URL = re.compile(
     r"transfer|billpay|bill-pay|pay-?bills?|zelle|wire|p2p|send-?money|money-?movement"
     r"|external-?account|direct-?deposit|remote-?deposit|deposit-?check|card-?management"

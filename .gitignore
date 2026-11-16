@@ -1,4 +1,5 @@
 # --- Real data and secrets (SPEC §7). Never commit these. ---
+config/accounts.json
 config/cards.json
 .env
 .env.*

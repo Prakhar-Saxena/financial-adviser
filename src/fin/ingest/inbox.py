@@ -231,7 +231,7 @@ def record_gaps(session: Session, report: dict[str, Any], sync_run_id: int) -> i
 
 def bank_statement_site(text: str, cards) -> str | None:
     """The bank site whose `statement_markers` appear in a statement's text, if any. Markers
-    name the bank, so they live in cards.json, never in code (docs/SPEC-checking.md §1.1)."""
+    name the bank, so they live in accounts.json, never in code (docs/SPEC-checking.md §1.1)."""
     upper = text.upper()
     for acct in cards.bank_accounts:
         if any(mk.strip() and mk.upper() in upper for mk in acct.statement_markers):
@@ -240,9 +240,9 @@ def bank_statement_site(text: str, cards) -> str | None:
 
 
 def _cards_if_configured():
-    from fin.config import CONFIG_DIR, load_cards
+    from fin.config import accounts_path, load_cards
 
-    path = CONFIG_DIR / "cards.json"
+    path = accounts_path()
     return load_cards(path) if path.exists() else None
 
 

@@ -4,7 +4,7 @@
 from fin.config import CONFIG_DIR, load_cards
 from fin.normalize.people import PeopleIndex, normalize_name
 
-CARDS = load_cards(CONFIG_DIR / "cards.example.json")
+CARDS = load_cards(CONFIG_DIR / "accounts.example.json")
 
 
 def test_attribution():

@@ -39,7 +39,7 @@ GUIDE = "https://docs.example.com/benefits/everyday-visa-guide.pdf"
 
 
 def example_cards() -> CardsConfig:
-    d = json.loads((CONFIG_DIR / "cards.example.json").read_text())
+    d = json.loads((CONFIG_DIR / "accounts.example.json").read_text())
     holder = [{"person": "self", "card_ending": "", "role": "primary"}]
     d["issuers"] = [{"id": "example", "name": "Example Bank", "start_url": "https://www.example.com/",
                      "allowed_domains": ["example.com"]}]

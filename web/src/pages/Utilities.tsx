@@ -35,7 +35,7 @@ export function Utilities({ month, meta }: { month: string; meta: Meta }) {
   if (!data.accounts.length) {
     return (
       <p className="text-sm text-ink-2">
-        No utility accounts yet. Add them to <code>config/cards.json</code> under <code>utility_accounts</code>{" "}
+        No utility accounts yet. Add them to <code>config/accounts.json</code> under <code>utility_accounts</code>{" "}
         (docs/SPEC-utilities.md §5), then run <code>fin init</code> and <code>fin process</code>.
       </p>
     );

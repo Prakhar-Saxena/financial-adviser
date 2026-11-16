@@ -8,7 +8,7 @@ rules:
   # Moves between my own accounts come first: their memo is mine and may name a card
   # ("Xfer From <savings> card bill"), which must not make them a card payment.
   - {pattern: 'TRANSFER (TO|FROM)|XFER|OVERDRAFT TRANSFER', flow: own_transfer}
-  # Payments to the cards in cards.json. `issuer` is an issuer id.
+  # Payments to the cards in accounts.json. `issuer` is an issuer id.
   - {pattern: '\bAMEX\b|AMERICAN EXPRESS', flow: card_payment, issuer: amex}
   - {pattern: 'CHASE CREDIT|CHASE CARD|CHASE EPAY|CHASE AUTOPAY', flow: card_payment, issuer: chase}
   - {pattern: 'CITI ?CARD|CITI AUTOPAY|CITI CRD|CITIBANK', flow: card_payment, issuer: citi}

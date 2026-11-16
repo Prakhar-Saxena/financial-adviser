@@ -13,7 +13,7 @@ import difflib
 import re
 from pathlib import Path
 
-from fin.config import CONFIG_DIR, REPO_ROOT, load_cards
+from fin.config import CONFIG_DIR, REPO_ROOT, accounts_path, load_cards
 
 PLAYBOOKS_DIR = REPO_ROOT / "sync" / "playbooks"
 PRIVATE_PLAYBOOKS_DIR = REPO_ROOT / "private" / "playbooks"
@@ -21,9 +21,9 @@ HOST = re.compile(r"^[a-z0-9-]+(\.[a-z0-9-]+)+$")
 
 
 def bank_sites(cards_path: Path | None = None) -> list[str]:
-    """Bank sites from cards.json. No cards.json means no bank; a broken one raises, so a bank
-    playbook can't fall through to the public folder."""
-    path = cards_path or CONFIG_DIR / "cards.json"
+    """Bank sites from accounts.json. No accounts.json means no bank; a broken one raises, so a
+    bank playbook can't fall through to the public folder."""
+    path = cards_path or accounts_path(CONFIG_DIR)
     return load_cards(path).bank_sites if path.exists() else []
 
 

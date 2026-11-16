@@ -17,10 +17,13 @@ from pathlib import Path
 
 from fin.ai.claude_cli import STRIPPED_ENV, SUBSCRIPTION_AUTH, AIError, auth_status
 from fin.config import (
+    ACCOUNTS_FILE,
     CONFIG_DIR,
     EXACT_VERSION,
+    LEGACY_ACCOUNTS_FILE,
     REPO_ROOT,
     DataPaths,
+    accounts_path,
     icloud_risk,
     load_cards,
     load_settings,
@@ -32,8 +35,8 @@ CHROME_PATHS = (
     Path.home() / "Applications" / "Google Chrome.app",
 )
 REQUIRED_GITIGNORE = [
-    "config/cards.json", ".env", "*.sqlite", "*.pdf", "*.csv", "*.qfx", "*.html",
-    "browser-profiles", "/private/",
+    "config/accounts.json", "config/cards.json", ".env", "*.sqlite", "*.pdf", "*.csv", "*.qfx",
+    "*.html", "browser-profiles", "/private/",
 ]
 HOOKS = ("pre-commit", "commit-msg", "pre-push")
 
@@ -151,19 +154,26 @@ def check_playwright_pin() -> Result:
 
 def check_config() -> list[Result]:
     out = []
-    cards_path = CONFIG_DIR / "cards.json"
+    cards_path = accounts_path(CONFIG_DIR)
+    name = cards_path.name
     if not cards_path.exists():
-        out.append(Result("FAIL", "cards.json", "missing; `fin init` copies the example"))
+        out.append(Result("FAIL", ACCOUNTS_FILE, "missing; `fin init` copies the example"))
     else:
         try:
-            cards = load_cards()
-            out.append(Result("PASS", "cards.json", f"{len(cards.cards)} cards, "
+            cards = load_cards(cards_path)
+            out.append(Result("PASS", name, f"{len(cards.cards)} cards, "
                               f"{len(cards.people)} people"))
         except Exception as e:  # pydantic or JSON error
-            out.append(Result("FAIL", "cards.json", str(e).splitlines()[0]))
+            out.append(Result("FAIL", name, str(e).splitlines()[0]))
         mode = stat.S_IMODE(cards_path.stat().st_mode)
         if mode & 0o077:
-            out.append(Result("WARN", "cards.json mode", f"{mode:o}; run `chmod 600`"))
+            out.append(Result("WARN", f"{name} mode", f"{mode:o}; run `chmod 600`"))
+        if name == LEGACY_ACCOUNTS_FILE:
+            out.append(Result("WARN", name, f"its new name is {ACCOUNTS_FILE}; `fin init` "
+                              "renames it"))
+        elif (CONFIG_DIR / LEGACY_ACCOUNTS_FILE).exists():
+            out.append(Result("WARN", LEGACY_ACCOUNTS_FILE, f"ignored next to {ACCOUNTS_FILE}; "
+                              "delete it once you've checked nothing in it is missing"))
     try:
         out.append(Result("PASS", "categories.json", f"{len(load_taxonomy().ids)} categories"))
     except Exception as e:
@@ -213,7 +223,7 @@ def check_bank(cards_path: Path | None = None, settings=None) -> list[Result]:
     bank site in approve mode in its own Chrome profile."""
     from fin.normalize.bank import load_bank_rules
 
-    cards_path = cards_path or CONFIG_DIR / "cards.json"
+    cards_path = cards_path or accounts_path(CONFIG_DIR)
     try:
         cards = load_cards(cards_path)
     except Exception:
@@ -225,7 +235,7 @@ def check_bank(cards_path: Path | None = None, settings=None) -> list[Result]:
     except Exception as e:  # ValueError from the checks, or a YAML error
         out.append(Result("FAIL", "bank_rules.yaml", str(e).splitlines()[0]))
     if not cards.bank_accounts:
-        out.append(Result("INFO", "Bank accounts", "none in cards.json"))
+        out.append(Result("INFO", "Bank accounts", "none in accounts.json"))
         return out
     sync = (settings or load_settings()).sync
     for site in cards.bank_sites:
@@ -244,15 +254,15 @@ def check_bank(cards_path: Path | None = None, settings=None) -> list[Result]:
 
 def check_utilities(cards_path: Path | None = None) -> list[Result]:
     """Utility accounts (docs/SPEC-utilities.md §5, §12). The config model already refuses a
-    pattern that doesn't compile, so a load failure shows under cards.json. Ids only here:
+    pattern that doesn't compile, so a load failure shows under accounts.json. Ids only here:
     providers are private (§1.1)."""
     try:
-        cards = load_cards(cards_path or CONFIG_DIR / "cards.json")
+        cards = load_cards(cards_path or accounts_path(CONFIG_DIR))
     except Exception:
         return []  # reported by check_config
     accts = cards.utility_accounts
     if not accts:
-        return [Result("INFO", "Utility accounts", "none in cards.json")]
+        return [Result("INFO", "Utility accounts", "none in accounts.json")]
     n = sum(len(u.payment_patterns) for u in accts)
     out = [Result("PASS", "Utility accounts",
                   f"{len(accts)} ({', '.join(u.id for u in accts)}); {n} patterns compile")]
@@ -310,7 +320,7 @@ def check_privacy(paths: DataPaths) -> list[Result]:
         files, messages = scan.scan_tree(REPO_ROOT, terms)
     except Exception as e:  # git missing, unreadable file: report, don't crash doctor
         return [Result("FAIL", "Privacy scan", f"couldn't run: {e}")]
-    against = terms.summary() + ("" if terms.real else "; config/cards.json has no real values")
+    against = terms.summary() + ("" if terms.real else "; config/accounts.json has no real values")
     out = [Result("FAIL", "Privacy scan", f"{len(files)} finding(s) in tracked files, first "
                   f"{files[0].where}: {files[0].kind}. Run `make privacy-check`")
                if files else Result("PASS", "Privacy scan", f"tracked files clean ({against})")]

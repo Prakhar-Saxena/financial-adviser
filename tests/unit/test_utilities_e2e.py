@@ -56,7 +56,7 @@ def snapshot(db):
 
 
 def test_utilities_end_to_end(data_dir, example_config):  # noqa: F811
-    cards_json = example_config / "cards.json"
+    cards_json = example_config / "accounts.json"
     with_utilities = cards_json.read_text()
     doc = json.loads(with_utilities)
     doc.pop("utility_accounts")

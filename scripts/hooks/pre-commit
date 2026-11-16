@@ -6,7 +6,7 @@
 # Installed by `fin init` via: git config core.hooksPath scripts/hooks
 # 1. Paths: real config, private notes, databases, exports, browser profiles, big files.
 # 2. Content: privacy_scan.py compares the lines being added with your own ledger and
-#    config/cards.json, and refuses anything of yours. It never prints what it found.
+#    config/accounts.json, and refuses anything of yours. It never prints what it found.
 set -euo pipefail
 
 max_bytes=$((1024 * 1024))
@@ -18,8 +18,9 @@ while IFS= read -r -d '' path; do
   reason=""
 
   case "$path" in
-    config/cards.json) reason="real cards config" ;;
-    config/cards.*) [ "$path" = "config/cards.example.json" ] || reason="copy of the real cards config" ;;
+    config/accounts.json|config/cards.json) reason="real accounts config" ;;
+    config/accounts.*|config/cards.*)
+      [ "$path" = "config/accounts.example.json" ] || reason="copy of the real accounts config" ;;
   esac
   case "$base" in
     .env|.env.*) reason="env file" ;;

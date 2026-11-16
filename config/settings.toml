@@ -68,7 +68,7 @@ tips_months = 3
 user_agent = "fin-card-docs/0.1 (personal use)"
 
 # Where documents may come from. Bare domains; subdomains are included. A card's list is its
-# issuer's allowed_domains in cards.json + "common" + its issuer's key + its own key.
+# issuer's allowed_domains in accounts.json + "common" + its issuer's key + its own key.
 # Review changes here like code.
 [cards.doc_domains]
 common = ["consumerfinance.gov"]

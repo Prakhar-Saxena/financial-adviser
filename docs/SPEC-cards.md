@@ -27,7 +27,7 @@ Starting Phase C0 is my approval of the changes to SPEC §2 and §7 listed in §
 - **Ask.** I type where I'm about to pay ("Whole Foods", "Delta flight", "Costco gas", "DoorDash") and optionally the amount. I get my cards ranked by what I'd actually get back, with the reason, the conditions and a link to the clause it comes from. It works like a card-optimizer app, but it's local and it shows its sources.
 - **Tell.** Without asking, it shows where I've been using the wrong card: per merchant over the last few months, which card I used, which would have earned more, and roughly how much I left on the table. Also which statement credits are still unused this period, and a one-page "best card per category" cheat sheet.
 - **Stay current cheaply.** A local knowledge base keeps each card's official documents (PDFs and pages) and the terms extracted from them. A search never researches anything live. A monthly refresh downloads the known documents again and only re-reads the ones whose text changed. Looking for new or moved documents happens rarely.
-- **Cards:** every card in `config/cards.json`. A card added there joins the knowledge base on the next refresh.
+- **Cards:** every card in `config/accounts.json`. A card added there joins the knowledge base on the next refresh.
 - **In scope:** earn rates and bonus categories, merchant-specific bonuses, caps and the rate after them, booking-channel rules (direct vs. an issuer's travel portal), statement credits, purchase and travel protections, foreign transaction fees, annual fees, card network acceptance, and my point valuations.
 - **Optional later phases:** card-linked offers (Amex Offers, Chase Offers, Citi Merchant Offers) collected read-only by the weekly sync (Phase C4); questions about a card's terms in plain words, and a check of predicted rewards against statements (Phase C5).
 - **Out of scope:** welcome bonuses and sign-up offers (kept as notes, never ranked), cards I don't hold, location-based alerts, mobile, and enrolling in or activating anything.
@@ -143,7 +143,7 @@ Also:
 
 ## 7. Refresh (`fin cards refresh`)
 
-It works card by card, in `cards.json` order, and commits after each card, so an interruption or a usage limit loses at most one card's work. Only one refresh runs at a time, and AI calls run one at a time (SPEC §14.4). On a usage limit it stops the run with status `limited`, keeps what's done, and prints *"AI paused: subscription limit reached. Rerun `fin cards refresh` later."* The next run picks up the unfinished cards. On a Pro plan the first full build may take a few sittings; that's expected.
+It works card by card, in `accounts.json` order, and commits after each card, so an interruption or a usage limit loses at most one card's work. Only one refresh runs at a time, and AI calls run one at a time (SPEC §14.4). On a usage limit it stops the run with status `limited`, keeps what's done, and prints *"AI paused: subscription limit reached. Rerun `fin cards refresh` later."* The next run picks up the unfinished cards. On a Pro plan the first full build may take a few sittings; that's expected.
 
 For each card:
 
@@ -312,7 +312,7 @@ More rules:
    - airlines, hotels, travel agencies and cruises: trip protections
    - car rental: collision damage, primary or secondary
    - telecom: cell phone protection
-8. **Rank** by total value. Ties go to the card with no foreign transaction fee, then the better relevant protection, then `cards.json` order.
+8. **Rank** by total value. Ties go to the card with no foreign transaction fee, then the better relevant protection, then `accounts.json` order.
 9. **Break-even.** When the top two cards earn different currencies, report the valuation at which they'd tie: "Card A wins unless you value Membership Rewards above 1.25¢".
 
 **Output per card:** rank, effective return, value on the amount, the rule in words, evidence (document title, version, page, quote, link), caveats, alternatives, the credit line and benefits. Also the merchant profile used and how fresh the knowledge base is. Explanations come from templates, not AI.
@@ -437,7 +437,7 @@ tips_months = 3
 user_agent = "fin-card-docs/0.1 (personal use)"
 
 # Where documents may come from. Bare domains; subdomains are included. A card's list is its
-# issuer's allowed_domains in cards.json + "common" + its issuer's key + its own key.
+# issuer's allowed_domains in accounts.json + "common" + its issuer's key + its own key.
 # Review changes here like code.
 [cards.doc_domains]
 common = ["consumerfinance.gov"]
@@ -466,7 +466,7 @@ New config files:
 - `config/reward_categories.json`: ids, names, descriptions and MCC hints (§4)
 - `config/merchant_profiles.yaml`: the seed profiles (§8)
 
-`fin doctor` adds checks: the `[cards]` settings validate, every doc domain is a bare domain, every card in cards.json has product aliases, and `card-docs/` is mode 700 (file modes are already checked).
+`fin doctor` adds checks: the `[cards]` settings validate, every doc domain is a bare domain, every card in accounts.json has product aliases, and `card-docs/` is mode 700 (file modes are already checked).
 
 **Layout** (indicative):
 - `src/fin/cards/`: `models.py` (pydantic: CardProfile, EarnRule, Credit, Benefit, Evidence, MerchantProfile), `discover.py`, `fetch.py`, `extract.py`, `verify.py`, `compose.py`, `refresh.py`, `merchants.py`, `engine.py`, `history.py`
@@ -501,7 +501,7 @@ New config files:
 - The Card terms view in the dashboard, with Accept and Reject.
 
 **Accept**
-1. Every card in cards.json has an accepted profile with a base rule, a currency, its foreign transaction fee and its annual fee. Every rule, credit and benefit has at least one verified quote. I've reviewed and accepted each first profile.
+1. Every card in accounts.json has an accepted profile with a base rule, a currency, its foreign transaction fee and its annual fee. Every rule, credit and benefit has at least one verified quote. I've reviewed and accepted each first profile.
 2. Each card's documents include a product page or rewards terms, and a benefits guide; otherwise an open `card_source_problem` says what's missing.
 3. A second refresh straight after the first makes zero `claude -p` calls and changes no profile.
 4. Fixture tests: changing one fixture document's text causes exactly one extraction call for that card and task, and a diff that lists the change. A removed rule gives a `pending` version. Rejecting it and refreshing again proposes nothing.

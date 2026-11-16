@@ -51,7 +51,8 @@ def commit(repo, files):
 
 
 @pytest.mark.parametrize("name", [
-    "config/cards.json", ".env", "db/finance.sqlite", "statement.pdf", "data/activity.CSV",
+    "config/accounts.json", "config/cards.json", "config/accounts.json.bak",
+    "config/cards.example.json", ".env", "db/finance.sqlite", "statement.pdf", "data/activity.CSV",
     "export.qfx", "page.html", "x/browser-profiles/chase/Cookies", "orders.zip",
 ])
 def test_precommit_blocks(repo, name):
@@ -66,17 +67,15 @@ def test_precommit_blocks_large_file(repo):
 
 def test_precommit_allows_code_and_fixtures(repo):
     proc = commit(repo, {"src/a.py": b"x", "tests/fixtures/chase/activity.csv": b"a,b",
-                         "config/cards.example.json": b"{}", "web/index.html": b"<html>"})
+                         "config/accounts.example.json": b"{}", "web/index.html": b"<html>"})
     assert proc.returncode == 0, proc.stderr
 
 
 def test_repo_gitignore_and_check():
     results = {r.name: r for r in check_git_hygiene()}
     assert results["Gitignore rules"].status == "PASS"
-    ignored = subprocess.run(
-        ["git", "check-ignore", "-q", "config/cards.json"], cwd=REPO
-    ).returncode == 0
-    assert ignored
+    for name in ("config/accounts.json", "config/cards.json"):  # cards.json: the old name
+        assert subprocess.run(["git", "check-ignore", "-q", name], cwd=REPO).returncode == 0
     not_ignored = subprocess.run(
         ["git", "check-ignore", "-q", "tests/fixtures/x/a.csv"], cwd=REPO
     ).returncode != 0
@@ -175,9 +174,9 @@ def test_bank_playbook_lives_in_private(tmp_path, monkeypatch):
 
     cfg = tmp_path / "config"
     cfg.mkdir()
-    cards = json.loads((CONFIG_DIR / "cards.example.json").read_text())
+    cards = json.loads((CONFIG_DIR / "accounts.example.json").read_text())
     cards["issuers"][-1]["id"] = cards["bank_accounts"][0]["site"] = "mybank"
-    (cfg / "cards.json").write_text(json.dumps(cards))
+    (cfg / "accounts.json").write_text(json.dumps(cards))
     monkeypatch.setattr(playbooks, "CONFIG_DIR", cfg)
     monkeypatch.setattr(playbooks, "PRIVATE_PLAYBOOKS_DIR", tmp_path / "private" / "playbooks")
     monkeypatch.setattr(playbooks, "PLAYBOOKS_DIR", tmp_path / "public")
@@ -190,10 +189,10 @@ def test_bank_playbook_lives_in_private(tmp_path, monkeypatch):
     assert playbooks.path_for("chase") == tmp_path / "public" / "chase.md"
     assert not (tmp_path / "public").exists()
 
-    (cfg / "cards.json").write_text("{not json")  # broken config: fail, don't go public
+    (cfg / "accounts.json").write_text("{not json")  # broken config: fail, don't go public
     with pytest.raises(ValueError):
         playbooks.path_for("mybank")
-    (cfg / "cards.json").unlink()                 # no config at all: no bank sites
+    (cfg / "accounts.json").unlink()                 # no config at all: no bank sites
     assert playbooks.path_for("mybank") == tmp_path / "public" / "mybank.md"
 
 

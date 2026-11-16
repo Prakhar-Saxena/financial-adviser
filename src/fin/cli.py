@@ -19,8 +19,12 @@ import typer
 from fin import doctor as doctor_mod
 from fin.ai.claude_cli import AIError, require_subscription_auth
 from fin.config import (
+    ACCOUNTS_EXAMPLE,
+    ACCOUNTS_FILE,
     CONFIG_DIR,
+    LEGACY_ACCOUNTS_FILE,
     REPO_ROOT,
+    accounts_path,
     data_paths,
     icloud_risk,
     load_cards,
@@ -37,8 +41,8 @@ MARK = {"PASS": "✓", "FAIL": "✗", "WARN": "!", "INFO": "i"}
 
 
 def _bank_sites() -> list[str]:
-    """Sites that hold a bank account, from cards.json (docs/SPEC-checking.md §7.5)."""
-    path = CONFIG_DIR / "cards.json"
+    """Sites that hold a bank account, from accounts.json (docs/SPEC-checking.md §7.5)."""
+    path = accounts_path(CONFIG_DIR)
     return load_cards(path).bank_sites if path.exists() else []
 
 
@@ -96,11 +100,16 @@ def init() -> None:
             f.chmod(0o600)
     typer.echo(f"Data dir: {paths.root} (700)")
 
-    cards_path = CONFIG_DIR / "cards.json"
+    cards_path = CONFIG_DIR / ACCOUNTS_FILE
+    legacy = CONFIG_DIR / LEGACY_ACCOUNTS_FILE
+    if legacy.exists() and not cards_path.exists():
+        legacy.rename(cards_path)  # its name until 2026-11-15
+        typer.echo(f"Renamed config/{LEGACY_ACCOUNTS_FILE} -> config/{ACCOUNTS_FILE}.")
     if not cards_path.exists():
-        shutil.copy(CONFIG_DIR / "cards.example.json", cards_path)
+        shutil.copy(CONFIG_DIR / ACCOUNTS_EXAMPLE, cards_path)
         cards_path.chmod(0o600)
-        typer.echo("Copied config/cards.example.json -> config/cards.json. Fill in real values.")
+        typer.echo(f"Copied config/{ACCOUNTS_EXAMPLE} -> config/{ACCOUNTS_FILE}. "
+                   "Fill in real values.")
 
     if paths.db_file.exists():
         upgraded_from = ensure_current(paths.db_file, paths.backups)  # backs up first
@@ -724,7 +733,7 @@ def transfers(
     cards = load_cards()
     accounts = checking_ids(cards)
     if not accounts:
-        typer.echo("No bank account in cards.json.")
+        typer.echo("No bank account in accounts.json.")
         return
     with session_factory(paths.db_file)() as s:
         if check:
@@ -764,7 +773,7 @@ def transfers(
                 what = "; ".join(f"{cards.account_name(c.card_id)} {c.post_date} "
                                  f"({lk.method}, {lk.days_apart:+d} d)" for c, lk in paid)
             elif t.flow_kind == "card_payment_other":
-                what = "a card that isn't in cards.json"
+                what = "a card that isn't in accounts.json"
             else:
                 what = "UNMATCHED"
             typer.echo(f"{t.post_date}  {t.amount_cents / 100:>10,.2f}  #{t.id:<6} {what}")

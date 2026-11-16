@@ -32,7 +32,7 @@ from fin.db.seed import sync_reference
 from fin.doctor import check_cards
 from fin.rebuild import DERIVED, rebuild
 
-EXAMPLE = CONFIG_DIR / "cards.example.json"
+EXAMPLE = CONFIG_DIR / "accounts.example.json"
 
 
 @pytest.fixture

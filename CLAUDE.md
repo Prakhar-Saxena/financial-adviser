@@ -17,8 +17,8 @@ Utilities (phases U0–U2): `docs/SPEC-utilities.md`.
   (`--no-verify`, `-n`, `core.hooksPath`): when one finds something, replace it with made-up values.
 - `fin sync` / `fin weekly` are interactive (the user types start, logs in, approves clicks): the user
   runs them in their own terminal. Claude takes over after the session ends.
-- **The bank stays private:** named only in `config/cards.json`, `private/` and the data dir; elsewhere it's "the bank" (SPEC-checking §1.1).
-- **Utility providers stay private:** providers, account numbers, service addresses and towns only in `config/cards.json`, `private/` and the data dir; elsewhere "the electric utility" or an account id (SPEC-utilities §1.1).
+- **The bank stays private:** named only in `config/accounts.json`, `private/` and the data dir; elsewhere it's "the bank" (SPEC-checking §1.1).
+- **Utility providers stay private:** providers, account numbers, service addresses and towns only in `config/accounts.json`, `private/` and the data dir; elsewhere "the electric utility" or an account id (SPEC-utilities §1.1).
 - If reality disagrees with the spec, stop and say so. Never work around §2.
 - Free, open-source dependencies are pre-approved (user, 2026-10-06); record each in docs/decisions.md.
 - Licence: AGPL-3.0-or-later, no dual licensing, no CLA. Only add dependencies with permissive,
@@ -38,7 +38,7 @@ Utilities (phases U0–U2): `docs/SPEC-utilities.md`.
    - Merchant profiles (`merchant_profile`): `claude -p`, no tools, `haiku`. `merchant_profile_web` (WebSearch only) only when I ask.
    - All follow §14.1–14.2: clean env, subscription auth check, `--no-session-persistence`, `--safe-mode`, strict MCP config, run folder as cwd, audit trail in `ai-runs/`.
 3. **Local only.** Everything runs and is stored on my Mac. The only network traffic is to the sites being synced (Chase, Amex, Citi, Amazon, Costco, Gmail API) and to Claude on my subscription. §7 describes what Claude sees.
-   - The bank in `config/cards.json` (`bank_accounts`) is one of the synced sites, named only there, in `private/` and the data dir.
+   - The bank in `config/accounts.json` (`bank_accounts`) is one of the synced sites, named only there, in `private/` and the data dir.
    - Card research reads public, logged-out pages on the allowlisted domains (issuers, co-brand partners' card pages, CFPB agreements database). Python downloads them with no cookies and an honest User-Agent into the data dir. WebSearch runs on Anthropic's backend; WebFetch downloads from my Mac with no cookies, and its hostname goes to Anthropic's safety check.
 4. **Open-source dependencies only.** Prefer MIT, BSD or Apache-2.0. The one exception is the Google Chrome browser already on my Mac (§5).
 5. **Read-only toward every financial site.** The agent navigates, reads, downloads and saves pages. It never pays, transfers, buys, enrolls in offers, redeems points or changes settings. The only forms it uses are search, filter and date-range controls. I do the logins (rule 6).
@@ -50,15 +50,15 @@ Utilities (phases U0–U2): `docs/SPEC-utilities.md`.
 ## SPEC §7. Security and privacy rules (standing)
 
 **Repo hygiene.** The repo is public on GitHub. Nothing from my real data goes into it: not in code, fixtures, tests, docs, comments or commit messages.
-- Set up `.gitignore` before the first commit. It must cover `config/cards.json`, `.env`, `*.sqlite`, real `*.pdf/*.csv/*.qfx/*.html` outside `tests/fixtures/`, anything named `browser-profiles`, and `private/` (notes that would identify me).
+- Set up `.gitignore` before the first commit. It must cover `config/accounts.json`, `.env`, `*.sqlite`, real `*.pdf/*.csv/*.qfx/*.html` outside `tests/fixtures/`, anything named `browser-profiles`, and `private/` (notes that would identify me).
 - Git hooks in `scripts/hooks/`, installed by `fin init`:
-  - `pre-commit` blocks files matching those patterns, copies of `cards.json` and files larger than 1 MB. Then `privacy_scan.py` checks the lines being added against my ledger (opened read-only) and `cards.json`: names, card endings, `private_words`, order and reference numbers, item titles, merchant descriptions and amounts.
+  - `pre-commit` blocks files matching those patterns, copies of `accounts.json` and files larger than 1 MB. Then `privacy_scan.py` checks the lines being added against my ledger (opened read-only) and `accounts.json`: names, card endings, `private_words`, order and reference numbers, item titles, merchant descriptions and amounts.
   - `commit-msg` checks the message the same way. `pre-push` checks every commit about to be pushed, so it also catches a commit made without the other hooks.
   - Findings give the place and the kind, never the value. Nothing bypasses them: no `--no-verify`, no `-n`, no `core.hooksPath` change. `.claude/settings.json` denies those to Claude.
-- `cards.json` `private_words`: anything else that would identify me (my bank, my street). The hooks refuse them too.
+- `accounts.json` `private_words`: anything else that would identify me (my bank, my street). The hooks refuse them too.
 - Fixtures are fictional (§18). Card documents live only in the data dir (`card-docs/`).
-- The bank is named only in `config/cards.json`, `private/` and the data dir. Checking data never goes in docs, playbooks, fixtures, test names or commit messages.
-- Utility providers, account numbers, service addresses and place names appear only in `config/cards.json`, `private/` and the data dir. A payment pattern that names a provider never goes in `rules.yaml` or `bank_rules.yaml`.
+- The bank is named only in `config/accounts.json`, `private/` and the data dir. Checking data never goes in docs, playbooks, fixtures, test names or commit messages.
+- Utility providers, account numbers, service addresses and place names appear only in `config/accounts.json`, `private/` and the data dir. A payment pattern that names a provider never goes in `rules.yaml` or `bank_rules.yaml`.
 
 **`fin doctor` checks**
 - FileVault is on (`fdesetup status`).
@@ -106,11 +106,12 @@ Utilities (phases U0–U2): `docs/SPEC-utilities.md`.
 - Time Machine, with encryption, covers the data dir.
 ## Repo layout
 ```
-config/      cards.json (real, gitignored)  cards.example.json  categories.json  settings.toml
+config/      accounts.json (real, gitignored; named cards.json until 2026-11-15)  accounts.example.json
+             categories.json  settings.toml
 prompts/     classifier system prompts (<!-- prompt_version: X --> header)
 schemas/     classifier JSON Schemas (category enum filled from categories.json)
 sync/        base_rules.md  sites/*.md  playbooks/*.md  guard.py (stdlib only)  manifest.schema.json
-scripts/     redact.py  ai_spike.py  make_cards_example.py
+scripts/     redact.py  ai_spike.py  make_accounts_example.py
              hooks/ (pre-commit, commit-msg, pre-push, privacy_scan.py, claude_bash_guard.py)
 src/fin/     cli.py config.py doctor.py  db/ (models, alembic migrations, seed)  ai/  sync/  ingest/ ...
 tests/       unit/  fixtures/ (fictional only)  fake_bin/claude (fake CLI; tests never call a model)
@@ -129,9 +130,9 @@ make privacy-check            # every file version and commit message in history
 make privacy-audit            # same, plus every lone amount that equals a real one (some are chance)
 uv run fin sync selftest      # USER runs this: browsing setup check against example.com
 uv run python scripts/ai_spike.py --sizes 3,50   # §14.3 spike on fake records
-uv run python scripts/make_cards_example.py      # regenerate cards.example.json
+uv run python scripts/make_accounts_example.py      # regenerate accounts.example.json
 uv run fin transfers [--check]   # checking card payments and links; --check: §10.6 invariants
-uv run fin utilities [status]   # utility accounts from cards.json, their payments (SPEC-utilities)
+uv run fin utilities [status]   # utility accounts from accounts.json, their payments (SPEC-utilities)
 uv run fin cards status       # card optimizer knowledge base (docs/SPEC-cards.md)
 uv run fin cards refresh --card ID   # one card: discover, download, extract (real claude -p)
 uv run fin cards offers       # card-linked offers read from synced offers pages (Phase C4)

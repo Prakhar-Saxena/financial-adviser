@@ -18,7 +18,7 @@ Starting Phase B0 is my approval of the changes listed in §3.
 3. No new AI role and no paid service. Checking rows go through the existing classifier (SPEC §14); everything else here is plain code. No Plaid, Finicity or any other aggregator.
 4. The bank's site can move real money: person-to-person payments, bill pay and external transfers are one menu away. Never weaken a guard rule to get a download working. Stop and ask.
 5. I run `fin sync bank`, in my own terminal. You never start it. You may run `fin import`, `fin process`, `fin rebuild` and `scripts/redact.py` on real data, as CLAUDE.md allows.
-6. **The repo is public, and which bank I use is private** (§1.1). Its name, domains, routing number, platform vendor and product names appear only in `config/cards.json`, `private/` and the data dir. Everywhere else, including `docs/decisions.md`, tests, other sites' playbooks and commit messages, it's "the bank". No checking data goes in the repo either: no amounts, balances, employers, payees, people's names or account numbers. Record shapes and counts instead ("ACH rows carry 5 fields", "3 rows unmatched"). Snapshots of real totals go in the data dir's `debug/`.
+6. **The repo is public, and which bank I use is private** (§1.1). Its name, domains, routing number, platform vendor and product names appear only in `config/accounts.json`, `private/` and the data dir. Everywhere else, including `docs/decisions.md`, tests, other sites' playbooks and commit messages, it's "the bank". No checking data goes in the repo either: no amounts, balances, employers, payees, people's names or account numbers. Record shapes and counts instead ("ACH rows carry 5 fields", "3 rows unmatched"). Snapshots of real totals go in the data dir's `debug/`.
 7. At no commit may a card payment count as spending. That's why the phases run in this order: Phase B1 downloads files, and they wait in the inbox with no parser (the importer already leaves such files alone). The parser arrives in Phase B2 together with the transfer code.
 8. Tests never call a model, the network or a browser.
 9. If reality disagrees with this spec, stop and tell me. The bank's public pages don't describe its export (`private/bank-notes.md`), so expect that in Phase B1.
@@ -37,21 +37,21 @@ Starting Phase B0 is my approval of the changes listed in §3.
 ### 1.1 Keeping the bank private
 
 **Where the bank is named, and nowhere else:**
-- `config/cards.json` and the `private/` folder at the repo root. Both are gitignored, and the pre-commit hook refuses both.
-  - `cards.json` holds the site's name, start URL and domains, the account's product name and ending, and `private_words` (§5). `private_words` is already filled in.
-  - `private/` holds `bank-notes.md` (what the bank's public pages say, and the real `cards.json` entries) and the bank's playbook, `playbooks/<site>.md`.
+- `config/accounts.json` and the `private/` folder at the repo root. Both are gitignored, and the pre-commit hook refuses both.
+  - `accounts.json` holds the site's name, start URL and domains, the account's product name and ending, and `private_words` (§5). `private_words` is already filled in.
+  - `private/` holds `bank-notes.md` (what the bank's public pages say, and the real `accounts.json` entries) and the bank's playbook, `playbooks/<site>.md`.
 - The data dir: run folders, raw files, the browser profile and logs, as for every site.
 
 **Generic in the repo:**
 - The site id is `bank` and the account id is `checking`. They name nothing, so they're safe in commands, settings and commit messages. Code doesn't hard-code them either: bank sites come from `cards.bank_accounts` (§7.5).
-- One generic site file, `sync/sites/bank.md`, serves any bank site. The launcher already puts the site's name, start URL and domains into the run parameters from `cards.json`.
-- A label that a parser needs and that names the bank comes from `bank_accounts[].statement_markers` in `cards.json`.
+- One generic site file, `sync/sites/bank.md`, serves any bank site. The launcher already puts the site's name, start URL and domains into the run parameters from `accounts.json`.
+- A label that a parser needs and that names the bank comes from `bank_accounts[].statement_markers` in `accounts.json`.
 - A classification pattern that would name the bank becomes one of my corrections (§9 step 2), which live in the database, never in `bank_rules.yaml`.
 - Bank fixtures are fictional ("Example Bank", `bank.example`), built to match the real files' structure. They're never redacted copies of real files: statements print the bank's name, address, phone and routing number on every page, and redaction doesn't catch those.
-- `scripts/make_cards_example.py` writes a fictional bank into `config/cards.example.json`. Today it copies sites as they are, so it would publish the real one.
+- `scripts/make_accounts_example.py` writes a fictional bank into `config/accounts.example.json`. Today it copies sites as they are, so it would publish the real one.
 
 **Checks that catch a slip (already built, SPEC §7):**
-- `scripts/hooks/privacy_scan.py` (stdlib) reads `cards.json` and the ledger at run time and keeps no copy. Its private words are the `private_words` list plus, once `bank_accounts` exists, each bank site's name, start URL host and domains and each account's product; `account_ending` counts next to words like "ending". Matching is case-insensitive and whole-word. Words under 4 characters are ignored, except 3-letter ones listed in `private_words` or as a utility provider (`docs/SPEC-utilities.md` §1.1).
+- `scripts/hooks/privacy_scan.py` (stdlib) reads `accounts.json` and the ledger at run time and keeps no copy. Its private words are the `private_words` list plus, once `bank_accounts` exists, each bank site's name, start URL host and domains and each account's product; `account_ending` counts next to words like "ending". Matching is case-insensitive and whole-word. Words under 4 characters are ignored, except 3-letter ones listed in `private_words` or as a utility provider (`docs/SPEC-utilities.md` §1.1).
 - `pre-commit` refuses anything under `private/` and any staged line containing a private word. `commit-msg` checks the message and `pre-push` checks every commit about to be pushed. Findings give the file and line, never the word.
 - `fin doctor` fails if a tracked file contains one and warns if a commit message ever did. `make privacy-check` scans all of history.
 - Git history keeps whatever was ever committed. Nothing about the bank has been committed; the checks are a seatbelt, not permission.
@@ -87,7 +87,7 @@ Add these to `docs/SPEC.md` and `CLAUDE.md` as worded here. None of them names t
 
 **SPEC §1:** remove "checking" from the out-of-scope list. Savings, Venmo and Zelle histories stay out.
 
-**SPEC §2.3 (local only), add:** the bank in `config/cards.json` (`bank_accounts`) is one of the sites being synced. It's named only there, in `private/` and in the data dir.
+**SPEC §2.3 (local only), add:** the bank in `config/accounts.json` (`bank_accounts`) is one of the sites being synced. It's named only there, in `private/` and in the data dir.
 
 **SPEC §2.5 (read-only), add:** on a bank's site the agent also never uses Zelle, bill pay, wires, external transfers, check deposit, stop payment, card controls or direct deposit setup, and never reveals a full account number.
 
@@ -97,7 +97,7 @@ Add these to `docs/SPEC.md` and `CLAUDE.md` as worded here. None of them names t
 - Browsing agent on the bank's site: it also sees checking balances and recent rows on the pages it passes through, including who paid me and whom I paid. It goes straight to the export and the statements, and it doesn't open single transactions.
 - Classifier: checking rows reach it only after §8.3 cleaning. Person-to-person and check rows are never sent, and neither are transfers or deposits.
 
-**SPEC §7 (repo hygiene), add:** the bank is named only in `config/cards.json`, `private/` and the data dir (the public-repo rule, `private/` and the hooks are already in §7). Checking data never goes in docs, playbooks, fixtures, test names or commit messages.
+**SPEC §7 (repo hygiene), add:** the bank is named only in `config/accounts.json`, `private/` and the data dir (the public-repo rule, `private/` and the hooks are already in §7). Checking data never goes in docs, playbooks, fixtures, test names or commit messages.
 
 **SPEC §7 (browsing guardrails), add:** a site that holds a bank account gets the stricter guard in SPEC-checking §7.3 and stays in approve mode.
 
@@ -121,7 +121,7 @@ Add these to `docs/SPEC.md` and `CLAUDE.md` as worded here. None of them names t
 
 | A checking row that is | `type` | `flow_kind` | Spending? |
 |---|---|---|---|
-| A payment to a card in cards.json | `transfer` | `card_payment` | No |
+| A payment to a card in accounts.json | `transfer` | `card_payment` | No |
 | A payment to any other card | `transfer` | `card_payment_other` | Not until I decide (§10.4) |
 | A move to or from my own account | `transfer` | `own_transfer` | No |
 | Money to or from a brokerage or retirement account | `transfer` | `investment` | No |
@@ -142,7 +142,7 @@ Rent, loan payments and taxes are `purchase` rows: that money really left. A pay
 
 ## 5. Config
 
-**`config/cards.json`** (gitignored). The values below are the fictional ones `config/cards.example.json` will carry. The real ones are in `private/bank-notes.md`, and they go only in `cards.json`.
+**`config/accounts.json`** (gitignored). The values below are the fictional ones `config/accounts.example.json` will carry. The real ones are in `private/bank-notes.md`, and they go only in `accounts.json`.
 
 ```json
 "issuers": [
@@ -164,7 +164,7 @@ Rent, loan payments and taxes are `purchase` rows: that money really left. A pay
 - `CardsConfig.bank_accounts: list[BankAccount] = []` (`private_words: list[str] = []` already exists). Ids are unique across cards and accounts.
 - `bank_sites`, `accounts_for_site(site)`, and `account_name(id)` (a card's or an account's product, for code that may meet either).
 
-`db/seed.py` adds each account to `cards`. `scripts/make_cards_example.py` replaces every bank site and account with the values above, fakes `account_ending`, and empties `statement_markers` (it already empties `private_words`).
+`db/seed.py` adds each account to `cards`. `scripts/make_accounts_example.py` replaces every bank site and account with the values above, fakes `account_ending`, and empties `statement_markers` (it already empties `private_words`).
 
 **`config/settings.toml`**, with fields on `MatchSettings`:
 
@@ -181,7 +181,7 @@ The window is wide on the negative side because bill pay services can pay card c
 ```yaml
 version: 1
 rules:
-  # Payments to the cards in cards.json. `issuer` is an issuer id.
+  # Payments to the cards in accounts.json. `issuer` is an issuer id.
   - {pattern: '\bAMEX\b|AMERICAN EXPRESS', flow: card_payment, issuer: amex}
   - {pattern: 'CHASE CREDIT|CHASE CARD|CHASE EPAY|CHASE AUTOPAY', flow: card_payment, issuer: chase}
   - {pattern: 'CITI ?CARD|CITI AUTOPAY|CITI CRD|CITIBANK', flow: card_payment, issuer: citi}
@@ -251,7 +251,7 @@ Write `sync/sites/bank.md` in the style of `sync/sites/citi.md`, naming no bank.
 - **Transactions.** Use the site's own export for `transactions_from` to `transactions_to`, CSV if offered. Check in a snapshot that the dates held. Don't rename the file. Manifest kind `transactions`, this account's `card_id`.
 - **Statements.** Download each statement in `statements_wanted`, skipping `statements_already_imported`. If a PDF opens in a viewer, use `browser_pdf_save` to `<run folder>/<site>_<card_id>_<closing date>.pdf`. Manifest kind `statement`.
 - Go straight to these pages. Don't open single transactions, and don't snapshot the list more than the task needs.
-- If the site gives every file the same name, later downloads overwrite earlier ones (Amex did this). Save each under a unique name with `browser_pdf_save`, or extend the guard's rename for downloads. If the file name names the bank, pass the pattern to the guard through `cards.json` and `guard_config.json` instead of writing it into `guard.py`.
+- If the site gives every file the same name, later downloads overwrite earlier ones (Amex did this). Save each under a unique name with `browser_pdf_save`, or extend the guard's rename for downloads. If the file name names the bank, pass the pattern to the guard through `accounts.json` and `guard_config.json` instead of writing it into `guard.py`.
 - If a page leaves the site's domains (statements often sit on a vendor's host), the guard blocks it. Record the host in the run report and stop. I decide whether it joins the playbook's `## Login hosts`.
 - **Run report:** every format offered, how far back the export reached, whether pending rows are in it, the file names, and whether a statement covers one account or every account I hold there.
 
@@ -261,7 +261,7 @@ Add one line to `sync/base_rules.md` under "Never", from §3's SPEC §2.5 wordin
 
 `launcher.guard_config()` sets `money_site: true` for any site in `bank_accounts`. Rules 1 to 3 apply only there, so other sites behave as before. Rules 4 and 5 apply everywhere, since no session needs those controls.
 
-1. **Money pages, by URL.** This is the strongest check here, because the guard reads the URL from the tool result rather than from text the model wrote. Match `MONEY_URL` against path, query and fragment: `transfer|billpay|bill-pay|pay-?bills?|zelle|wire|p2p|send-?money|money-?movement|external-?account|direct-?deposit|remote-?deposit|deposit-?check|card-?management|card-?control`. PreToolUse denies a navigation to such a URL. PostToolUse returns `block` and tells the agent to go back and stop, as it does for off-site pages. `guard.log` records only the label `money page`, never the path. Tune the list from the first real run, with generic words only. A word unique to the bank goes in `bank_accounts[].money_url_words` in `cards.json`; the launcher adds it to `guard_config.json`, which lives in the data dir. Playbooks never change the list, because the agent writes them.
+1. **Money pages, by URL.** This is the strongest check here, because the guard reads the URL from the tool result rather than from text the model wrote. Match `MONEY_URL` against path, query and fragment: `transfer|billpay|bill-pay|pay-?bills?|zelle|wire|p2p|send-?money|money-?movement|external-?account|direct-?deposit|remote-?deposit|deposit-?check|card-?management|card-?control`. PreToolUse denies a navigation to such a URL. PostToolUse returns `block` and tells the agent to go back and stop, as it does for off-site pages. `guard.log` records only the label `money page`, never the path. Tune the list from the first real run, with generic words only. A word unique to the bank goes in `bank_accounts[].money_url_words` in `accounts.json`; the launcher adds it to `guard_config.json`, which lives in the data dir. Playbooks never change the list, because the agent writes them.
 2. **Amounts can't be typed.** Deny `browser_type` and `browser_fill_form` when the value looks like an amount (`^\s*\$?\s*\d[\d,]*(\.\d{1,2})?\s*$`), and deny digit keys in `browser_press_key`. Dates with slashes still work. Nothing read-only needs an amount, and moving money always does. Log only `amount-like text`.
 3. **Full numbers stay hidden.** Deny clicks described as showing, viewing or revealing an account, routing or card number, and "account details". It's money-site only because a card site may use those words harmlessly. The reveal control may have no label for the guard to read, so the site file forbids it, and in approve mode I'd deny that click.
 4. **More action labels (`DENY_ACTIONS`):** wire; bill pay, pay bills; payee, recipient; stop payment, stop a check; order checks; deposit a check; external account, link an account, open an account; overdraft; card controls, card management; direct deposit.
@@ -314,7 +314,7 @@ Its parsers register for each site in `bank_accounts` when `load_parsers()` runs
 `clean_bank_description()` runs before `clean_description()`, so existing merchant rules still match from the start of the text.
 - Strip prefixes such as debit card, POS and ACH wording, plus dates, card endings, trace, reference and member numbers, and any run of 6 or more digits.
 - Keep the merchant, or the ACH originator and its entry description.
-- Remove my name, every name in cards.json, the private words, and name fields in ACH detail.
+- Remove my name, every name in accounts.json, the private words, and name fields in ACH detail.
 - Build the patterns from real rows in B2. Put only fictional examples in tests.
 
 Bank descriptions are the most sensitive text in this project: ACH lines can carry my name, employer, IDs and account fragments. SPEC §7's rule for the classifier must still hold after this step.
@@ -400,7 +400,7 @@ These are the places a new account or type would break or leak. Each needs a tes
 | `web/src/pages/Review.tsx` | Titles and actions for the new kinds |
 | `rebuild.py` | `DERIVED` (§6) |
 | `fin/cli.py`, `sync/launcher.py`, `sync/playbooks.py`, `ingest/__init__.py` | Bank sites from config, the generic site file and the private playbook location (§7.5, §8) |
-| `scripts/make_cards_example.py` | A fictional bank (§5) |
+| `scripts/make_accounts_example.py` | A fictional bank (§5) |
 | `.gitignore`, `scripts/hooks/` | Already done (§1.1). Add a test that a `bank_accounts` site's name and domain are refused |
 | `doctor.py` | §7.4 checks. `bank_rules.yaml` loads, its patterns compile and its issuers exist. The privacy scan already covers private words (§1.1) |
 | `README.md` | Tagline, Supported sources ("your bank: one checking account, named only in your config"), Safety model |
@@ -439,7 +439,7 @@ Same stack and pieces as the other pages. Status is never shown by color alone.
 ### Phase B0: Foundation (no real checking data)
 
 **Build**
-- First the remaining privacy pieces (§1.1): `make_cards_example.py`'s fictional bank, the private playbook location and the generic site plumbing (§7.5). The hooks, `fin doctor`'s privacy scan and `private_words` already exist.
+- First the remaining privacy pieces (§1.1): `make_accounts_example.py`'s fictional bank, the private playbook location and the generic site plumbing (§7.5). The hooks, `fin doctor`'s privacy scan and `private_words` already exist.
 - The §3 edits, config, `bank_rules.yaml` validation, the migration, categories.
 - §7.3's guard rules with tests.
 - The §12 rows that stop a new type or account from breaking anything: `NON_SPENDING`, `account_name` in `match/amazon.py`, `txn_row` and `/api/meta`, `counts_as_spending` in `Transactions.tsx`, `rebuild.py`, `doctor.py`.
@@ -447,10 +447,10 @@ Same stack and pieces as the other pages. Status is never shown by color alone.
 **Accept**
 - `uv run pytest` and `make check` pass, and `fin doctor` is green or explains each failure.
 - The hook tests in `tests/unit/test_privacy_scan.py` still pass, plus a new one where the private word comes from a `bank_accounts` site.
-- `make_cards_example.py`, run on a test `cards.json` holding a realistic bank, writes none of its words.
+- `make_accounts_example.py`, run on a test `accounts.json` holding a realistic bank, writes none of its words.
 - With the new code and no checking data, `fin process` on real data changes no spending number to the cent. Compare a before and after snapshot by month, card and category, kept in `debug/`.
 - Guard tests prove a money page is blocked by URL before and after navigation, an amount can't be typed, and the fictional page's Zelle and transfer controls are blocked by their own labels.
-- Then I add the real entries to `config/cards.json`, and `fin doctor` finds no private word in tracked files or commit messages.
+- Then I add the real entries to `config/accounts.json`, and `fin doctor` finds no private word in tracked files or commit messages.
 
 ### Phase B1: Sync (files only)
 
@@ -496,7 +496,7 @@ If there's no CSV, or the export can't reach the earliest card transaction, stop
 
 ### Phase B4 (optional): Debit purchases in Missed rewards
 
-Extend `resolve_history` and `tips` to plain debit purchases, never `p2p`, `check` or `atm` rows: "You paid Whole Foods from checking; Prime Visa would have earned $4.20." Value the debit side at its own earn rate and point value, kept in `cards.json` (`bank_accounts[].debit_rewards`), since the rate could identify the bank.
+Extend `resolve_history` and `tips` to plain debit purchases, never `p2p`, `check` or `atm` rows: "You paid Whole Foods from checking; Prime Visa would have earned $4.20." Value the debit side at its own earn rate and point value, kept in `accounts.json` (`bank_accounts[].debit_rewards`), since the rate could identify the bank.
 
 **Accept:** 5 rows reproduce by hand. No person's name appears in a `merchant_profile` input.
 
@@ -523,17 +523,17 @@ SPEC §18 applies. No model, network or browser in tests.
 - **Types:** a test that every `TXN_TYPES` value is exactly one of spending or `NON_SPENDING`, so a future type can't slip through.
 - **Checks:** a doubled row and a missing row each fail the ledger check and the balance walk.
 - **Config:** a missing `bank_accounts` key still loads, and an id used by both a card and an account is refused. `tests/unit/test_config.py` pins the issuer set, so update it.
-- **Privacy:** the hooks have tests already (`tests/unit/test_privacy_scan.py`); add bank-site words, `make_cards_example.py`, the private playbook location, and the launcher choosing `sync/sites/bank.md` for a bank site with any id.
+- **Privacy:** the hooks have tests already (`tests/unit/test_privacy_scan.py`); add bank-site words, `make_accounts_example.py`, the private playbook location, and the launcher choosing `sync/sites/bank.md` for a bank site with any id.
 - **Guard:** §7.3. **Launcher:** `money_site` set only for bank sites, `--driven` refused.
 - **API:** `PATCH` refuses card rows, and no GET calls `claude`.
 
 ## 17. Manual steps (me)
 
 - Approve §3 by starting Phase B0.
-- After Phase B0, copy the real entries from `private/bank-notes.md` into `config/cards.json` (never `cards.example.json`), check `product` and `account_ending` (`private_words` is already filled in), then run `fin init` so the account reaches the database.
+- After Phase B0, copy the real entries from `private/bank-notes.md` into `config/accounts.json` (never `accounts.example.json`), check `product` and `account_ending` (`private_words` is already filled in), then run `fin init` so the account reaches the database.
 - Run `fin sync bank` when asked: type `start`, log in, pass the verification, approve each click, and deny anything that looks wrong.
 - Compare the fictional fixtures with the real files before they're committed.
-- Go through the first Review batch: person-to-person payees, checks, and any payment to a card not in cards.json.
+- Go through the first Review batch: person-to-person payees, checks, and any payment to a card not in accounts.json.
 - Say which accounts are mine: savings at the bank, accounts at other banks, brokerages.
 
 ## 18. Later

@@ -10,10 +10,10 @@ public, and redaction misses things (amounts, dates, merchants, item titles, sto
 A fixture is written by hand from a copy's structure, with made-up values (SPEC §18,
 tests/fixtures/README.md).
 
-- Names from config/cards.json -> a distinct fake name per person, matching
-  cards.example.json (self -> ALEX EXAMPLE, spouse -> SAM Q EXAMPLE, ...), so cardholder
+- Names from config/accounts.json -> a distinct fake name per person, matching
+  accounts.example.json (self -> ALEX EXAMPLE, spouse -> SAM Q EXAMPLE, ...), so cardholder
   attribution can still be tested. Leftover single name parts -> FAKE.
-- Card endings (from --endings and cards.json) everywhere, plus "ending in 1234",
+- Card endings (from --endings and accounts.json) everywhere, plus "ending in 1234",
   "x1234", "****1234", "XXXX XXXX XXXX 1234" -> 0000. Output file names are redacted too.
 - Digit runs of 7+ (account, reference and order numbers) -> other digits, same length.
   The mapping is consistent within one run (so IDs stay distinct and repeated IDs still
@@ -38,7 +38,8 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
-CONFIG = REPO / "config" / "cards.json"
+CONFIG = next((p for p in (REPO / "config" / "accounts.json", REPO / "config" / "accounts.json")
+               if p.exists()), REPO / "config" / "accounts.json")  # accounts.json: the old name
 
 STREET = re.compile(
     r"^\s*\d{1,6}\s+[A-Za-z0-9 .'#-]{2,40}\b(st|street|ave|avenue|rd|road|blvd|boulevard|dr|"
@@ -57,7 +58,7 @@ EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 ENDING = re.compile(
     r"(?i)(ending\s+(in:?\s*)?|(?:x{4}[\s-]*){1,3}|x{1,4}|\*{1,4}|\.{3,4}|#\s?|-)(\d{4,5})\b"
 )
-FAKE_PEOPLE = {  # keep in step with scripts/make_cards_example.py
+FAKE_PEOPLE = {  # keep in step with scripts/make_accounts_example.py
     "self": "Alex Example", "spouse": "Sam Q Example", "father": "Pat Example",
     "mother": "Robin Example",
 }

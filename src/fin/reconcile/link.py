@@ -152,4 +152,4 @@ def _apply_line(txn: m.Transaction, line: m.StatementLine, st: m.Statement,
         else:
             txn.person_id, txn.person_source = None, "statement"
             reviews.flag("unknown_person", "transactions", txn.id,
-                         reason="cardholder name on the statement matches nobody in cards.json")
+                         reason="cardholder name on the statement matches nobody in accounts.json")

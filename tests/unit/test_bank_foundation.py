@@ -11,7 +11,7 @@ from fin.config import CONFIG_DIR, Settings, load_cards, load_settings
 from fin.db.models import FLOW_KINDS
 from fin.normalize.bank import MONEY_IN_ONLY, RULE_FLOWS, load_bank_rules
 
-CARDS = load_cards(CONFIG_DIR / "cards.example.json")
+CARDS = load_cards(CONFIG_DIR / "accounts.example.json")
 
 
 def test_bank_rules_load_and_name_only_card_issuers():
@@ -122,9 +122,9 @@ def test_doctor_bank_checks(tmp_path):
     from fin.doctor import check_bank
 
     def run(settings=None, mutate=None):
-        d = json.loads((CONFIG_DIR / "cards.example.json").read_text())
+        d = json.loads((CONFIG_DIR / "accounts.example.json").read_text())
         (mutate or (lambda _: None))(d)
-        p = tmp_path / "cards.json"
+        p = tmp_path / "accounts.json"
         p.write_text(json.dumps(d))
         return {r.name: r for r in check_bank(p, Settings.model_validate(settings or {}))}
 

@@ -1,14 +1,14 @@
 # Copyright (C) 2026 Prakhar Saxena
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-"""Generate config/cards.example.json from config/cards.json with fake personal values.
+"""Generate config/accounts.example.json from config/accounts.json with fake personal values.
 
 Structure, ids, card issuers, item sources and card products are kept; names and card endings
 are replaced, and `private_words` is emptied. Every bank site and account is replaced by the
 fictional Example Bank (docs/SPEC-checking.md §1.1, §5), and one is added when there is none,
 so the example always shows the shape. Utility accounts are always the fixed fictional list
 below, whatever the real ones are: providers say where I live (docs/SPEC-utilities.md §1.1).
-Usage: uv run python scripts/make_cards_example.py
+Usage: uv run python scripts/make_accounts_example.py
 """
 
 import copy
@@ -55,7 +55,8 @@ FIXED_NOTES = [
 def make_example(real: dict) -> dict:
     cards = copy.deepcopy(real)
     cards["_notes"] = [
-        "Example with fake values. Copy to config/cards.json (gitignored) and fill in real ones."
+        "Example with fake values. Copy to config/accounts.json (gitignored) and fill in real "
+        "ones."
     ] + [n for n in cards.get("_notes", []) if not n.startswith(("Real config", "Example with"))
          and n not in FIXED_NOTES] + FIXED_NOTES
     new_ids = {}
@@ -96,9 +97,12 @@ def make_example(real: dict) -> dict:
 
 
 def main() -> None:
-    real = json.loads((CONFIG / "cards.json").read_text())
-    (CONFIG / "cards.example.json").write_text(json.dumps(make_example(real), indent=2) + "\n")
-    print(f"wrote {CONFIG / 'cards.example.json'}")
+    real_path = CONFIG / "accounts.json"
+    if not real_path.exists():
+        real_path = CONFIG / "cards.json"  # its name until 2026-11-15
+    real = json.loads(real_path.read_text())
+    (CONFIG / "accounts.example.json").write_text(json.dumps(make_example(real), indent=2) + "\n")
+    print(f"wrote {CONFIG / 'accounts.example.json'}")
 
 
 if __name__ == "__main__":

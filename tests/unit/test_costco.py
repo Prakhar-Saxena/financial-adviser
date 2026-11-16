@@ -18,7 +18,7 @@ from fin.match.amazon import allocate_matched
 from fin.match.costco import match_costco
 from fin.review import ReviewSet
 
-CARDS = load_cards(CONFIG_DIR / "cards.example.json")
+CARDS = load_cards(CONFIG_DIR / "accounts.example.json")
 
 
 def transcript(**over):

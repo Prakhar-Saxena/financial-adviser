@@ -27,7 +27,7 @@ def sync_categories(session: Session, taxonomy: Taxonomy) -> None:
 
 
 def sync_utility_accounts(session: Session, cards: CardsConfig) -> None:
-    """Mirror utility_accounts from cards.json (docs/SPEC-utilities.md §6). `fin process` runs
+    """Mirror utility_accounts from accounts.json (docs/SPEC-utilities.md §6). `fin process` runs
     this too, so a config edit counts without `fin init`. An account no longer in config keeps
     its row, marked in_config = false, so its past payments still have an account."""
     in_config = set()

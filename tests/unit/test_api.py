@@ -237,7 +237,7 @@ def example_cards(monkeypatch):
     """The example config, which has a bank account (the real one may not yet)."""
     from fin.config import CONFIG_DIR, load_cards
 
-    cards = load_cards(CONFIG_DIR / "cards.example.json")
+    cards = load_cards(CONFIG_DIR / "accounts.example.json")
     monkeypatch.setattr("tests.unit.test_pipeline.load_cards", lambda: cards)
     monkeypatch.setattr("fin.api.app.load_cards", lambda: cards)
     return cards
@@ -292,7 +292,8 @@ def test_no_bank_account_no_money_in_and_out(client, monkeypatch):
     from fin.config import CONFIG_DIR, load_cards
 
     _, db = client
-    cards = load_cards(CONFIG_DIR / "cards.example.json").model_copy(update={"bank_accounts": []})
+    cards = load_cards(CONFIG_DIR / "accounts.example.json").model_copy(
+        update={"bank_accounts": []})
     monkeypatch.setattr("fin.api.app.load_cards", lambda: cards)
     c = TestClient(create_app(db, web_dist=None), base_url="http://127.0.0.1")
     assert c.get("/api/summary", params={"month": "2026-09"}).json()["cash_flow"] is None

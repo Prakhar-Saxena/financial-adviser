@@ -4,9 +4,9 @@
 """Mock dashboard screenshots for the README.
 
 Builds a throwaway database of fictional data (the Example household from
-config/cards.example.json, made-up merchants and products), serves the dashboard from it
+config/accounts.example.json, made-up merchants and products), serves the dashboard from it
 on 127.0.0.1, screenshots each page with headless Chrome, then stops. Nothing touches the
-real data dir or config/cards.json.
+real data dir or config/accounts.json.
 
     uv run python scripts/make_screenshots.py          # writes docs/screenshots/*.png
 """
@@ -220,7 +220,7 @@ def build(db_file: Path) -> None:
     rng = random.Random(7)  # noqa: S311 - mock data, not security
     upgrade(db_file)
     s = session_factory(db_file)()
-    cfg = load_cards(CONFIG_DIR / "cards.example.json")
+    cfg = load_cards(CONFIG_DIR / "accounts.example.json")
     taxonomy = load_taxonomy()
     sync_reference(s, cfg, taxonomy)
 
@@ -567,7 +567,7 @@ def demo_cards():
     """The example config with utility accounts that match the mock bills."""
     from fin.config import CONFIG_DIR, UtilityAccount, load_cards
 
-    cfg = load_cards(CONFIG_DIR / "cards.example.json")
+    cfg = load_cards(CONFIG_DIR / "accounts.example.json")
     accounts = [UtilityAccount(id=i, service=svc, provider=name, payment_patterns=[pat])
                 for i, svc, name, pat in DEMO_UTILITIES]
     return cfg.model_copy(update={"utility_accounts": accounts})

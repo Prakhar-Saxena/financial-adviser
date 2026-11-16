@@ -19,6 +19,21 @@ def _isolated_data_dir(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("FIN_DATA_DIR", str(tmp_path / "FinancialAdviserData"))
 
 
+@pytest.fixture(autouse=True)
+def _cli_config_untouched(tmp_path, monkeypatch) -> None:
+    """`fin init` writes into the CLI's config folder (it renames an old cards.json and copies
+    the example). Tests point it at a copy of config/ without the real file, so the real
+    config/accounts.json is never moved or written. Tests that need their own config patch
+    fin.cli.CONFIG_DIR again."""
+    import shutil
+
+    from fin.config import CONFIG_DIR
+
+    cfg = tmp_path / "cli-config"
+    shutil.copytree(CONFIG_DIR, cfg, ignore=shutil.ignore_patterns("accounts.json", "cards.json"))
+    monkeypatch.setattr("fin.cli.CONFIG_DIR", cfg)
+
+
 @pytest.fixture
 def data_dir(tmp_path, monkeypatch) -> Path:
     d = tmp_path / "FinancialAdviserData"

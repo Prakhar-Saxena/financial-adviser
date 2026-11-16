@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 # Last gate before anything is public (SPEC §7): checks every commit the push would send,
-# its message and the lines it adds, against your own ledger and config/cards.json. This also
+# its message and the lines it adds, against your own ledger and config/accounts.json. This also
 # catches commits made without the other hooks. Git passes the remote name and URL as
 # arguments and the refs on stdin. Installed by `fin init` via: git config core.hooksPath
 # scripts/hooks

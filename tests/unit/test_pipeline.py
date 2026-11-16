@@ -209,9 +209,9 @@ def test_largest_remainder():
 
 
 def test_weekly_runs_sites_in_order_then_process(loaded, monkeypatch, tmp_path):
-    cfg = tmp_path / "config"  # the example's fictional bank, not whatever cards.json holds
+    cfg = tmp_path / "config"  # the example's fictional bank, not whatever accounts.json holds
     cfg.mkdir()
-    shutil.copy(CONFIG_DIR / "cards.example.json", cfg / "cards.json")
+    shutil.copy(CONFIG_DIR / "accounts.example.json", cfg / "accounts.json")
     monkeypatch.setattr("fin.cli.CONFIG_DIR", cfg)
     calls = []
     monkeypatch.setattr("fin.cli.sync_site", lambda site, **kw: calls.append(site) or 0)

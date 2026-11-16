@@ -3,7 +3,9 @@
 
 """Config loading and validation (SPEC §3, §6).
 
-- `config/cards.json`: people, issuers, item sources and cards (real, gitignored).
+- `config/accounts.json`: people, issuers, item sources, cards, bank and utility accounts and
+  private words (real, gitignored). Its name was `cards.json` until 2026-11-15; `accounts_path`
+  still finds a file by that name until `fin init` renames it.
 - `config/settings.toml`: tunables (committed).
 - Data dir: `$FIN_DATA_DIR`, else `settings.general.data_dir`, else `~/FinancialAdviserData`.
 """
@@ -26,6 +28,9 @@ DEFAULT_DATA_DIR = "~/FinancialAdviserData"
 EXACT_VERSION = re.compile(r"^\d+\.\d+\.\d+$")
 BARE_DOMAIN = re.compile(r"[a-z0-9-]+(\.[a-z0-9-]+)+")
 SLUG = r"^[a-z][a-z0-9_]*$"
+ACCOUNTS_FILE = "accounts.json"
+ACCOUNTS_EXAMPLE = "accounts.example.json"
+LEGACY_ACCOUNTS_FILE = "cards.json"  # the name until 2026-11-15
 # What a utility account delivers (docs/SPEC-utilities.md §4). Seasonal services compare a month
 # with the same month a year earlier; flat ones with their recent median.
 UTILITY_SERVICES = ("electric", "gas", "water", "trash", "internet", "phone", "other")
@@ -36,7 +41,7 @@ class _Strict(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
 
-# ---------------------------------------------------------------- cards.json
+# ------------------------------------------------------------- accounts.json
 
 
 class Person(_Strict):
@@ -96,7 +101,7 @@ class Card(_Strict):
 
 class DebitRewards(_Strict):
     """What a bank account's debit card earns (docs/SPEC-checking.md Phase B4). Kept in
-    cards.json because the rate could identify the bank. 1 point per $3 is 1/3 point per dollar;
+    accounts.json because the rate could identify the bank. 1 point per $3 is 1/3 point per dollar;
     `cents_per_point` values each point (1.0 for cash back)."""
 
     points_per_dollar: float = Field(ge=0, le=10)
@@ -126,7 +131,7 @@ class BankAccount(_Strict):
 
 class UtilityAccount(_Strict):
     """One provider account for one service (docs/SPEC-utilities.md §5). The provider's name
-    and patterns stay in cards.json: they say where I live (§1.1)."""
+    and patterns stay in accounts.json: they say where I live (§1.1)."""
 
     id: str = Field(pattern=SLUG)
     service: Literal["electric", "gas", "water", "trash", "internet", "phone", "other"]
@@ -478,8 +483,15 @@ def icloud_risk(path: Path) -> str | None:
 # ------------------------------------------------------------------ loaders
 
 
+def accounts_path(config_dir: Path | None = None) -> Path:
+    """config/accounts.json, or config/cards.json (its old name) while only that one exists."""
+    d = config_dir or CONFIG_DIR
+    new, old = d / ACCOUNTS_FILE, d / LEGACY_ACCOUNTS_FILE
+    return old if old.exists() and not new.exists() else new
+
+
 def load_cards(path: Path | None = None) -> CardsConfig:
-    path = path or CONFIG_DIR / "cards.json"
+    path = path or accounts_path()
     return CardsConfig.model_validate(json.loads(path.read_text()))
 
 

@@ -180,7 +180,7 @@ GOLDEN = [
      [("club", 400), ("cash", 150), ("everyday", 100)]),
     ("expired rule falls back to base", "pharmco", {"on": date(2026, 12, 1)},
      [("travel", 200), ("cash", 150), ("everyday", 100), ("club", 100)]),
-    ("ties: protections, then cards.json order", "gadgetco", {},
+    ("ties: protections, then accounts.json order", "gadgetco", {},
      [("cash", 150), ("everyday", 100), ("club", 100), ("travel", 100)]),
     ("merchant-specific bonus on 'other'", "shopmart", {},
      [("cash", 500), ("everyday", 100), ("travel", 100), ("club", 100)]),

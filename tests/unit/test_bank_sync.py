@@ -18,7 +18,7 @@ from fin.db.seed import sync_reference
 from fin.ingest import inbox
 from fin.sync import launcher, params, playbooks
 
-EXAMPLE = json.loads((CONFIG_DIR / "cards.example.json").read_text())
+EXAMPLE = json.loads((CONFIG_DIR / "accounts.example.json").read_text())
 
 
 def bank_cards(site_id="mybank", **acct) -> CardsConfig:
@@ -31,10 +31,10 @@ def bank_cards(site_id="mybank", **acct) -> CardsConfig:
 
 @pytest.fixture
 def config_dir(tmp_path, monkeypatch):
-    """CLI reads cards.json from here."""
+    """CLI reads accounts.json from here."""
     d = tmp_path / "config"
     d.mkdir()
-    (d / "cards.json").write_text(json.dumps(bank_cards().model_dump(by_alias=True)))
+    (d / "accounts.json").write_text(json.dumps(bank_cards().model_dump(by_alias=True)))
     monkeypatch.setattr(cli, "CONFIG_DIR", d)
     return d
 
@@ -59,7 +59,7 @@ def test_bank_site_gets_the_generic_site_file_and_money_mode(tmp_path, monkeypat
 
 def test_real_bank_site_file_reaches_the_prompt(tmp_path, Session, monkeypatch):
     """sync/sites/bank.md uses every parameter an account gets, and base_rules adds §2.5's line."""
-    monkeypatch.setattr(playbooks, "CONFIG_DIR", tmp_path)  # no cards.json: no private playbook
+    monkeypatch.setattr(playbooks, "CONFIG_DIR", tmp_path)  # no accounts.json: no private playbook
     site_text = launcher.BANK_SITE_FILE.read_text()
     with Session() as s:
         p, _, _ = params.run_params(s, bank_cards(), Settings(), "mybank", date(2026, 11, 13))
