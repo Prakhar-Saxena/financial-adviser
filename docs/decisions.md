@@ -1075,3 +1075,46 @@ Spec: `docs/SPEC-checking.md`. The bank is "the bank" here and everywhere in the
 - **First real run:** 7 merchants paid from checking; 5 rows reproduce by hand. The estimate
   assumes the merchant takes a credit card at no fee: a biller that doesn't (a mortgage
   servicer, a tax payment) needs its acceptance corrected with `fin cards merchant`.
+
+## Utilities, Phase U0 (2026-11-15)
+
+Spec: `docs/SPEC-utilities.md`. Providers are "the electric utility" or an account id here and
+everywhere in the repo (§1.1).
+
+- **§3 edits** copied into `docs/SPEC.md` (§6, §7, §8, §15, §16, §20) and `CLAUDE.md` (pointer,
+  privacy rule, and the same line in its §7 copy).
+- **Config.** `cards.json` gains `utility_accounts` (`UtilityAccount`, §5). A missing list loads
+  as empty; ids are unique across cards, bank accounts and utility accounts. Beyond §5: an
+  empty or blank pattern is refused (it would match every row, as in `bank_rules.yaml`), and
+  unknown fields are refused like everywhere in `cards.json`, so an account number can't sit in
+  a misspelt field. `UTILITY_SERVICES` and `SEASONAL_SERVICES` live in `fin.config`; a test
+  keeps the model's `Literal` in step. `[utilities]` settings as in §5.
+- **Example config.** `make_cards_example.py` always writes the same five fictional accounts
+  (Example Power, Gas, Water quarterly, Fiber, Wireless), whatever the real list holds, as
+  B4 did for the debit rate: copying the real shape (how many accounts, which services, a
+  `phone_old`, active dates) would say something too.
+- **Privacy scan.** Each utility account's `provider` joins the private words unless it sets
+  `"private": false`. Payment patterns are not scanned: they mix provider words with generic
+  ones (AUTOPAY, PAYMENT) that the repo is full of. **An abbreviation that a pattern uses and
+  that names a provider (a descriptor's short form) belongs in `private_words`.** The street
+  and town go there too (§15).
+- **Migration 0011.** Tables as in §6, `utility_payments.transaction_id` ON DELETE CASCADE
+  (same reason as `transfer_links`), CHECKs on service, bill_every_months (1, 2, 3, 12),
+  method and `covers_months` (1 to 24; §6 gives no range, and 24 covers a two-year prepaid
+  plan). The `review_items` kind CHECK is hand-written, as in 0009. Downgrade tested.
+- **Mirror.** `seed.sync_utility_accounts`, called by `sync_reference` (`fin init`) and by
+  `fin process` right after `sync_categories`. An account dropped from config keeps its row
+  with `in_config = false`.
+- **Rebuild.** `DERIVED` gains `UtilityPayment` second, after `TransferLink`;
+  `utility_accounts` and the corrections in `user_overrides` stay.
+- **`fin utilities status`** (also bare `fin utilities`, `make utilities`): per account, the
+  payments linked so far, the last one and open `utility_missing` items; the open
+  `utility_unassigned` items (which point at transactions, not accounts) as one count. Cadence,
+  months covered and next expected come with U1's series.
+- **`fin doctor`**: "Utility accounts" lists ids only (no providers in its output) and warns about
+  an account with no patterns. A pattern that doesn't compile already fails `cards.json`.
+- **Acceptance on real data** (before any utility entry exists): the DB went 0010 → 0011 with
+  its pre-migration backup. `fin process --no-ai` before and after the new code: spending by
+  month, card and category (246 cells), credits by month (4) and types by month (27) identical
+  to the cent (`debug/u0-spending-before.json`, `u0-spending-after.json`). `fin doctor` green;
+  `make privacy-check` clean.
