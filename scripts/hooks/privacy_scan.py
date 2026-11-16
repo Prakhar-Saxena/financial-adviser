@@ -19,7 +19,8 @@ where it is and what kind of thing it is, never the value.
 
 What counts as yours:
 - From config/cards.json: the names of everyone but you (full names, aliases, first names,
-  ids), card and account endings next to words like "ending" or "****", and `private_words`.
+  ids), card and account endings next to words like "ending" or "****", `private_words`, the
+  bank's names, and the provider of every utility account not marked `"private": false`.
 - From the ledger: order and reference numbers, reference codes and phone or ID numbers in
   descriptions, merchant descriptions that carry a number, item titles, store locations,
   statement points, and amounts.
@@ -298,7 +299,9 @@ def people_terms(cards: dict) -> tuple[list[str], set[str]]:
 
 
 def site_terms(cards: dict) -> tuple[list[str], set[str]]:
-    """`private_words`, plus everything that names a bank site (docs/SPEC-checking.md §1.1)."""
+    """`private_words`, plus everything that names a bank site (docs/SPEC-checking.md §1.1)
+    and every utility provider, which says where I live (docs/SPEC-utilities.md §1.1). A
+    provider marked `"private": false` is a national carrier and adds nothing."""
     words = [str(w) for w in _list(cards.get("private_words"))]
     endings: set[str] = set()
     sites = {s.get("id"): s for s in _list(cards.get("issuers")) if isinstance(s, dict)}
@@ -313,6 +316,9 @@ def site_terms(cards: dict) -> tuple[list[str], set[str]]:
         host = re.match(r"https?://([^/:]+)", str(site.get("start_url") or ""))
         if host:
             words.append(host.group(1))
+    for util in _list(cards.get("utility_accounts")):
+        if isinstance(util, dict) and util.get("private", True) is not False:
+            words.append(str(util.get("provider") or ""))
     for card in _list(cards.get("cards")):
         for h in _list(card.get("cardholders") if isinstance(card, dict) else None):
             if isinstance(h, dict):

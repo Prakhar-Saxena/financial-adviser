@@ -377,6 +377,77 @@ def test_make_cards_example_writes_none_of_the_bank():
     assert make.make_example({**real, "bank_accounts": []})["bank_accounts"][0]["id"] == "checking"
 
 
+# Utilities (docs/SPEC-utilities.md §1.1): fictional providers that would say where "I" live.
+UTILITIES = [
+    {"id": "electric", "service": "electric", "provider": "Ridgeline Electric Cooperative",
+     "payment_patterns": ["^RIDGELINE ELEC\\b"]},
+    {"id": "water", "service": "water", "provider": "Ogdenville Water Authority",
+     "payment_patterns": ["^OGDENVILLE WTR\\b"], "bill_every_months": 3},
+    # A national carrier, already named in the repo's seed files: says nothing about me.
+    {"id": "phone", "service": "phone", "provider": "Verizon", "private": False,
+     "payment_patterns": ["^VERIZON\\b"]},
+]
+
+
+@pytest.mark.parametrize("line", [
+    "The Ridgeline Electric Cooperative bill went up.",
+    "pays ogdenville water authority quarterly",
+])
+def test_precommit_refuses_a_utility_provider(hook_repo, line):
+    r, _ = hook_repo
+    (r / "config" / "cards.json").write_text(json.dumps(
+        {**CARDS, "private_words": [], "utility_accounts": UTILITIES}))
+    proc = commit(hook_repo, {"docs/notes.md": f"x\n{line}\n"}, "Add notes")
+    assert proc.returncode != 0 and "docs/notes.md:2: a private word" in proc.stderr
+    assert "ridgeline" not in proc.stderr.lower() and "ogdenville" not in proc.stderr.lower()
+    proc = commit(hook_repo, {"docs/notes.md": "x\n"}, f"Utilities: {line}")
+    assert proc.returncode != 0 and "commit message, line 1: a private word" in proc.stderr
+    assert "ridgeline" not in proc.stderr.lower() and "ogdenville" not in proc.stderr.lower()
+
+
+def test_a_public_carrier_adds_no_word(hook_repo):
+    r, _ = hook_repo
+    (r / "config" / "cards.json").write_text(json.dumps(
+        {**CARDS, "private_words": [], "utility_accounts": UTILITIES}))
+    words, _ = scan.site_terms({"utility_accounts": UTILITIES})
+    assert words == ["Ridgeline Electric Cooperative", "Ogdenville Water Authority"]
+    proc = commit(hook_repo, {"docs/notes.md": "x\nThe phone bill is Verizon.\n"},
+                  "Phone bill: Verizon")
+    assert proc.returncode == 0, proc.stderr
+
+
+def test_make_cards_example_writes_none_of_the_utilities():
+    make = load_script("make_cards_example")
+    real = {**CARDS, "private_words": ["Maplewood Lane", "Ogdenville"],
+            "issuers": CARDS["issuers"] + [{"id": "chase", "name": "Chase",
+                                             "start_url": "https://www.chase.com/",
+                                             "allowed_domains": ["chase.com"]}],
+            "cards": [{"id": "visa", "issuer": "chase", "network": "visa", "cardholders": [
+                {"person": "self", "card_ending": "4321"}]}],
+            "bank_accounts": [{**CARDS["bank_accounts"][0], "account_type": "checking"}],
+            "utility_accounts": [
+                *UTILITIES,
+                {"id": "gas", "service": "gas", "provider": "Tri-Valley Gas & Light",
+                 "payment_patterns": ["^TRIVALLEY G&L\\b", "TVGL ONLINE PMT"],
+                 "bill_every_months": 2, "active_from": "2025-06-01"},
+                {"id": "phone_old", "service": "phone", "provider": "Cascade Mobile",
+                 "payment_patterns": ["^CASCADE MOB"], "paid_in_advance": True,
+                 "active_to": "2026-02-28"},
+            ]}
+    example = make.make_example(real)
+    text = json.dumps(example).lower()
+    words, _ = scan.site_terms(real)
+    leaks = [*words, "ridgeline", "ogdenville", "tri-valley", "trivalley", "tvgl", "cascade",
+             "verizon", "2025-06-01", "2026-02-28", "phone_old"]
+    for w in leaks:
+        assert w.lower() not in text, w
+    assert [u["provider"] for u in example["utility_accounts"]] == [
+        "Example Power", "Example Gas", "Example Water", "Example Fiber", "Example Wireless"]
+    # The same fictional list with no utilities in the real config.
+    assert make.make_example({**real, "utility_accounts": []})["utility_accounts"] == \
+        example["utility_accounts"]
+
+
 def load_script(name):
     spec = importlib.util.spec_from_file_location(f"s_{name}", REPO / "scripts" / f"{name}.py")
     mod = importlib.util.module_from_spec(spec)
