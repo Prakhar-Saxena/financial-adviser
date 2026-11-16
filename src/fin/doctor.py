@@ -242,6 +242,27 @@ def check_bank(cards_path: Path | None = None, settings=None) -> list[Result]:
     return out
 
 
+def check_utilities(cards_path: Path | None = None) -> list[Result]:
+    """Utility accounts (docs/SPEC-utilities.md §5, §12). The config model already refuses a
+    pattern that doesn't compile, so a load failure shows under cards.json. Ids only here:
+    providers are private (§1.1)."""
+    try:
+        cards = load_cards(cards_path or CONFIG_DIR / "cards.json")
+    except Exception:
+        return []  # reported by check_config
+    accts = cards.utility_accounts
+    if not accts:
+        return [Result("INFO", "Utility accounts", "none in cards.json")]
+    n = sum(len(u.payment_patterns) for u in accts)
+    out = [Result("PASS", "Utility accounts",
+                  f"{len(accts)} ({', '.join(u.id for u in accts)}); {n} patterns compile")]
+    bare = [u.id for u in accts if not u.payment_patterns]
+    if bare:
+        out.append(Result("WARN", "Utility patterns", f"none for {bare}: their payments link "
+                          "only through your corrections (`fin utilities assign`)"))
+    return out
+
+
 def check_git_hygiene() -> list[Result]:
     gi = REPO_ROOT / ".gitignore"
     text = gi.read_text() if gi.exists() else ""
@@ -338,6 +359,7 @@ def run_all(paths: DataPaths) -> list[Result]:
     results += check_config()
     results += check_cards(paths)
     results += check_bank()
+    results += check_utilities()
     results.append(check_claude_leftovers(paths))
     results += check_git_hygiene()
     results += check_privacy(paths)

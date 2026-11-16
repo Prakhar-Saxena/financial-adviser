@@ -10,7 +10,7 @@ FIN := $(UV) fin
 .DEFAULT_GOAL := help
 .PHONY: help serve open dev web weekly sync process review import rebuild backup doctor \
         test lint check privacy-check privacy-audit stop screenshots cards cards-refresh \
-        card-research best
+        card-research best utilities
 
 help: ## List the targets
 	@grep -hE '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | \
@@ -66,6 +66,9 @@ doctor: ## Setup and security checks
 
 cards: ## Card optimizer: what the knowledge base knows per card
 	$(FIN) cards status
+
+utilities: ## Utility bills: accounts, payments, open items
+	$(FIN) utilities status
 
 cards-refresh: ## Download and read card terms: make cards-refresh CARD=amex_gold (no CARD: all)
 	$(FIN) cards refresh $(if $(CARD),--card $(CARD),)

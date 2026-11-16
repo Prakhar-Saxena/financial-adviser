@@ -256,3 +256,79 @@ def test_payment_checks(db):
                                       "method": "pattern", **bad}))
             with pytest.raises(IntegrityError):
                 s.commit()
+
+
+# ---------------------------------------------------- fin utilities, doctor
+
+
+def test_status_empty_state(tmp_path, monkeypatch):
+    from typer.testing import CliRunner
+
+    from fin.cli import app
+    from fin.config import data_paths, load_taxonomy
+    from fin.db import session_factory, upgrade
+    from fin.db.seed import sync_reference
+
+    no_utils = CardsConfig.model_validate(mutate(lambda d: d.pop("utility_accounts")))
+    paths = data_paths()
+    paths.db_file.parent.mkdir(parents=True)
+    upgrade(paths.db_file)
+    with session_factory(paths.db_file)() as s:
+        sync_reference(s, no_utils, load_taxonomy())
+    for args in (["utilities"], ["utilities", "status"]):
+        out = CliRunner().invoke(app, args)
+        assert out.exit_code == 0, out.output
+        assert "No utility accounts" in out.output and "utility_accounts" in out.output
+
+    with session_factory(paths.db_file)() as s:
+        sync_reference(s, CARDS, load_taxonomy())
+    out = CliRunner().invoke(app, ["utilities"])
+    assert out.exit_code == 0, out.output
+    assert all(f"Example {p}" in out.output for p in ("Power", "Gas", "Water", "Fiber"))
+    assert "none yet" in out.output and "No payments linked" in out.output
+
+
+def test_status_counts_payments_and_items(db):
+    from fin.db import models as m
+    from fin.db import session_factory
+    from fin.db.seed import sync_utility_accounts
+    from fin.utilities.status import account_status, unassigned_count
+
+    with session_factory(db)() as s:
+        add_txn(s, 1)
+        add_txn(s, 2, amount=9_045)
+        s.get(m.Transaction, 2).txn_date = "2026-10-02"
+        add_txn(s, 3, amount=1_500, desc="EXAMPLE FIBER")
+        for i, acct in ((1, "electric"), (2, "electric"), (3, "internet")):
+            s.add(m.UtilityPayment(transaction_id=i, account_id=acct, method="pattern"))
+        s.add(m.ReviewItem(kind="utility_missing", ref_table="utility_accounts", ref_id="gas"))
+        s.add(m.ReviewItem(kind="utility_unassigned", ref_table="transactions", ref_id="9"))
+        s.add(m.ReviewItem(kind="utility_unassigned", ref_table="transactions", ref_id="8",
+                           status="resolved"))
+        sync_utility_accounts(s, CardsConfig.model_validate(mutate(lambda d: d.update(
+            utility_accounts=[u for u in d["utility_accounts"] if u["id"] != "internet"]))))
+        s.commit()
+        rows = {r.id: r for r in account_status(s)}
+        assert [r.id for r in account_status(s)][-1] == "internet"  # earlier accounts last
+        e = rows["electric"]
+        assert (e.payments, e.last_payment, e.last_amount_cents) == (2, "2026-10-02", 9_045)
+        assert rows["gas"].open_items == 1 and rows["gas"].payments == 0
+        assert not rows["internet"].in_config and rows["internet"].payments == 1
+        assert unassigned_count(s) == 1
+
+
+def test_doctor_utilities(tmp_path):
+    from fin.doctor import check_utilities
+
+    def run(fn=lambda d: None):
+        p = tmp_path / "cards.json"
+        p.write_text(json.dumps(mutate(fn)))
+        return {r.name: r for r in check_utilities(p)}
+
+    ok = run()["Utility accounts"]
+    assert ok.status == "PASS" and "electric, gas, water" in ok.detail
+    assert "Example" not in ok.detail  # ids only: providers are private
+    assert run(lambda d: d.pop("utility_accounts"))["Utility accounts"].status == "INFO"
+    bare = run(lambda d: d["utility_accounts"][1].update(payment_patterns=[]))
+    assert bare["Utility patterns"].status == "WARN" and "gas" in bare["Utility patterns"].detail
+    assert run(lambda d: d["utility_accounts"][0].update(payment_patterns=["("])) == {}

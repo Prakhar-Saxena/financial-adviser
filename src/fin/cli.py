@@ -429,6 +429,10 @@ from fin.cards.cli import cards_app  # noqa: E402
 
 app.add_typer(cards_app, name="cards")
 
+from fin.utilities.cli import utilities_app  # noqa: E402
+
+app.add_typer(utilities_app, name="utilities")
+
 
 @playbook_app.command("accept")
 def playbook_accept(site: str) -> None:
