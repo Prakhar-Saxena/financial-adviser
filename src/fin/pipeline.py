@@ -1,8 +1,9 @@
 # Copyright (C) 2026 Prakhar Saxena
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-"""`fin process`: link → checking types and transfers → rules → AI → match → allocate →
-reconcile → review items (SPEC §16, docs/SPEC-checking.md §12).
+"""`fin process`: link → checking types and transfers → rules → AI → utility payments →
+match → allocate → reconcile → review items (SPEC §16, docs/SPEC-checking.md §12,
+docs/SPEC-utilities.md §7).
 
 Idempotent: every step recomputes from the stored data, so running it twice changes nothing.
 """
@@ -37,6 +38,9 @@ from fin.reconcile.transfers import (
     link_transfers,
 )
 from fin.review import ReviewSet
+from fin.utilities.payments import LinkResult as UtilityLinkResult
+from fin.utilities.payments import link_payments
+from fin.utilities.series import flag_missing
 
 
 @dataclass
@@ -55,6 +59,8 @@ class ProcessResult:
     ledger: dict[str, int] = field(default_factory=dict)
     unexpected: int = 0
     amazon_elsewhere: int = 0
+    utilities: UtilityLinkResult = field(default_factory=UtilityLinkResult)
+    utilities_missing: int = 0
     reviews_open: dict[str, int] = field(default_factory=dict)
     reviews_closed: int = 0
 
@@ -94,6 +100,9 @@ def process(
                                     not res.ai_merchants.paused, runner=runner)
     apply_overrides(s)
     s.commit()
+    # Utility payments (SPEC-utilities §7): links only; no transaction changes.
+    res.utilities = link_payments(s, cards, reviews)
+    s.commit()
     # Card optimizer (SPEC-cards §8 History): a merchant profile for every purchase descriptor.
     res.card_merchants = resolve_history(s, paths, settings, use_ai=use_ai and not res.ai_paused,
                                          runner=runner)
@@ -111,6 +120,7 @@ def process(
         res.ledger[status] = res.ledger.get(status, 0) + 1
     res.bank = bank_checks(s, checking_ids(cards), reviews)
     res.unexpected = unexpected_merchants(s, cards, reviews)
+    res.utilities_missing = flag_missing(s, settings, reviews, today)
     res.amazon_elsewhere = amazon_on_other_cards(s, cards)
     for t in s.scalars(select(m.Transaction).where(m.Transaction.person_id.is_(None))).all():
         reviews.flag("unknown_person", "transactions", t.id,

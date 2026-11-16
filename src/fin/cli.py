@@ -693,6 +693,11 @@ def process(no_ai: Annotated[bool, typer.Option("--no-ai", help="Cache only, no 
                    "unmatched (see `fin transfers`).")
         typer.echo(f"Checking statements: {bk.statements or 'none'}. Running balance: "
                    f"{bk.balance_days} days, {len(bk.balance_gaps)} gaps.")
+    ut = r.utilities
+    if ut.total or ut.unassigned or r.utilities_missing:
+        late = f", {r.utilities_missing} missing" if r.utilities_missing else ""
+        typer.echo(f"Utilities: {ut.total} payments linked, {ut.unassigned} unassigned{late} "
+                   "(see `fin utilities`).")
     typer.echo(f"Open review items: {r.reviews_open or 'none'} "
                f"(auto-resolved this run: {r.reviews_closed}).")
 
