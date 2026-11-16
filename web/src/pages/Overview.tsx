@@ -15,7 +15,7 @@ import { FLOW_LABELS } from "@/lib/flows";
 import { categoryColors, listColors, parentOf } from "@/lib/palette";
 import { cn, money, monthLabel } from "@/lib/utils";
 
-function Stat({ label, value, sub, icon: Icon, tint }: {
+export function Stat({ label, value, sub, icon: Icon, tint }: {
   label: string; value: string; sub?: string; icon: typeof Wallet; tint: string;
 }) {
   return (

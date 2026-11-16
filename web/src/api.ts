@@ -33,6 +33,7 @@ export type Meta = {
            kind: "card" | "account" }[];
   categories: { id: string; name: string; parent_id: string | null }[];
   bank_type_flows: Record<string, (string | null)[]>;
+  utility_accounts: { id: string; service: string; provider: string }[];
 };
 export type Txn = {
   id: number;
@@ -256,6 +257,48 @@ export type CardAnswer = {
 };
 export type Cheatsheet = { amount_cents: number; categories: CheatRow[]; merchants: CheatRow[] };
 
+// Utilities (docs/SPEC-utilities.md §9). Months are payment months.
+export type UtilityInsight = {
+  kind: string; severity: "info" | "notice" | "warning"; text: string; service: string;
+  period: string; impact_cents: number; account_id: string | null;
+  numbers: Record<string, number | string>; links: number[];
+};
+export type UtilityAccount = {
+  id: string; service: string; provider: string; in_config: boolean; bill_every_months: number;
+  paid_in_advance: boolean; active_from: string | null; active_to: string | null; ended: boolean;
+  paid_from: string[]; payments: number;
+  last_payment: { date: string; amount_cents: number; transaction_id: number } | null;
+  next_expected: string | null; cadence_days: number | null; missing: boolean;
+  first_payment: boolean; budget_plan: boolean;
+  last_12_cents: number; prev_12_cents: number | null; average_month_cents: number | null;
+  sparkline: { month: string; cents: number }[]; best_card_query: string | null;
+};
+export type UtilitiesSummary = {
+  until: string; months: string[]; services: string[]; data_from: string | null;
+  yoy_from: string | null; accounts: UtilityAccount[];
+  rows: { month: string; total: number; by_service: Record<string, number>;
+          by_account: Record<string, number> }[];
+  history: Record<string, Record<string, number>>;
+  insights: UtilityInsight[];
+  stats: { last_12_cents: number; prev_12_cents: number | null; month: string; month_cents: number;
+           month_year_ago_cents: number | null; average_month_cents: number | null;
+           biggest_change: string | null };
+};
+export type UtilityPayment = {
+  transaction_id: number; date: string; amount_cents: number; paid_from: string;
+  covers_months: number; counted_in: string; months: string[]; moved: boolean;
+  method: string | null; description: string | null;
+};
+export type UtilityAccountDetail = {
+  account: UtilityAccount; payments: UtilityPayment[]; series: Record<string, number>;
+  insights: UtilityInsight[];
+};
+export type UnassignedUtility = {
+  transaction_id: number; date: string; amount_cents: number; paid_from: string;
+  description: string; merchant: string; category_id: string | null; reason: string;
+};
+type Relinked = { linked: number; unassigned: number; missing: number };
+
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const r = await fetch(path, {
     ...init,
@@ -329,6 +372,15 @@ export const api = {
   askCard: (card_id: string, question: string) =>
     req<CardAnswer>("/api/cards/question", { method: "POST", body: JSON.stringify({ card_id, question }) }),
   rewardsCheck: (months: number) => req<RewardsCheck>(`/api/cards/rewards-check?months=${months}`),
+  utilities: (until: string, months?: number) =>
+    req<UtilitiesSummary>(`/api/utilities/summary?${new URLSearchParams({ until, ...(months ? { months: String(months) } : {}) })}`),
+  utilityAccount: (id: string, until: string) =>
+    req<UtilityAccountDetail>(`/api/utilities/accounts/${encodeURIComponent(id)}?until=${until}`),
+  utilityUnassigned: () => req<UnassignedUtility[]>("/api/utilities/unassigned"),
+  assignUtility: (body: { transaction_id: number; account_id: string; all_from_merchant: boolean }) =>
+    req<Relinked & { applied_to: string }>("/api/utilities/assign", { method: "POST", body: JSON.stringify(body) }),
+  setUtilityCovers: (transaction_id: number, covers_months: number) =>
+    req<Relinked>(`/api/utilities/payments/${transaction_id}`, { method: "PATCH", body: JSON.stringify({ covers_months }) }),
   resolve: (id: number, status: "resolved" | "ignored") =>
     req(`/api/review/${id}/resolve`, { method: "POST", body: JSON.stringify({ status }) }),
 };

@@ -13,12 +13,16 @@ import { money } from "@/lib/utils";
 import { problemText } from "@/pages/BestCard";
 import { TxnDetailPanel } from "@/pages/Transactions";
 
-// Both transfer kinds share one group (docs/SPEC-checking.md §13).
+// Both transfer kinds share one group (docs/SPEC-checking.md §13); so do the utility kinds
+// (docs/SPEC-utilities.md §10), which are sorted on the Utilities tab.
 const TRANSFER_KINDS = ["unmatched_transfer", "uncertain_transfer"];
-const groupOf = (kind: string) => (TRANSFER_KINDS.includes(kind) ? "card_payments" : kind);
+const UTILITY_KINDS = ["utility_unassigned", "utility_missing"];
+const groupOf = (kind: string) =>
+  TRANSFER_KINDS.includes(kind) ? "card_payments" : UTILITY_KINDS.includes(kind) ? "utilities" : kind;
 
 const KIND_TITLES: Record<string, string> = {
   card_payments: "Card payments to check",
+  utilities: "Utilities",
   bank_balance_gap: "Checking: running balance breaks",
   uncategorized: "Uncategorized",
   low_confidence: "Low-confidence guesses",
@@ -73,6 +77,12 @@ export function Review({ meta }: { meta: Meta }) {
             </div>
           </CardHeader>
           <CardContent className="divide-y divide-line">
+            {kind === "utilities" && (
+              <p className="pb-2 text-xs text-muted">
+                Sort these on the <Link className="underline" to="/utilities">Utilities</Link> tab: a payment that
+                matches no account, or an account whose payment is late.
+              </p>
+            )}
             {kind === "card_payments" && (
               <p className="pb-2 text-xs text-muted">
                 A choice here is kept through <code>fin rebuild</code>. Links to card payments refresh on the next <code>fin process</code>.
@@ -137,6 +147,15 @@ function ReviewRow({ item, meta, onResolve }: {
           </>
         ) : item.order ? (
           <span className="text-ink">Order {item.order.external_id} · {item.order.order_date} · {money(item.order.total_cents)}</span>
+        ) : item.kind === "utility_missing" ? (
+          <>
+            <Link to={`/utilities?account=${item.ref_id}`} className="text-ink underline-offset-2 hover:underline">
+              {meta.utility_accounts.find((u) => u.id === item.ref_id)?.provider ?? item.ref_id}
+            </Link>
+            <span className="text-xs text-ink-2">
+              No payment since {String(item.details.last_payment)}; expected around {String(item.details.expected)}
+            </span>
+          </>
         ) : item.kind.startsWith("card_") ? (
           <>
             <Link to="/best-card" className="text-ink underline-offset-2 hover:underline">{item.ref_id}</Link>
@@ -193,6 +212,9 @@ function ReviewRow({ item, meta, onResolve }: {
                 </>
               )}
             </>
+          )}
+          {item.kind === "utility_unassigned" && (
+            <Link to="/utilities#unassigned" className="text-xs text-ink-2 underline underline-offset-2">Sort on Utilities</Link>
           )}
           {item.kind === "low_confidence" && <Button size="sm" variant="outline" onClick={() => onResolve("resolved")}>Looks right</Button>}
           <Button size="sm" variant="ghost" onClick={() => onResolve("ignored")}>Ignore</Button>

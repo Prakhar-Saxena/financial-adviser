@@ -16,6 +16,7 @@ import { Reconciliation } from "@/pages/Reconciliation";
 import { Review } from "@/pages/Review";
 import { Rules } from "@/pages/Rules";
 import { Transactions } from "@/pages/Transactions";
+import { Utilities } from "@/pages/Utilities";
 
 function useTheme() {
   const [theme, setTheme] = useState<string>(() => {
@@ -54,6 +55,7 @@ export function App() {
         <nav className="flex gap-1">
           <NavLink to="/" end className={link}>Overview</NavLink>
           <NavLink to="/best-card" className={link}>Best card</NavLink>
+          <NavLink to="/utilities" className={link}>Utilities</NavLink>
           <NavLink to="/transactions" className={link}>Transactions</NavLink>
           <NavLink to="/orders" className={link}>Amazon &amp; Costco</NavLink>
           <NavLink to="/review" className={link}>Review</NavLink>
@@ -79,6 +81,7 @@ export function App() {
         <Routes>
           <Route path="/" element={<Overview month={month} meta={meta} />} />
           <Route path="/best-card" element={<BestCard />} />
+          <Route path="/utilities" element={<Utilities month={month} meta={meta} />} />
           <Route path="/transactions" element={<Transactions month={month} meta={meta} />} />
           <Route path="/orders" element={<Orders month={month} meta={meta} />} />
           <Route path="/review" element={<Review meta={meta} />} />
