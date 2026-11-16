@@ -33,6 +33,17 @@ unmatched_grace_days = 5
 transfer_window_days = [-2, 6]   # checking date minus card date (SPEC-checking §10); B2 saw 1 to 4
 transfer_grace_days = 10         # how long a card payment may wait for its other side
 
+[utilities]                     # docs/SPEC-utilities.md
+stale_grace_days = 10           # "missing" after one cadence plus this
+yoy_min_change = 0.10           # a year-over-year insight needs a 10% change...
+yoy_min_cents = 500             # ...and $5
+step_min_payments = 2           # a flat bill's new amount must hold this many payments...
+step_min_cents = 100            # ...and differ by at least $1
+outlier_ratio = 1.3             # a payment 30% above its baseline is unusual
+duplicate_days = 7              # two equal payments to one account this close together
+budget_min_months = 4           # a seasonal account paid the same amount this many months running
+default_months = 24             # the tab's range
+
 [server]
 host = "127.0.0.1"
 api_port = 8765

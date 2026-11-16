@@ -7,7 +7,8 @@
     "expected_merchant_groups: merchants a card is reserved for. Charges outside these groups are flagged for review, never rejected. Empty list means a general-purpose card.",
     "reconcile_with: item-level sources this card is cross-checked against (SPEC.md section 12).",
     "private_words: anything else that would identify you (your bank, your street). The git hooks refuse any commit or push that contains one.",
-    "bank_accounts: your bank account(s). The bank is named only here, in private/ and in the data dir (docs/SPEC-checking.md section 1.1)."
+    "bank_accounts: your bank account(s). The bank is named only here, in private/ and in the data dir (docs/SPEC-checking.md section 1.1).",
+    "utility_accounts: your utility providers. They say where you live, so they are named only here, in private/ and in the data dir (docs/SPEC-utilities.md section 1.1). Set \"private\": false only for a national carrier."
   ],
   "people": [
     {
@@ -308,5 +309,72 @@
       }
     }
   ],
-  "private_words": []
+  "private_words": [],
+  "utility_accounts": [
+    {
+      "id": "electric",
+      "service": "electric",
+      "provider": "Example Power",
+      "private": true,
+      "payment_patterns": [
+        "^EXAMPLE POWER\\b"
+      ],
+      "bill_every_months": 1,
+      "paid_in_advance": false,
+      "active_from": null,
+      "active_to": null
+    },
+    {
+      "id": "gas",
+      "service": "gas",
+      "provider": "Example Gas",
+      "private": true,
+      "payment_patterns": [
+        "^EXAMPLE GAS\\b"
+      ],
+      "bill_every_months": 1,
+      "paid_in_advance": false,
+      "active_from": null,
+      "active_to": null
+    },
+    {
+      "id": "water",
+      "service": "water",
+      "provider": "Example Water",
+      "private": true,
+      "payment_patterns": [
+        "^EXAMPLE WATER\\b"
+      ],
+      "bill_every_months": 3,
+      "paid_in_advance": false,
+      "active_from": null,
+      "active_to": null
+    },
+    {
+      "id": "internet",
+      "service": "internet",
+      "provider": "Example Fiber",
+      "private": true,
+      "payment_patterns": [
+        "^EXAMPLE FIBER\\b"
+      ],
+      "bill_every_months": 1,
+      "paid_in_advance": false,
+      "active_from": null,
+      "active_to": null
+    },
+    {
+      "id": "phone",
+      "service": "phone",
+      "provider": "Example Wireless",
+      "private": true,
+      "payment_patterns": [
+        "^EXAMPLE WIRELESS\\b"
+      ],
+      "bill_every_months": 1,
+      "paid_in_advance": false,
+      "active_from": null,
+      "active_to": null
+    }
+  ]
 }

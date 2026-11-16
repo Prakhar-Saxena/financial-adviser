@@ -14,6 +14,7 @@ import json
 import os
 import re
 import tomllib
+from datetime import date
 from pathlib import Path
 from typing import Literal
 
@@ -25,6 +26,10 @@ DEFAULT_DATA_DIR = "~/FinancialAdviserData"
 EXACT_VERSION = re.compile(r"^\d+\.\d+\.\d+$")
 BARE_DOMAIN = re.compile(r"[a-z0-9-]+(\.[a-z0-9-]+)+")
 SLUG = r"^[a-z][a-z0-9_]*$"
+# What a utility account delivers (docs/SPEC-utilities.md §4). Seasonal services compare a month
+# with the same month a year earlier; flat ones with their recent median.
+UTILITY_SERVICES = ("electric", "gas", "water", "trash", "internet", "phone", "other")
+SEASONAL_SERVICES = ("electric", "gas", "water")
 
 
 class _Strict(BaseModel):
@@ -119,6 +124,50 @@ class BankAccount(_Strict):
     debit_rewards: DebitRewards | None = None
 
 
+class UtilityAccount(_Strict):
+    """One provider account for one service (docs/SPEC-utilities.md §5). The provider's name
+    and patterns stay in cards.json: they say where I live (§1.1)."""
+
+    id: str = Field(pattern=SLUG)
+    service: Literal["electric", "gas", "water", "trash", "internet", "phone", "other"]
+    provider: str = Field(min_length=1)
+    # False only for a national carrier whose name says nothing about where I live; the git
+    # hooks then don't treat the provider as a private word.
+    private: bool = True
+    # Regexes, run with re.search, case-insensitive, on a row's description_clean.
+    payment_patterns: list[str] = []
+    bill_every_months: Literal[1, 2, 3, 12] = 1
+    paid_in_advance: bool = False
+    active_from: date | None = None
+    active_to: date | None = None
+
+    @field_validator("payment_patterns")
+    @classmethod
+    def _compiles(cls, v: list[str]) -> list[str]:
+        for i, pat in enumerate(v):
+            if not pat.strip():
+                raise ValueError(f"payment_patterns[{i}] is empty (it would match every row)")
+            try:
+                re.compile(pat)
+            except re.error as e:
+                raise ValueError(f"payment_patterns[{i}] doesn't compile: {e}") from None
+        return v
+
+    @model_validator(mode="after")
+    def _dates(self) -> UtilityAccount:
+        if self.active_from and self.active_to and self.active_to < self.active_from:
+            raise ValueError(f"utility account {self.id}: active_to is before active_from")
+        return self
+
+    @property
+    def seasonal(self) -> bool:
+        return self.service in SEASONAL_SERVICES
+
+    @property
+    def patterns(self) -> list[re.Pattern]:
+        return [re.compile(p, re.IGNORECASE) for p in self.payment_patterns]
+
+
 class CardsConfig(_Strict):
     model_config = ConfigDict(extra="forbid", frozen=True, populate_by_name=True)
 
@@ -129,6 +178,7 @@ class CardsConfig(_Strict):
     item_sources: list[Site]
     cards: list[Card]
     bank_accounts: list[BankAccount] = []
+    utility_accounts: list[UtilityAccount] = []
     # Words that would identify me and are in no other field (my bank, my street...). The git
     # hooks refuse any commit or push that contains one (scripts/hooks/privacy_scan.py).
     private_words: list[str] = []
@@ -142,7 +192,8 @@ class CardsConfig(_Strict):
 
         unique([p.id for p in self.people], "people")
         unique([s.id for s in self.issuers + self.item_sources], "site")
-        unique([c.id for c in self.cards] + [a.id for a in self.bank_accounts], "card or account")
+        unique([c.id for c in self.cards] + [a.id for a in self.bank_accounts]
+               + [u.id for u in self.utility_accounts], "card or account")
         if sum(p.relationship == "self" for p in self.people) != 1:
             raise ValueError("exactly one person must have relationship 'self'")
 
@@ -185,6 +236,12 @@ class CardsConfig(_Strict):
         for a in self.bank_accounts:
             if a.id == account_id:
                 return a
+        raise KeyError(account_id)
+
+    def utility_account(self, account_id: str) -> UtilityAccount:
+        for u in self.utility_accounts:
+            if u.id == account_id:
+                return u
         raise KeyError(account_id)
 
     def account_name(self, card_or_account_id: str) -> str:
@@ -345,6 +402,20 @@ class CardsSettings(_Strict):
         return out
 
 
+class UtilitiesSettings(_Strict):
+    """Utilities tab and `fin utilities` (docs/SPEC-utilities.md §5)."""
+
+    stale_grace_days: int = Field(default=10, ge=0, le=90)
+    yoy_min_change: float = Field(default=0.10, ge=0, le=10)
+    yoy_min_cents: int = Field(default=500, ge=0)
+    step_min_payments: int = Field(default=2, ge=1, le=12)
+    step_min_cents: int = Field(default=100, ge=0)
+    outlier_ratio: float = Field(default=1.3, gt=1, le=10)
+    duplicate_days: int = Field(default=7, ge=0, le=60)
+    budget_min_months: int = Field(default=4, ge=2, le=24)
+    default_months: int = Field(default=24, ge=1, le=240)
+
+
 class Settings(_Strict):
     general: GeneralSettings = GeneralSettings()
     sync: SyncSettings = SyncSettings()
@@ -352,6 +423,7 @@ class Settings(_Strict):
     match: MatchSettings = MatchSettings()
     server: ServerSettings = ServerSettings()
     cards: CardsSettings = CardsSettings()
+    utilities: UtilitiesSettings = UtilitiesSettings()
 
 
 # --------------------------------------------------------------- data paths

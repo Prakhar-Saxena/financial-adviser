@@ -6,7 +6,9 @@
 Structure, ids, card issuers, item sources and card products are kept; names and card endings
 are replaced, and `private_words` is emptied. Every bank site and account is replaced by the
 fictional Example Bank (docs/SPEC-checking.md §1.1, §5), and one is added when there is none,
-so the example always shows the shape. Usage: uv run python scripts/make_cards_example.py
+so the example always shows the shape. Utility accounts are always the fixed fictional list
+below, whatever the real ones are: providers say where I live (docs/SPEC-utilities.md §1.1).
+Usage: uv run python scripts/make_cards_example.py
 """
 
 import copy
@@ -25,11 +27,28 @@ FAKE_BANK = {"name": "Example Bank", "start_url": "https://online.bank.example/"
 FAKE_ACCOUNT = {"product": "Example Bank Checking", "account_type": "checking",
                 "account_ending": "", "statement_markers": [],
                 "debit_rewards": {"points_per_dollar": 1.0, "cents_per_point": 1.0}}
+FAKE_UTILITIES = [
+    {"id": "electric", "service": "electric", "provider": "Example Power",
+     "payment_patterns": ["^EXAMPLE POWER\\b"]},
+    {"id": "gas", "service": "gas", "provider": "Example Gas",
+     "payment_patterns": ["^EXAMPLE GAS\\b"]},
+    {"id": "water", "service": "water", "provider": "Example Water",
+     "payment_patterns": ["^EXAMPLE WATER\\b"], "bill_every_months": 3},
+    {"id": "internet", "service": "internet", "provider": "Example Fiber",
+     "payment_patterns": ["^EXAMPLE FIBER\\b"]},
+    {"id": "phone", "service": "phone", "provider": "Example Wireless",
+     "payment_patterns": ["^EXAMPLE WIRELESS\\b"]},
+]
+UTILITY_DEFAULTS = {"private": True, "payment_patterns": [], "bill_every_months": 1,
+                    "paid_in_advance": False, "active_from": None, "active_to": None}
 FIXED_NOTES = [
     "private_words: anything else that would identify you (your bank, your street). The git "
     "hooks refuse any commit or push that contains one.",
     "bank_accounts: your bank account(s). The bank is named only here, in private/ and in the "
     "data dir (docs/SPEC-checking.md section 1.1).",
+    "utility_accounts: your utility providers. They say where you live, so they are named only "
+    "here, in private/ and in the data dir (docs/SPEC-utilities.md section 1.1). Set "
+    "\"private\": false only for a national carrier.",
 ]
 
 
@@ -69,6 +88,9 @@ def make_example(real: dict) -> dict:
             fake["account_ending"] = str(n).zfill(4)
         fake_accounts.append(fake)
     cards["bank_accounts"] = fake_accounts
+    cards["utility_accounts"] = [
+        {"id": u["id"], "service": u["service"], "provider": u["provider"],
+         **{k: u.get(k, v) for k, v in UTILITY_DEFAULTS.items()}} for u in FAKE_UTILITIES]
     cards["private_words"] = []
     return cards
 
