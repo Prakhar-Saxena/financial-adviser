@@ -31,6 +31,14 @@ item for Amazon and Costco, and checks every number against your bank statements
 
 ![Best card page](docs/screenshots/best-card.png)
 
+**Utilities**: each service's monthly cost and its trends, from the bill payments already in
+the ledger
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/utilities-dark.png">
+  <img alt="Utilities: last 12 months, this month and an average month; monthly cost stacked by service; year over year; insights such as an internet price change; and each account with its last payment" src="docs/screenshots/utilities.png">
+</picture>
+
 **Transactions**: cards and the checking account together, filters, category dots, item splits
 
 ![Transactions page](docs/screenshots/transactions.png)
@@ -158,6 +166,15 @@ All `make` targets run in the foreground. Other commands:
 - `fin backup` makes an online SQLite backup.
 - `fin transfers [--month YYYY-MM] [--check]` lists checking's card payments and what each one
   paid; `--check` runs the no-double-counting checks.
+- `fin utilities` (or `make utilities`) lists your utility accounts: last payment, months
+  covered, cadence, the next expected payment. Utility payments come from the ledger (no new
+  logins); accounts and payment patterns go in `cards.json` under `utility_accounts`, and their
+  providers stay out of the repo like your bank.
+  - `trends [--account ID] [--months 24]`: price changes on flat bills, year over year once a
+    year of payments exists, unusual, missing or doubled payments, provider switches.
+  - `unassigned` and `assign TXN_ID ACCOUNT|none [--all-from-merchant] [--covers N]` sort bill
+    payments no account matched; corrections survive `fin rebuild`.
+  - `check [--snapshot]`: linking changes no transaction and leaves spending identical.
 - `fin cards ...` is the card optimizer:
   - `best "whole foods" [--amount 120] [--online] [--abroad] [--lookup]` ranks your cards. A
     merchant it doesn't know needs `--lookup`, which asks Claude (haiku) once and sends only the
@@ -193,6 +210,11 @@ connects to your own Chrome through the Playwright Extension:
   what the app predicts, to catch wrong terms or merchant categories. **Card terms** shows what the
   app knows about each card, with Accept / Reject for new terms, your point valuations, and
   **Ask about this card** (plain-words answers that quote the card's documents).
+- **Utilities:** what electricity, gas, water, internet and phone cost per month, by service or
+  by account, by payment month; year over year (from the 13th month of payments); the top
+  insights; each account with its payments, a covers-months control for prepaid or catch-up
+  payments, and, for internet and phone, a link to the best card for the bill; payments to
+  sort. Overview's totals don't change: utilities are ordinary spending, regrouped.
 - **Overview:** spending by category, person, card or account and merchant, plus the 3-month
   trend. Each chart switches between bars, donut, treemap and table views (the choice is
   remembered). With a checking account, **Money in and out** shows the month's checking by kind,
@@ -201,8 +223,8 @@ connects to your own Chrome through the Playwright Extension:
   spending says why; a card payment links to the payment on the card, and a checking row has
   **This is spending** / **This isn't spending**.
 - **Amazon & Costco:** orders, receipts, top items.
-- **Review:** low-confidence AI guesses, unmatched charges, statement mismatches, and **Card
-  payments to check** with one-click choices.
+- **Review:** low-confidence AI guesses, unmatched charges, statement mismatches, **Card
+  payments to check** with one-click choices, and **Utilities** (payments to sort, late bills).
 - **Reconciliation:** each statement's math and ledger check; for checking also the running
   balance, and how many card payments were matched to checking.
 - **Rules:** a rule editor with a live preview.

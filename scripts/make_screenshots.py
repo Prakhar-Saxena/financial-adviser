@@ -138,6 +138,25 @@ FIXED = [  # monthly bills: name, category, card, dollars
     ("Brightline Internet", "bills.internet", "chase_freedom_unlimited", 70.00),
     ("Harbor Electric", "bills.utilities", "chase_freedom_unlimited", None),
 ]
+# Utility accounts for the Utilities tab, named after the mock bills (docs/SPEC-utilities.md
+# §5): id, service, provider, pattern. The example config's own accounts stay as they are.
+DEMO_UTILITIES = [
+    ("electric", "electric", "Harbor Electric", "^HARBOR ELECTRIC\\b"),
+    ("gas", "gas", "Lakeside Gas", "^LAKESIDE GAS\\b"),
+    ("water", "water", "City Water", "^CITY WATER\\b"),
+    ("internet", "internet", "Brightline Internet", "^BRIGHTLINE INTERNET\\b"),
+    ("phone", "phone", "Metro Wireless", "^METRO WIRELESS\\b"),
+]
+# A year of earlier bills, so year over year, seasonality and a price change show (dollars,
+# 2025-07 to 2026-06). Gas continues through MONTHS.
+HISTORY = {
+    "Harbor Electric": [160, 172, 120, 88, 95, 118, 130, 122, 101, 84, 90, 138],
+    "Lakeside Gas": [32, 30, 38, 64, 112, 165, 188, 171, 128, 82, 48, 35],
+    "Brightline Internet": [60] * 12,
+    "Metro Wireless": [85] * 12,
+}
+GAS_NOW = [33, 31, 41]
+HISTORY_CARD = {"Lakeside Gas": "chase_sapphire_reserve"}
 TRIP = [("Skyway Airlines", "travel.air", 389, 612), ("Seaside Inn", "travel.lodging", 412, 540)]
 
 AMAZON = [  # title, category, dollars
@@ -476,6 +495,7 @@ def build(db_file: Path) -> None:
                 payments.append(pay)
 
     checking(s, rng, txn, day, payments)
+    utility_history(txn, day)
     card_terms(s, cfg)
     rules(s, taxonomy)
 
@@ -534,7 +554,39 @@ def build(db_file: Path) -> None:
             )
         )
     s.commit()
+    from fin.review import ReviewSet
+    from fin.utilities.payments import link_payments
+
+    sync_reference(s, demo_cards(), taxonomy)
+    link_payments(s, demo_cards(), ReviewSet(s))
+    s.commit()
     s.close()
+
+
+def demo_cards():
+    """The example config with utility accounts that match the mock bills."""
+    from fin.config import CONFIG_DIR, UtilityAccount, load_cards
+
+    cfg = load_cards(CONFIG_DIR / "cards.example.json")
+    accounts = [UtilityAccount(id=i, service=svc, provider=name, payment_patterns=[pat])
+                for i, svc, name, pat in DEMO_UTILITIES]
+    return cfg.model_copy(update={"utility_accounts": accounts})
+
+
+def utility_history(txn, day) -> None:
+    """Twelve months of bills before MONTHS, and gas through MONTHS."""
+    months = [f"2025-{m:02d}" for m in range(7, 13)] + [f"2026-{m:02d}" for m in range(1, 7)]
+    category = {"Harbor Electric": "bills.utilities", "Lakeside Gas": "bills.utilities",
+                "Brightline Internet": "bills.internet", "Metro Wireless": "bills.phone"}
+    for name, dollars in HISTORY.items():
+        card = HISTORY_CARD.get(name, "chase_freedom_unlimited")
+        for month, d in zip(months, dollars, strict=True):
+            txn(card, day(month, 4, 9), cents(d), name, category[name])
+    for month, d in zip(MONTHS, GAS_NOW, strict=True):
+        txn(HISTORY_CARD["Lakeside Gas"], day(month, 4, 9), cents(d), "Lakeside Gas",
+            "bills.utilities")
+    # A bill no account matches: it waits under "Payments to sort" and on Review.
+    txn("chase_freedom_unlimited", "2026-09-15", cents(32.40), "Valley Waste", "bills.utilities")
 
 
 CHECKING_PAY = {  # how the checking account names a payment to each issuer
@@ -666,10 +718,9 @@ def serve(db_file: Path):
     import uvicorn
 
     import fin.api.app as app_mod
-    from fin.config import CONFIG_DIR, load_cards
 
     real = app_mod.load_cards
-    app_mod.load_cards = lambda path=None: load_cards(CONFIG_DIR / "cards.example.json")
+    app_mod.load_cards = lambda path=None: demo_cards()
     try:
         app = app_mod.create_app(db_file=db_file)
     finally:
@@ -689,9 +740,12 @@ SHOTS = [  # file, path, theme, height
     ("overview.png", "/", "light", 1510),
     ("overview-dark.png", "/", "dark", 1510),
     ("best-card.png", "/best-card?q=whole+foods", "light", 900),
+    ("utilities.png", "/utilities", "light", 1640),
+    ("utilities-dark.png", "/utilities", "dark", 1640),
+    ("utilities-account.png", "/utilities?account=internet", "light", 1000),
     ("transactions.png", "/transactions", "light", 860),
     ("orders.png", "/orders?merchant=costco", "light", 740),
-    ("review.png", "/review", "light", 780),
+    ("review.png", "/review", "light", 1010),
     ("reconciliation.png", "/reconciliation", "light", 1180),
     ("rules.png", "/rules", "light", 760),
 ]
