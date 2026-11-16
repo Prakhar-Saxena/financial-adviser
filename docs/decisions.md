@@ -1175,3 +1175,31 @@ everywhere in the repo (§1.1).
   utility, 0 unassigned. `fin rebuild` then `fin process`: the same 15 links, the correction
   kept, spending identical to the U1 snapshot. No real prepaid payment remains, so forward
   spreading is shown by the tests only (golden "prepaid_forward", the end-to-end `--covers`).
+
+## Utilities, Phase U2 (2026-11-15)
+
+- **API** (`src/fin/api/routes/utilities.py`) as in §9; the payloads are built in
+  `fin.utilities.views` from the same engine result as the CLI, and corrections go through
+  `fin.utilities.corrections`, shared with `fin utilities assign`. Writes relink at once.
+- **"As of" for an earlier month.** The tab's `until` is the header's month. For a past month
+  the engine's "today" is that month's last day, so an account isn't missing only because the
+  month has passed; for the current month it's today, as in the CLI.
+- **Average month** is the sum of each current account's own average over the months it covers.
+  Averaging the total would count months before an account's first payment (or a quarterly
+  spread's earlier months) as zero.
+- **Stat tiles.** "Against the 12 before" and "against a year ago" appear only when the ledger
+  reaches back that far; otherwise the month compares with the average month.
+- **Charts** (dataviz method, the validated palette already in `index.css`): monthly cost is
+  stacked columns, one slot per service in a fixed order (`SERVICES`), a 2px surface-coloured
+  stroke as the gap, legend, tooltip and a table view; year over year is the emphasis form:
+  this year in the service's colour (or slot 1 for all), earlier years in the neutral
+  `--cat-other`. Sparklines: the de-emphasis line with the latest month as the accent dot.
+- **Review**: one "Utilities" group for both kinds; a missing account links to its panel.
+- **Screenshots**: the mock household's utility accounts are named after its mock bills
+  (`demo_cards()` in `make_screenshots.py`), with a year of earlier bills and one bill no
+  account matches. New shots: Utilities (light, dark) and an account panel.
+- **Acceptance.** Tests: no GET calls the fake `claude` or opens a socket; 415 without JSON; a
+  correction made through the API survives `fin rebuild` + `fin process`; the tab's insights,
+  monthly totals and rows equal the engine's. Light and dark checked on the screenshots. On
+  real data the API for the current month matches `fin utilities status` and `trends` for
+  every account (last payment, months covered, cadence, next expected; no insights yet).
