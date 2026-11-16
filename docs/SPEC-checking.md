@@ -51,7 +51,7 @@ Starting Phase B0 is my approval of the changes listed in §3.
 - `scripts/make_cards_example.py` writes a fictional bank into `config/cards.example.json`. Today it copies sites as they are, so it would publish the real one.
 
 **Checks that catch a slip (already built, SPEC §7):**
-- `scripts/hooks/privacy_scan.py` (stdlib) reads `cards.json` and the ledger at run time and keeps no copy. Its private words are the `private_words` list plus, once `bank_accounts` exists, each bank site's name, start URL host and domains and each account's product; `account_ending` counts next to words like "ending". Matching is case-insensitive and whole-word, and words under 4 characters are ignored.
+- `scripts/hooks/privacy_scan.py` (stdlib) reads `cards.json` and the ledger at run time and keeps no copy. Its private words are the `private_words` list plus, once `bank_accounts` exists, each bank site's name, start URL host and domains and each account's product; `account_ending` counts next to words like "ending". Matching is case-insensitive and whole-word. Words under 4 characters are ignored, except 3-letter ones listed in `private_words` or as a utility provider (`docs/SPEC-utilities.md` §1.1).
 - `pre-commit` refuses anything under `private/` and any staged line containing a private word. `commit-msg` checks the message and `pre-push` checks every commit about to be pushed. Findings give the file and line, never the word.
 - `fin doctor` fails if a tracked file contains one and warns if a commit message ever did. `make privacy-check` scans all of history.
 - Git history keeps whatever was ever committed. Nothing about the bank has been committed; the checks are a seatbelt, not permission.

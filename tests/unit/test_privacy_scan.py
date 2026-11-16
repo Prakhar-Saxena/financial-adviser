@@ -416,6 +416,27 @@ def test_a_public_carrier_adds_no_word(hook_repo):
     assert proc.returncode == 0, proc.stderr
 
 
+def test_short_words_count_only_when_chosen():
+    """A provider's 3-letter short form in private_words counts; derived words stay at 4+."""
+    assert scan.term_regex(["OWA"], 4) is None
+    rx = scan.term_regex(["OWA", "XY", "abc"], 4, short_ok=["owa", "XY"])
+    assert rx.search("paid owa today") and rx.search("OWA-AUTOPAY")
+    assert not rx.search("OWASP rules") and not rx.search("x XY y") and not rx.search("abc")
+    words = scan.chosen_words({"private_words": ["OWA"], "utility_accounts": UTILITIES})
+    assert words == ["OWA", "Ridgeline Electric Cooperative", "Ogdenville Water Authority"]
+
+
+def test_precommit_refuses_a_three_letter_private_word(hook_repo):
+    r, _ = hook_repo
+    (r / "config" / "cards.json").write_text(json.dumps(
+        {**CARDS, "private_words": ["OWA"], "utility_accounts": UTILITIES}))
+    proc = commit(hook_repo, {"docs/notes.md": "x\nThe OWA bill.\n"}, "Add notes")
+    assert proc.returncode != 0 and "docs/notes.md:2: a private word" in proc.stderr
+    assert "owa" not in proc.stderr.lower()
+    proc = commit(hook_repo, {"docs/notes.md": "x\nSee OWASP.\n"}, "Add notes")
+    assert proc.returncode == 0, proc.stderr
+
+
 def test_make_cards_example_writes_none_of_the_utilities():
     make = load_script("make_cards_example")
     real = {**CARDS, "private_words": ["Maplewood Lane", "Ogdenville"],

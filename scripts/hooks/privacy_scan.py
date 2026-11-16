@@ -221,10 +221,15 @@ def norm_words(text: str) -> list[str]:
     return [w for w in NON_ALNUM.split(text.lower()) if w]
 
 
-def term_regex(terms: Iterable[str], min_len: int) -> re.Pattern | None:
+def term_regex(terms: Iterable[str], min_len: int,
+               short_ok: Iterable[str] = ()) -> re.Pattern | None:
+    """Whole-word, case-insensitive. Terms shorter than `min_len` are dropped, except those in
+    `short_ok` of 3 characters or more: words I chose myself, such as a provider's 3-letter
+    short form, rather than ones derived from config."""
+    keep = {s.strip().lower() for s in short_ok if len(s.strip()) >= 3}
     parts = []
     for t in sorted({t.strip() for t in terms}, key=len, reverse=True):
-        if len(t) < min_len:
+        if len(t) < min_len and t.lower() not in keep:
             continue
         pieces = [p for p in re.split(r"[\s_-]+", t) if p]
         if pieces:
@@ -298,11 +303,21 @@ def people_terms(cards: dict) -> tuple[list[str], set[str]]:
     return sorted(names), mine
 
 
+def chosen_words(cards: dict) -> list[str]:
+    """Words I wrote down myself: `private_words` and the private utility providers. These count
+    from 3 characters; derived words (domains, products) from 4."""
+    words = [str(w) for w in _list(cards.get("private_words"))]
+    for util in _list(cards.get("utility_accounts")):
+        if isinstance(util, dict) and util.get("private", True) is not False:
+            words.append(str(util.get("provider") or ""))
+    return words
+
+
 def site_terms(cards: dict) -> tuple[list[str], set[str]]:
     """`private_words`, plus everything that names a bank site (docs/SPEC-checking.md §1.1)
     and every utility provider, which says where I live (docs/SPEC-utilities.md §1.1). A
     provider marked `"private": false` is a national carrier and adds nothing."""
-    words = [str(w) for w in _list(cards.get("private_words"))]
+    words = chosen_words(cards)
     endings: set[str] = set()
     sites = {s.get("id"): s for s in _list(cards.get("issuers")) if isinstance(s, dict)}
     for acct in _list(cards.get("bank_accounts")):
@@ -316,9 +331,6 @@ def site_terms(cards: dict) -> tuple[list[str], set[str]]:
         host = re.match(r"https?://([^/:]+)", str(site.get("start_url") or ""))
         if host:
             words.append(host.group(1))
-    for util in _list(cards.get("utility_accounts")):
-        if isinstance(util, dict) and util.get("private", True) is not False:
-            words.append(str(util.get("provider") or ""))
     for card in _list(cards.get("cards")):
         for h in _list(card.get("cardholders") if isinstance(card, dict) else None):
             if isinstance(h, dict):
@@ -525,7 +537,7 @@ def load_terms(root: Path = ROOT, data: Path | None = None) -> Terms:
         t.problem = (f"no ledger at {t.ledger}, so it can't tell what is yours. Set FIN_DATA_DIR, "
                      "or run `uv run fin init`")
     t.names_re = term_regex(t.names, 3)
-    t.words_re = term_regex(t.words, 4)
+    t.words_re = term_regex(t.words, 4, short_ok=chosen_words(cards))
     t.prepare()
     return t
 

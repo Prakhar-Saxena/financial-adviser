@@ -1098,6 +1098,11 @@ everywhere in the repo (§1.1).
   ones (AUTOPAY, PAYMENT) that the repo is full of. **An abbreviation that a pattern uses and
   that names a provider (a descriptor's short form) belongs in `private_words`.** The street
   and town go there too (§15).
+- **3-letter private words** (2026-11-15, user's OK). The scan dropped every word under 4
+  characters, so a provider's 3-letter short form couldn't be protected at all. Words I list
+  myself (`private_words`, private providers) now count from 3 characters, still whole-word;
+  derived words (bank domains, products) stay at 4+. Tracked files and commit messages held
+  no such short form when this was added.
 - **Migration 0011.** Tables as in §6, `utility_payments.transaction_id` ON DELETE CASCADE
   (same reason as `transfer_links`), CHECKs on service, bill_every_months (1, 2, 3, 12),
   method and `covers_months` (1 to 24; §6 gives no range, and 24 covers a two-year prepaid
