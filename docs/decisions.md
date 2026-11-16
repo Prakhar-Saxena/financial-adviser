@@ -1168,3 +1168,10 @@ everywhere in the repo (§1.1).
   spending identical to the cent. `fin rebuild` then `fin process` (with AI, see above): the
   same 12 links, spending identical to the U1 snapshot. Cadences 29, 30 and 96 days. No
   insights yet: under a year of history (year over year from April 2027 by payment month).
+- **Sorted with the user (2026-11-15).** The 5 unassigned phone payments were two carriers: the
+  earlier one's 2 payments are marked not a utility (the user's call: no longer used, one
+  merchant correction), the current carrier is the `phone` account (`"private": false`, a
+  national carrier the seeds already name). Now 17 bills rows = 15 linked + 2 marked not a
+  utility, 0 unassigned. `fin rebuild` then `fin process`: the same 15 links, the correction
+  kept, spending identical to the U1 snapshot. No real prepaid payment remains, so forward
+  spreading is shown by the tests only (golden "prepaid_forward", the end-to-end `--covers`).
