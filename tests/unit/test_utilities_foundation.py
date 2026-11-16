@@ -1,7 +1,7 @@
 # Copyright (C) 2026 Prakhar Saxena
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-"""Utilities foundation (docs/SPEC-utilities.md Phase U0): config, settings. Fictional
+"""Utilities foundation (docs/SPEC-utilities.md Phase U0): config, settings, tables. Fictional
 providers only ("Example Power", "Example Gas", ...)."""
 
 import copy
@@ -104,3 +104,155 @@ def test_utilities_settings_match_the_spec_defaults():
 def test_bad_utilities_settings(bad):
     with pytest.raises(ValidationError):
         Settings.model_validate({"utilities": bad})
+
+
+# ------------------------------------------------------------------ database
+
+
+@pytest.fixture
+def db(tmp_path):
+    from fin.config import load_taxonomy
+    from fin.db import session_factory, upgrade
+    from fin.db.seed import sync_reference
+
+    path = tmp_path / "t.sqlite"
+    upgrade(path)
+    with session_factory(path)() as s:
+        sync_reference(s, CARDS, load_taxonomy())
+    return path
+
+
+def add_txn(s, i, card="checking", amount=8_123, desc="EXAMPLE POWER AUTOPAY"):
+    from fin.db import models as m
+
+    if s.get(m.Import, 1) is None:
+        s.add(m.Import(id=1, source="bank", kind="transactions", file_path="/nowhere/x.csv",
+                       sha256="h", status="ok"))
+    s.add(m.Transaction(id=i, card_id=card, post_date="2026-09-01", amount_cents=amount,
+                        description_raw=desc, description_clean=desc, type="purchase",
+                        dedupe_key=f"k{i}", import_id=1))
+    s.flush()
+
+
+def test_review_kinds_and_check(db):
+    from sqlalchemy.exc import IntegrityError
+
+    from fin.db import models as m
+    from fin.db import session_factory
+    from fin.review import PROCESS_KINDS
+
+    for kind in ("utility_unassigned", "utility_missing"):
+        assert kind in m.REVIEW_KINDS and kind in PROCESS_KINDS
+    with session_factory(db)() as s:
+        s.add(m.ReviewItem(kind="utility_missing", ref_table="utility_accounts", ref_id="gas"))
+        s.commit()
+        s.add(m.ReviewItem(kind="utility_overdue", ref_table="utility_accounts", ref_id="gas"))
+        with pytest.raises(IntegrityError):
+            s.commit()
+
+
+def test_migration_downgrades_and_upgrades(tmp_path):
+    from alembic import command
+    from sqlalchemy import inspect
+
+    from fin.db import alembic_config, make_engine, upgrade
+
+    path = tmp_path / "d.sqlite"
+    upgrade(path)
+    command.downgrade(alembic_config(path), "0010")
+    assert not {"utility_accounts", "utility_payments"} & set(
+        inspect(make_engine(path)).get_table_names())
+    upgrade(path)
+    assert {"utility_accounts", "utility_payments"} <= set(
+        inspect(make_engine(path)).get_table_names())
+
+
+def test_accounts_mirror_from_config(db):
+    from fin.db import models as m
+    from fin.db import session_factory
+    from fin.db.seed import sync_utility_accounts
+
+    with session_factory(db)() as s:
+        rows = {r.id: r for r in s.query(m.UtilityAccount)}
+        assert set(rows) == {"electric", "gas", "water", "internet", "phone"}
+        assert rows["water"].bill_every_months == 3 and rows["gas"].provider == "Example Gas"
+        assert all(r.in_config for r in rows.values())
+
+        # Gas leaves config and the internet account gains dates: the gas row stays, marked.
+        doc = mutate(lambda d: d.update(utility_accounts=[
+            u if u["id"] != "internet" else {**u, "active_from": "2025-03-01",
+                                             "active_to": "2026-06-30"}
+            for u in d["utility_accounts"] if u["id"] != "gas"]))
+        sync_utility_accounts(s, CardsConfig.model_validate(doc))
+        s.commit()
+        rows = {r.id: r for r in s.query(m.UtilityAccount)}
+        assert not rows["gas"].in_config and rows["electric"].in_config
+        assert (rows["internet"].active_from, rows["internet"].active_to) == (
+            "2025-03-01", "2026-06-30")
+
+        sync_utility_accounts(s, CARDS)  # back in config
+        s.commit()
+        assert s.get(m.UtilityAccount, "gas").in_config
+
+
+def test_process_mirrors_accounts(tmp_path):
+    """`fin process` mirrors them too, so a config edit counts without `fin init`."""
+    from datetime import date
+
+    from fin.config import data_paths, load_taxonomy
+    from fin.db import models as m
+    from fin.db import session_factory, upgrade
+    from fin.db.seed import sync_reference
+    from fin.pipeline import process
+
+    paths = data_paths()
+    paths.db_file.parent.mkdir(parents=True)
+    upgrade(paths.db_file)
+    no_utils = CardsConfig.model_validate(mutate(lambda d: d.pop("utility_accounts")))
+    with session_factory(paths.db_file)() as s:
+        sync_reference(s, no_utils, load_taxonomy())
+        assert s.query(m.UtilityAccount).count() == 0
+        process(s, paths, Settings(), CARDS, load_taxonomy(), use_ai=False,
+                today=date(2026, 11, 15))
+        assert s.query(m.UtilityAccount).count() == 5
+
+
+def test_payment_link_cascades_and_rebuild_keeps_accounts(db):
+    from fin.db import models as m
+    from fin.db import session_factory
+    from fin.rebuild import DERIVED, rebuild
+
+    assert DERIVED.index(m.UtilityPayment) < DERIVED.index(m.Transaction)
+    assert m.UtilityAccount not in DERIVED
+    with session_factory(db)() as s:
+        add_txn(s, 1)
+        add_txn(s, 2, amount=6_000, desc="EXAMPLE GAS")
+        s.add(m.UtilityPayment(transaction_id=1, account_id="electric", method="pattern"))
+        s.add(m.UtilityPayment(transaction_id=2, account_id="gas", method="override",
+                               covers_months=2))
+        s.add(m.UserOverride(target_type="transaction", stable_key="k2",
+                             field="utility_account", value="gas"))
+        s.commit()
+        s.delete(s.get(m.Transaction, 1))
+        s.commit()
+        assert [p.transaction_id for p in s.query(m.UtilityPayment)] == [2]
+
+        rebuild(s)
+        assert s.query(m.UtilityPayment).count() == 0
+        assert s.query(m.UtilityAccount).count() == 5
+        assert s.query(m.UserOverride).filter_by(field="utility_account").count() == 1
+
+
+def test_payment_checks(db):
+    from sqlalchemy.exc import IntegrityError
+
+    from fin.db import models as m
+    from fin.db import session_factory
+
+    for bad in ({"method": "guess"}, {"covers_months": 0}, {"account_id": "nowhere"}):
+        with session_factory(db)() as s:
+            add_txn(s, 1)
+            s.add(m.UtilityPayment(**{"transaction_id": 1, "account_id": "electric",
+                                      "method": "pattern", **bad}))
+            with pytest.raises(IntegrityError):
+                s.commit()

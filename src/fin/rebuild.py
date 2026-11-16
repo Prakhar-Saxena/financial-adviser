@@ -4,7 +4,8 @@
 """`fin rebuild`: regenerate every derived table from raw/ (SPEC §4, §16).
 
 Keeps: imports (the evidence index), user_overrides, user rules, sync_runs, sync_gap
-review items, and every card optimizer table and review kind (docs/SPEC-cards.md §6).
+review items, every card optimizer table and review kind (docs/SPEC-cards.md §6), and
+utility_accounts (docs/SPEC-utilities.md §6).
 Everything else is deleted and rebuilt by re-running each imported file's parser in the
 original import order. `fin process` then redoes matching and categories.
 """
@@ -23,9 +24,11 @@ from fin.ingest import load_parsers
 from fin.ingest.inbox import PARSERS, safe_error
 
 # Deleted in this order. Transfer links first: they point at two transactions each
-# (docs/SPEC-checking.md §6); `fin process` recomputes them.
-DERIVED = [m.TransferLink, m.Allocation, m.Match, m.OrderCharge, m.OrderItem, m.Order,
-           m.StatementLine, m.Transaction, m.Statement, m.BankStatement, m.Merchant, m.AIRun]
+# (docs/SPEC-checking.md §6). Utility payment links next (SPEC-utilities §6). `fin process`
+# recomputes both.
+DERIVED = [m.TransferLink, m.UtilityPayment, m.Allocation, m.Match, m.OrderCharge, m.OrderItem,
+           m.Order, m.StatementLine, m.Transaction, m.Statement, m.BankStatement, m.Merchant,
+           m.AIRun]
 
 KEPT_REVIEW_KINDS = ("sync_gap", *m.CARD_REVIEW_KINDS)
 

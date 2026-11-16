@@ -22,7 +22,7 @@ from fin.categorize.ai import AIResult, Runner, categorize_items, categorize_tra
 from fin.categorize.rules import HELD, apply_overrides, apply_rules, load_seed_rules
 from fin.config import CardsConfig, DataPaths, Settings, Taxonomy
 from fin.db import models as m
-from fin.db.seed import sync_categories
+from fin.db.seed import sync_categories, sync_utility_accounts
 from fin.match.amazon import MatchResult, allocate_matched, amazon_on_other_cards, match_amazon
 from fin.match.costco import CostcoResult, match_costco
 from fin.normalize.bank import load_bank_rules
@@ -74,6 +74,7 @@ def process(
     link = link_statements(s, cards, reviews)
     res = ProcessResult(link=link)
     sync_categories(s, taxonomy)
+    sync_utility_accounts(s, cards)
     load_seed_rules(s, taxonomy)
     # Checking rows get their real types before anything reads them, and card payments out of
     # checking are excluded before rules or AI see them (docs/SPEC-checking.md §9, §10).

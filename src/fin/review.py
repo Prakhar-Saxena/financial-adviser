@@ -24,6 +24,8 @@ PROCESS_KINDS = (
     "low_confidence", "uncategorized", "unknown_person",
     # Checking (docs/SPEC-checking.md §10, §11).
     "unmatched_transfer", "uncertain_transfer", "bank_balance_gap",
+    # Utilities (docs/SPEC-utilities.md §6).
+    "utility_unassigned", "utility_missing",
 )
 
 

@@ -67,6 +67,8 @@ REVIEW_KINDS = (
     "card_terms_pending", "card_terms_unverified", "card_source_problem",
     # Checking (docs/SPEC-checking.md §6).
     "unmatched_transfer", "uncertain_transfer", "bank_balance_gap",
+    # Utilities (docs/SPEC-utilities.md §6).
+    "utility_unassigned", "utility_missing",
 )
 CARD_REVIEW_KINDS = ("card_terms_pending", "card_terms_unverified", "card_source_problem")
 IMPORT_KINDS = ("transactions", "statement", "orders", "receipts", "emails", "offers")
@@ -335,6 +337,43 @@ class BankStatement(Base):
     math_ok: Mapped[bool] = mapped_column(default=False)
     ledger_status: Mapped[str | None]
     ledger_delta_cents: Mapped[int | None]
+
+
+class UtilityAccount(Base):
+    """A utility account from cards.json (docs/SPEC-utilities.md §6), mirrored by `fin init`
+    and `fin process`. One removed from config keeps its row with in_config = false, so its
+    payments still have an account. Kept by `fin rebuild`."""
+
+    __tablename__ = "utility_accounts"
+    __table_args__ = (
+        _in("service", ("electric", "gas", "water", "trash", "internet", "phone", "other")),
+        CheckConstraint("bill_every_months IN (1, 2, 3, 12)", name="bill_every_months"),
+    )
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    service: Mapped[str]
+    provider: Mapped[str]
+    bill_every_months: Mapped[int] = mapped_column(default=1)
+    paid_in_advance: Mapped[bool] = mapped_column(default=False)
+    active_from: Mapped[str | None]
+    active_to: Mapped[str | None]
+    in_config: Mapped[bool] = mapped_column(default=True)
+
+
+class UtilityPayment(Base):
+    """A ledger row linked to a utility account (SPEC-utilities §7). Recomputed by every
+    `fin process`; linking never changes the transaction. CASCADE, as for transfer_links:
+    `link_statements` may delete a statement-sourced row a link points to."""
+
+    __tablename__ = "utility_payments"
+    __table_args__ = (
+        _in("method", ("override", "merchant", "pattern")),
+        CheckConstraint("covers_months >= 1 AND covers_months <= 24", name="covers_months"),
+    )
+    transaction_id: Mapped[int] = mapped_column(
+        ForeignKey("transactions.id", ondelete="CASCADE"), primary_key=True)
+    account_id: Mapped[str] = mapped_column(ForeignKey("utility_accounts.id"), index=True)
+    method: Mapped[str]
+    covers_months: Mapped[int] = mapped_column(default=1)
 
 
 class Order(Base):
