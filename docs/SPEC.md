@@ -142,7 +142,7 @@ financial-adviser/
   scripts/hooks/          # pre-commit, commit-msg, pre-push, privacy_scan.py (§7)
   .claude/settings.json   # denies Claude the ways around the git hooks (§7)
   private/                # gitignored notes that would identify me; never committed:
-                          # bank-notes.md, and playbooks/<site>.md for bank sites
+                          # bank-notes.md, utility-notes.md, and playbooks/<site>.md for bank sites
   src/fin/
     cli.py  config.py
     db/        models.py, migrations/
@@ -188,6 +188,7 @@ financial-adviser/
 - `cards.json` `private_words`: anything else that would identify me (my bank, my street). The hooks refuse them too.
 - Fixtures are fictional (§18). Card documents live only in the data dir (`card-docs/`).
 - The bank is named only in `config/cards.json`, `private/` and the data dir. Checking data never goes in docs, playbooks, fixtures, test names or commit messages (`docs/SPEC-checking.md` §1.1).
+- Utility providers, account numbers, service addresses and place names appear only in `config/cards.json`, `private/` and the data dir. A payment pattern that names a provider never goes in `rules.yaml` or `bank_rules.yaml` (`docs/SPEC-utilities.md` §1.1).
 
 **`fin doctor` checks**
 - FileVault is on (`fdesetup status`).
@@ -269,6 +270,8 @@ The tables below are indicative. Refine them in Phase 0 and record the changes i
 | `review_items` | id, kind, ref_table, ref_id, details_json, status (`open`/`resolved`/`ignored`), created_at, resolved_at |
 | `transfer_links` | id, bank_txn_id, card_txn_id UNIQUE, method (`named`/`group`/`amount_only`), days_apart, confidence. Both ids ON DELETE CASCADE |
 | `bank_statements` | id, card_id, import_id, period_start, period_end, opening_balance, deposits, withdrawals, closing_balance, pdf_path, parse_method, math_ok, ledger_status, ledger_delta_cents. UNIQUE(card_id, period_end) |
+| `utility_accounts` | id, service, provider, bill_every_months, paid_in_advance, active_from NULL, active_to NULL, in_config. Mirrored from `cards.json` (`docs/SPEC-utilities.md` §6) |
+| `utility_payments` | transaction_id (PK) → transactions ON DELETE CASCADE, account_id → utility_accounts, method (`override`/`merchant`/`pattern`), covers_months |
 | `emails` (Phase 4) | id, gmail_id UNIQUE, from_addr, subject, sent_at, merchant, parsed_total_cents, parsed_json, raw_path, linked_transaction_id |
 
 The review kinds are:
@@ -282,6 +285,7 @@ The review kinds are:
 - `unknown_person`
 - `sync_gap`: the agent couldn't collect something it should have
 - `unmatched_transfer`, `uncertain_transfer`, `bank_balance_gap`: checking (`docs/SPEC-checking.md` §6)
+- `utility_unassigned`, `utility_missing`: utilities (`docs/SPEC-utilities.md` §6)
 
 ## 9. Ingestion
 
@@ -746,6 +750,7 @@ FastAPI on `127.0.0.1:8765`. Indicative endpoints:
 - `POST /api/review/{id}/resolve`
 - `GET /api/reconciliation`
 - `GET /api/sources/status`
+- `/api/utilities/...`: the Utilities page (`docs/SPEC-utilities.md` §9)
 
 ### 15.2 Pages
 
@@ -770,6 +775,10 @@ FastAPI on `127.0.0.1:8765`. Indicative endpoints:
    - Per card and statement: math ✓/✗ and ledger ✓/✗ with the delta.
    - Last weekly run per site, with its sync gaps and guard blocks.
 
+6. **Utilities** (`docs/SPEC-utilities.md` §10)
+   - Monthly cost per service and provider, by payment month, from the utility payments already in the ledger.
+   - Year over year, trend insights, accounts, and payments not yet linked to an account.
+
 ### 15.3 Look and feel
 
 Polished and modern: shadcn/ui, light and dark themes, desktop-first. Convert cents to dollars only at the display edge. `fin serve` serves the built React app from FastAPI, so one command runs everything.
@@ -793,6 +802,7 @@ Polished and modern: shadcn/ui, light and dark themes, desktop-first. Convert ce
 | `fin rebuild` | Rebuilds derived tables from `raw/`, keeping `user_overrides` and user rules |
 | `fin backup` | SQLite online backup to `backups/` |
 | `fin cards ...` | Card optimizer: `status`, `refresh`, `accept`/`reject`, `best`, `tips`, `credits`, `cheatsheet`, `sources`, `add-source`, `add-doc`, `merchant` (`docs/SPEC-cards.md` §14) |
+| `fin utilities ...` | Utility bills from the ledger: `status`, `trends`, `unassigned`, `assign`, `check` (`docs/SPEC-utilities.md` §11) |
 
 ## 17. Phases and acceptance criteria
 
@@ -938,7 +948,7 @@ Replace each site's browsing session with a plain Playwright (Python) script. Ke
 ## 20. Later: the "Adviser" (not in the MVP)
 
 - Scripted scrapers (Phase 6), so weekly runs need less AI usage.
-- Detect subscriptions and recurring charges, and alert on price creep.
+- Detect subscriptions and recurring charges, and alert on price creep. Price-change alerts exist for utility bills (`docs/SPEC-utilities.md`); other recurring charges stay later.
 - Card optimization:
   - which of the 6 cards earns the most per category
   - Amex credit usage against annual fees

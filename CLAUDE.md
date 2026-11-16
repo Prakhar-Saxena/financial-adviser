@@ -4,6 +4,7 @@ Local expense tracker for 6 cards and a checking account, 4 cardholders. Full sp
 Decisions and verified facts: `docs/decisions.md`. Claude CLI spike: `docs/ai-cli-notes.md`.
 Card optimizer ("Best card", phases C0–C5): `docs/SPEC-cards.md`.
 Checking account (phases B0–B4): `docs/SPEC-checking.md`.
+Utilities (phases U0–U2): `docs/SPEC-utilities.md`.
 
 ## Working agreement (short)
 - One phase at a time (SPEC §17). End each with tests passing, acceptance checks run, then stop for review.
@@ -17,6 +18,7 @@ Checking account (phases B0–B4): `docs/SPEC-checking.md`.
 - `fin sync` / `fin weekly` are interactive (the user types start, logs in, approves clicks): the user
   runs them in their own terminal. Claude takes over after the session ends.
 - **The bank stays private:** named only in `config/cards.json`, `private/` and the data dir; elsewhere it's "the bank" (SPEC-checking §1.1).
+- **Utility providers stay private:** providers, account numbers, service addresses and towns only in `config/cards.json`, `private/` and the data dir; elsewhere "the electric utility" or an account id (SPEC-utilities §1.1).
 - If reality disagrees with the spec, stop and say so. Never work around §2.
 - Free, open-source dependencies are pre-approved (user, 2026-10-06); record each in docs/decisions.md.
 - Licence: AGPL-3.0-or-later, no dual licensing, no CLA. Only add dependencies with permissive,
@@ -56,6 +58,7 @@ Checking account (phases B0–B4): `docs/SPEC-checking.md`.
 - `cards.json` `private_words`: anything else that would identify me (my bank, my street). The hooks refuse them too.
 - Fixtures are fictional (§18). Card documents live only in the data dir (`card-docs/`).
 - The bank is named only in `config/cards.json`, `private/` and the data dir. Checking data never goes in docs, playbooks, fixtures, test names or commit messages.
+- Utility providers, account numbers, service addresses and place names appear only in `config/cards.json`, `private/` and the data dir. A payment pattern that names a provider never goes in `rules.yaml` or `bank_rules.yaml`.
 
 **`fin doctor` checks**
 - FileVault is on (`fdesetup status`).
@@ -111,7 +114,7 @@ scripts/     redact.py  ai_spike.py  make_cards_example.py
              hooks/ (pre-commit, commit-msg, pre-push, privacy_scan.py, claude_bash_guard.py)
 src/fin/     cli.py config.py doctor.py  db/ (models, alembic migrations, seed)  ai/  sync/  ingest/ ...
 tests/       unit/  fixtures/ (fictional only)  fake_bin/claude (fake CLI; tests never call a model)
-private/     gitignored: notes that would identify me, bank-notes.md, playbooks/<bank site>.md
+private/     gitignored: notes that would identify me, bank-notes.md, utility-notes.md, playbooks/<bank site>.md
 ```
 
 ## Commands
@@ -128,6 +131,7 @@ uv run fin sync selftest      # USER runs this: browsing setup check against exa
 uv run python scripts/ai_spike.py --sizes 3,50   # §14.3 spike on fake records
 uv run python scripts/make_cards_example.py      # regenerate cards.example.json
 uv run fin transfers [--check]   # checking card payments and links; --check: §10.6 invariants
+uv run fin utilities [status]   # utility accounts from cards.json, their payments (SPEC-utilities)
 uv run fin cards status       # card optimizer knowledge base (docs/SPEC-cards.md)
 uv run fin cards refresh --card ID   # one card: discover, download, extract (real claude -p)
 uv run fin cards offers       # card-linked offers read from synced offers pages (Phase C4)
